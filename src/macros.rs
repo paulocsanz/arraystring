@@ -1,10 +1,10 @@
-/// Abstracts [`StringHandler`] implementation
+/// Abstracts [`ArrayString`] implementation
 ///
-/// [`StringHandler`]: ./handler/trait.StringHandler.html
+/// [`ArrayString`]: ./array/trait.ArrayString.html
 ///
 /// ```rust
 /// # #[macro_use]
-/// # extern crate limited_string;
+/// # extern crate arraystring;
 /// # use std::mem::size_of;
 /// # fn main() {
 /// impl_string!(pub struct Username(20));
@@ -41,7 +41,7 @@ macro_rules! __inner_impl_string {
     ($name: ident, $size: expr) => {
         #[allow(unused_imports)]
         use $crate::prelude::*;
-        impl $crate::handler::RawStringHandler for $name {
+        impl $crate::array::ArrayBuffer for $name {
             #[inline]
             unsafe fn buffer(&mut self) -> &mut [u8] {
                 self.0.as_mut()
@@ -79,37 +79,37 @@ macro_rules! __inner_impl_string {
         impl AsRef<str> for $name {
             #[inline]
             fn as_ref(&self) -> &str {
-                unsafe { ::std::str::from_utf8_unchecked(self.as_ref()) }
+                unsafe { $crate::core::str::from_utf8_unchecked(self.as_ref()) }
             }
         }
 
         impl AsMut<str> for $name {
             #[inline]
             fn as_mut(&mut self) -> &mut str {
-                use $crate::handler::RawStringHandler;
+                use $crate::array::ArrayBuffer;
                 let len = self.get_len() as usize;
                 let slice = unsafe { self.0.get_unchecked_mut(..len) };
-                unsafe { ::std::str::from_utf8_unchecked_mut(slice) }
+                unsafe { $crate::core::str::from_utf8_unchecked_mut(slice) }
             }
         }
 
         impl AsRef<[u8]> for $name {
             #[inline]
             fn as_ref(&self) -> &[u8] {
-                use $crate::handler::RawStringHandler;
+                use $crate::array::ArrayBuffer;
                 unsafe { self.0.get_unchecked(..self.get_len() as usize) }
             }
         }
 
-        impl $crate::StringHandler for $name {
+        impl $crate::ArrayString for $name {
             const SIZE: $crate::Size = $size;
         }
 
-        /// Creates new `StringHandler` from string slice if length is lower or equal than `SIZE`, otherwise returns a error.
+        /// Creates new `ArrayString` from string slice if length is lower or equal than `SIZE`, otherwise returns a error.
         ///
         /// ```rust
         /// # use std::str::FromStr;
-        /// # use limited_string::{Error, prelude::*};
+        /// # use arraystring::{error::Error, prelude::*};
         /// # fn main() -> Result<(), Error> {
         /// let string = LimitedString::from_str("My String")?;
         /// assert_eq!(string.as_str(), "My String");
@@ -121,8 +121,8 @@ macro_rules! __inner_impl_string {
         /// # Ok(())
         /// # }
         /// ```
-        impl ::std::str::FromStr for $name {
-            type Err = $crate::OutOfBoundsError;
+        impl $crate::core::str::FromStr for $name {
+            type Err = $crate::error::OutOfBoundsError;
 
             #[inline]
             fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -130,10 +130,10 @@ macro_rules! __inner_impl_string {
             }
         }
 
-        impl ::std::fmt::Debug for $name {
+        impl $crate::core::fmt::Debug for $name {
             #[inline]
-            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
-                use $crate::handler::RawStringHandler;
+            fn fmt(&self, f: &mut $crate::core::fmt::Formatter) -> $crate::core::fmt::Result {
+                use $crate::array::ArrayBuffer;
                 let s: &str = self.as_ref();
                 f.debug_tuple(stringify!($name))
                     .field(&s)
@@ -149,16 +149,16 @@ macro_rules! __inner_impl_string {
             }
         }
 
-        impl ::std::borrow::Borrow<str> for $name {
+        impl $crate::core::borrow::Borrow<str> for $name {
             #[inline]
             fn borrow(&self) -> &str {
                 self.as_str()
             }
         }
 
-        impl ::std::hash::Hash for $name {
+        impl $crate::core::hash::Hash for $name {
             #[inline]
-            fn hash<H: ::std::hash::Hasher>(&self, hasher: &mut H) {
+            fn hash<H: $crate::core::hash::Hasher>(&self, hasher: &mut H) {
                 self.as_str().hash(hasher);
             }
         }
@@ -173,23 +173,23 @@ macro_rules! __inner_impl_string {
 
         impl Ord for $name {
             #[inline]
-            fn cmp(&self, other: &Self) -> ::std::cmp::Ordering {
+            fn cmp(&self, other: &Self) -> $crate::core::cmp::Ordering {
                 self.as_str().cmp(other.as_str())
             }
         }
 
         impl PartialOrd for $name {
             #[inline]
-            fn partial_cmp(&self, other: &Self) -> Option<::std::cmp::Ordering> {
+            fn partial_cmp(&self, other: &Self) -> Option<$crate::core::cmp::Ordering> {
                 Some(self.cmp(other))
             }
         }
 
-        impl<'a> ::std::ops::Add<&'a str> for $name {
+        impl<'a> $crate::core::ops::Add<&'a str> for $name {
             type Output = Self;
 
             #[inline]
-            fn add(self, other: &'a str) -> Self::Output {
+            fn add(self, other: &str) -> Self::Output {
                 let mut out = Self::default();
                 unsafe { out.push_str_unchecked(self.as_str()) };
                 out.push_str_truncate(other);
@@ -197,21 +197,21 @@ macro_rules! __inner_impl_string {
             }
         }
 
-        impl ::std::fmt::Write for $name {
+        impl $crate::core::fmt::Write for $name {
             #[inline]
-            fn write_str(&mut self, slice: &str) -> ::std::fmt::Result {
-                self.push_str(slice).map_err(|_| ::std::fmt::Error)
+            fn write_str(&mut self, slice: &str) -> $crate::core::fmt::Result {
+                self.push_str(slice).map_err(|_| $crate::core::fmt::Error)
             }
         }
 
-        impl ::std::fmt::Display for $name {
+        impl $crate::core::fmt::Display for $name {
             #[inline]
-            fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+            fn fmt(&self, f: &mut $crate::core::fmt::Formatter) -> $crate::core::fmt::Result {
                 write!(f, "{}", self.as_str())
             }
         }
 
-        impl ::std::ops::Deref for $name {
+        impl $crate::core::ops::Deref for $name {
             type Target = str;
 
             #[inline]
@@ -220,185 +220,167 @@ macro_rules! __inner_impl_string {
             }
         }
 
-        impl ::std::ops::DerefMut for $name {
+        impl $crate::core::ops::DerefMut for $name {
             #[inline]
             fn deref_mut(&mut self) -> &mut Self::Target {
                 self.as_mut()
             }
         }
 
-        impl ::std::ops::IndexMut<::std::ops::RangeFrom<Size>> for $name {
+        impl $crate::core::ops::IndexMut<$crate::core::ops::RangeFrom<Size>> for $name {
             #[inline]
-            fn index_mut(&mut self, index: ::std::ops::RangeFrom<Size>) -> &mut str {
+            fn index_mut(&mut self, index: $crate::core::ops::RangeFrom<Size>) -> &mut str {
                 let start = index.start as usize;
-                let start = ::std::ops::RangeFrom { start };
+                let start = $crate::core::ops::RangeFrom { start };
                 self.as_str_mut().index_mut(start)
             }
         }
 
-        impl ::std::ops::IndexMut<::std::ops::RangeTo<Size>> for $name {
+        impl $crate::core::ops::IndexMut<$crate::core::ops::RangeTo<Size>> for $name {
             #[inline]
-            fn index_mut(&mut self, index: ::std::ops::RangeTo<Size>) -> &mut str {
+            fn index_mut(&mut self, index: $crate::core::ops::RangeTo<Size>) -> &mut str {
                 let end = index.end as usize;
-                self.as_str_mut().index_mut(::std::ops::RangeTo { end })
+                self.as_str_mut()
+                    .index_mut($crate::core::ops::RangeTo { end })
             }
         }
 
-        impl ::std::ops::IndexMut<::std::ops::RangeFull> for $name {
+        impl $crate::core::ops::IndexMut<$crate::core::ops::RangeFull> for $name {
             #[inline]
-            fn index_mut(&mut self, index: ::std::ops::RangeFull) -> &mut str {
+            fn index_mut(&mut self, index: $crate::core::ops::RangeFull) -> &mut str {
                 self.as_str_mut().index_mut(index)
             }
         }
 
-        impl ::std::ops::IndexMut<::std::ops::Range<Size>> for $name {
+        impl $crate::core::ops::IndexMut<$crate::core::ops::Range<Size>> for $name {
             #[inline]
-            fn index_mut(&mut self, index: ::std::ops::Range<Size>) -> &mut str {
+            fn index_mut(&mut self, index: $crate::core::ops::Range<Size>) -> &mut str {
                 let (start, end) = (index.start as usize, index.end as usize);
-                let range = ::std::ops::Range { start, end };
+                let range = $crate::core::ops::Range { start, end };
                 self.as_str_mut().index_mut(range)
             }
         }
 
-        impl ::std::ops::IndexMut<::std::ops::RangeToInclusive<Size>> for $name {
+        impl $crate::core::ops::IndexMut<$crate::core::ops::RangeToInclusive<Size>> for $name {
             #[inline]
-            fn index_mut(&mut self, index: ::std::ops::RangeToInclusive<Size>) -> &mut str {
+            fn index_mut(&mut self, index: $crate::core::ops::RangeToInclusive<Size>) -> &mut str {
                 let end = index.end as usize;
-                let range = ::std::ops::RangeToInclusive { end };
+                let range = $crate::core::ops::RangeToInclusive { end };
                 self.as_str_mut().index_mut(range)
             }
         }
 
-        impl ::std::ops::IndexMut<::std::ops::RangeInclusive<Size>> for $name {
+        impl $crate::core::ops::IndexMut<$crate::core::ops::RangeInclusive<Size>> for $name {
             #[inline]
-            fn index_mut(&mut self, index: ::std::ops::RangeInclusive<Size>) -> &mut str {
+            fn index_mut(&mut self, index: $crate::core::ops::RangeInclusive<Size>) -> &mut str {
                 let (start, end) = (*index.start() as usize, *index.end() as usize);
-                let range = ::std::ops::RangeInclusive::new(start, end);
+                let range = $crate::core::ops::RangeInclusive::new(start, end);
                 self.as_str_mut().index_mut(range)
             }
         }
 
-        impl ::std::ops::Index<::std::ops::RangeFrom<Size>> for $name {
+        impl $crate::core::ops::Index<$crate::core::ops::RangeFrom<Size>> for $name {
             type Output = str;
 
             #[inline]
-            fn index(&self, index: ::std::ops::RangeFrom<Size>) -> &Self::Output {
+            fn index(&self, index: $crate::core::ops::RangeFrom<Size>) -> &Self::Output {
                 let start = index.start as usize;
-                self.as_str().index(::std::ops::RangeFrom { start })
+                self.as_str().index($crate::core::ops::RangeFrom { start })
             }
         }
 
-        impl ::std::ops::Index<::std::ops::RangeTo<Size>> for $name {
+        impl $crate::core::ops::Index<$crate::core::ops::RangeTo<Size>> for $name {
             type Output = str;
 
             #[inline]
-            fn index(&self, index: ::std::ops::RangeTo<Size>) -> &Self::Output {
+            fn index(&self, index: $crate::core::ops::RangeTo<Size>) -> &Self::Output {
                 let end = index.end as usize;
-                self.as_str().index(::std::ops::RangeTo { end })
+                self.as_str().index($crate::core::ops::RangeTo { end })
             }
         }
 
-        impl ::std::ops::Index<::std::ops::RangeFull> for $name {
+        impl $crate::core::ops::Index<$crate::core::ops::RangeFull> for $name {
             type Output = str;
 
             #[inline]
-            fn index(&self, index: ::std::ops::RangeFull) -> &Self::Output {
+            fn index(&self, index: $crate::core::ops::RangeFull) -> &Self::Output {
                 self.as_str().index(index)
             }
         }
 
-        impl ::std::ops::Index<::std::ops::Range<Size>> for $name {
+        impl $crate::core::ops::Index<$crate::core::ops::Range<Size>> for $name {
             type Output = str;
 
             #[inline]
-            fn index(&self, index: ::std::ops::Range<Size>) -> &Self::Output {
+            fn index(&self, index: $crate::core::ops::Range<Size>) -> &Self::Output {
                 let (start, end) = (index.start as usize, index.end as usize);
-                self.as_str().index(::std::ops::Range { start, end })
+                self.as_str().index($crate::core::ops::Range { start, end })
             }
         }
 
-        impl ::std::ops::Index<::std::ops::RangeToInclusive<Size>> for $name {
+        impl $crate::core::ops::Index<$crate::core::ops::RangeToInclusive<Size>> for $name {
             type Output = str;
 
             #[inline]
-            fn index(&self, index: ::std::ops::RangeToInclusive<Size>) -> &Self::Output {
+            fn index(&self, index: $crate::core::ops::RangeToInclusive<Size>) -> &Self::Output {
                 let end = index.end as usize;
-                self.as_str().index(::std::ops::RangeToInclusive { end })
+                self.as_str()
+                    .index($crate::core::ops::RangeToInclusive { end })
             }
         }
 
-        impl ::std::ops::Index<::std::ops::RangeInclusive<Size>> for $name {
+        impl $crate::core::ops::Index<$crate::core::ops::RangeInclusive<Size>> for $name {
             type Output = str;
 
             #[inline]
-            fn index(&self, index: ::std::ops::RangeInclusive<Size>) -> &Self::Output {
+            fn index(&self, index: $crate::core::ops::RangeInclusive<Size>) -> &Self::Output {
                 let (start, end) = (*index.start() as usize, *index.end() as usize);
-                let range = ::std::ops::RangeInclusive::new(start, end);
+                let range = $crate::core::ops::RangeInclusive::new(start, end);
                 self.as_str().index(range)
             }
         }
 
-        /*
-        #[cfg(features = "serde-traits")]
-        use serde_lib::{de::SeqAccess, de::Visitor, ser::SerializeSeq};
-        #[cfg(features = "serde-traits")]
-        use serde_lib::{Deserialize, Deserializer, Serialize, Serializer};
-        #[cfg(features = "serde-traits")]
-        use std::{fmt, fmt::Formatter, marker::PhantomData};
-
-        /// Abstracts serializer visitor
-        #[cfg(features = "serde-traits")]
-        struct InnerVisitor<'a, T: 'a + Deserialize<'a>>(pub PhantomData<&'a T>);
-
-        #[cfg(features = "serde-traits")]
-        impl<'a> Visitor<'a> for InnerVisitor<'a, T> {
-            type Value = $name;
-
+        #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
+        #[cfg(feature = "serde-traits")]
+        impl $crate::serde::Serialize for $name {
             #[inline]
-            fn expecting(&self, f: &mut Formatter) -> fmt::Result {
-                write!(f, "a string")
+            fn serialize<S: $crate::serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+                ser.serialize_str(self.as_str())
             }
+        }
 
+        #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
+        #[cfg(feature = "serde-traits")]
+        impl<'a> $crate::serde::Deserialize<'a> for $name {
             #[inline]
-            fn visit_seq<A: SeqAccess<'a>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-                let inner = $name::default();
-                while let Some(value) = seq.next_element()? {
-                    inner.append(value);
+            fn deserialize<D: $crate::serde::Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
+                /// Abstracts deserializer visitor
+                #[cfg(feature = "serde-traits")]
+                struct InnerVisitor<'a>(pub $crate::core::marker::PhantomData<&'a ()>);
+
+                #[cfg(feature = "serde-traits")]
+                impl<'a> $crate::serde::de::Visitor<'a> for InnerVisitor<'a> {
+                    type Value = $name;
+
+                    #[inline]
+                    fn expecting(
+                        &self,
+                        f: &mut $crate::core::fmt::Formatter,
+                    ) -> $crate::core::fmt::Result {
+                        write!(f, "a string")
+                    }
+
+                    #[inline]
+                    fn visit_str<E: $crate::serde::de::Error>(
+                        self,
+                        v: &str,
+                    ) -> Result<Self::Value, E> {
+                        Ok($name::from_str_truncate(v))
+                    }
                 }
-                Ok(inner)
-            }
-        }
 
-        #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
-        impl<'a, T: 'a + Deserialize<'a>> Deserialize<'a> for Inner<T> {
-            #[inline]
-            fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
-                debug!("Deserialize Inner");
-                des.deserialize_seq(InnerVisitor(PhantomData))
+                des.deserialize_str(InnerVisitor($crate::core::marker::PhantomData))
             }
         }
-
-        #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
-        impl<T: Serialize> Serialize for VoluntaryServitude<T> {
-            #[inline]
-            fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
-                trace!("Serialize VoluntaryServitude");
-                let len = self.len();
-                let mut sequence = ser.serialize_seq(Some(len))?;
-                for (el, _) in self.iter().zip(0..len) {
-                    sequence.serialize_element(el)?;
-                }
-                sequence.end()
-            }
-        }
-
-        #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
-        impl<'a, T: 'a + Deserialize<'a>> Deserialize<'a> for VoluntaryServitude<T> {
-            #[inline]
-            fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
-                Inner::deserialize(des).map(Self::new)
-            }
-        }
-        */
     };
 }

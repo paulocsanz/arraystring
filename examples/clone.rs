@@ -1,6 +1,6 @@
-extern crate limited_string;
+extern crate arraystring;
 
-use limited_string::{LimitedString, StringHandler};
+use arraystring::{LimitedString, ArrayString};
 
 fn main() {
     const COUNT: usize = 10_000_000;

@@ -5,18 +5,18 @@ use core::str::{from_utf8, from_utf8_unchecked};
 use core::{cmp::min, iter::FusedIterator, ops::*, ptr::copy_nonoverlapping};
 use utils::{encode_char_utf8_unchecked, from_str, is_char_boundary, never, out_of_bounds};
 use utils::{shift_left_unchecked, shift_right_unchecked, truncate_str};
-use {prelude::*, Error};
+use {error::Error, prelude::*};
 
 /// Inner trait to abstract buffer handling, you should not use this
 ///
-/// [`StringHandler`] is based in this abstraction
+/// [`ArrayString`] is based in this abstraction
 ///
 /// Use [`impl_string!`] to implement a type with it
 ///
-/// [`StringHandler`]: ./trait.StringHandler.html
+/// [`ArrayString`]: ./trait.ArrayString.html
 /// [`impl_string!`]: ../macro.impl_string.html
-pub trait RawStringHandler {
-    /// Raw byte slice of the entire buffer
+pub trait ArrayBuffer {
+    /// Raw byte slice of the entire array
     unsafe fn buffer(&mut self) -> &mut [u8];
     /// Increase string length
     fn add_assign_len(&mut self, val: Size);
@@ -28,13 +28,13 @@ pub trait RawStringHandler {
     fn get_len(&self) -> Size;
 }
 
-/// A draining iterator for [`StringHandler`].
+/// A draining iterator for [`ArrayString`].
 ///
-/// [`StringHandler`]: ./trait.StringHandler.html
+/// [`ArrayString`]: ./trait.ArrayString.html
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
-pub struct Drain<S: StringHandler>(S, Size);
+pub struct Drain<S: ArrayString>(S, Size);
 
-impl<S: StringHandler> Drain<S> {
+impl<S: ArrayString> Drain<S> {
     /// Extracts string slice containing the entire `Drain`.
     #[inline]
     pub fn as_str(&self) -> &str {
@@ -42,7 +42,7 @@ impl<S: StringHandler> Drain<S> {
     }
 }
 
-impl<S: StringHandler> Iterator for Drain<S> {
+impl<S: ArrayString> Iterator for Drain<S> {
     type Item = char;
 
     #[inline]
@@ -58,41 +58,41 @@ impl<S: StringHandler> Iterator for Drain<S> {
     }
 }
 
-impl<S: StringHandler> DoubleEndedIterator for Drain<S> {
+impl<S: ArrayString> DoubleEndedIterator for Drain<S> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.pop()
     }
 }
 
-impl<S: StringHandler> FusedIterator for Drain<S> {}
+impl<S: ArrayString> FusedIterator for Drain<S> {}
 
 /// String API
-pub trait StringHandler:
-    AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + RawStringHandler
+pub trait ArrayString:
+    AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + ArrayBuffer
 {
-    /// Maximum string size.
+    /// String capacity
     const SIZE: Size;
 
     /// Creates new empty string.
     ///
     /// ```rust
-    /// # use limited_string::prelude::*;
+    /// # use arraystring::prelude::*;
     /// let string = LimitedString::new();
     /// assert!(string.is_empty());
     /// ```
     #[inline]
     fn new() -> Self {
-        trace!("New empty StringHandler");
+        trace!("New empty ArrayString");
         Self::default()
     }
 
     /// Creates new string abstraction from string slice truncating size if bigger than [`SIZE`].
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::prelude::*;
+    /// # use arraystring::prelude::*;
     /// let string = LimitedString::from_str_truncate("My String");
     /// # assert_eq!(string.as_str(), "My String");
     /// println!("{}", string);
@@ -117,10 +117,10 @@ pub trait StringHandler:
     ///
     /// It's UB if `string.len()` > [`SIZE`].
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::prelude::*;
+    /// # use arraystring::prelude::*;
     /// let filled = "0".repeat(LimitedString::SIZE as usize);
     /// let string = unsafe {
     ///     LimitedString::from_str_unchecked(&filled)
@@ -144,10 +144,10 @@ pub trait StringHandler:
 
     /// Creates new string abstraction from string slice iterator if total length is lower or equal to [`SIZE`], otherwise returns an error.
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::prelude::*;
+    /// # use arraystring::prelude::*;
     /// # fn main() -> Result<(), OutOfBoundsError> {
     /// let string = LimitedString::from_iterator(&["My String", " My Other String"][..])?;
     /// assert_eq!(string.as_str(), "My String My Other String");
@@ -173,10 +173,10 @@ pub trait StringHandler:
 
     /// Creates new string abstraction from string slice iterator truncating size if bigger than [`SIZE`].
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::prelude::*;
+    /// # use arraystring::prelude::*;
     /// # fn main() -> Result<(), OutOfBoundsError> {
     /// let string = LimitedString::from_iterator_truncate(&["My String", " Other String"][..]);
     /// assert_eq!(string.as_str(), "My String Other String");
@@ -211,10 +211,10 @@ pub trait StringHandler:
     ///
     /// It's UB if `iter.map(|c| c.len()).sum()` > [`SIZE`].
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::prelude::*;
+    /// # use arraystring::prelude::*;
     /// let string = unsafe {
     ///     LimitedString::from_iterator_unchecked(&["My String", " My Other String"][..])
     /// };
@@ -240,10 +240,10 @@ pub trait StringHandler:
 
     /// Creates new string abstraction from char iterator if total length is lower or equal to [`SIZE`], otherwise returns an error.
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let string = LimitedString::from_chars("My String".chars())?;
     /// assert_eq!(string.as_str(), "My String");
@@ -268,10 +268,10 @@ pub trait StringHandler:
 
     /// Creates new string abstraction from char iterator truncating size if bigger than [`SIZE`].
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::prelude::*;
+    /// # use arraystring::prelude::*;
     /// let string = LimitedString::from_chars_truncate("My String".chars());
     /// assert_eq!(string.as_str(), "My String");
     ///
@@ -298,10 +298,10 @@ pub trait StringHandler:
     ///
     /// It's UB if `iter.map(|c| c.len_utf8()).sum()` > [`SIZE`].
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::prelude::*;
+    /// # use arraystring::prelude::*;
     /// let string = unsafe { LimitedString::from_chars_unchecked("My String".chars()) };
     /// assert_eq!(string.as_str(), "My String");
     ///
@@ -324,10 +324,10 @@ pub trait StringHandler:
     ///
     /// [`FromUtf8`]: ../enum.Error.html#FromUtf8
     /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let string = LimitedString::from_utf8("My String")?;
     /// assert_eq!(string.as_str(), "My String");
@@ -352,10 +352,10 @@ pub trait StringHandler:
     /// Creates new string abstraction from byte slice, returning [`FromUtf8Error`] on invalid utf-8 data, truncating if bigger than [`SIZE`].
     ///
     /// [`FromUtf8Error`]: ../struct.FromUtf8Error.html
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let string = LimitedString::from_utf8_truncate("My String")?;
     /// assert_eq!(string.as_str(), "My String");
@@ -392,10 +392,10 @@ pub trait StringHandler:
     ///
     /// [`FromUtf16`]: ../enum.Error.html#FromUtf16
     /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
     /// let string = LimitedString::from_utf16_truncate(music)?;
@@ -426,10 +426,10 @@ pub trait StringHandler:
     /// Creates new string abstraction from u16 slice, returning [`FromUtf16Error`] on invalid utf-16 data, truncating if bigger than [`SIZE`].
     ///
     /// [`FromUtf16Error`]: ../struct.FromUtf16Error.html
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
     /// let string = LimitedString::from_utf16_truncate(music)?;
@@ -460,10 +460,10 @@ pub trait StringHandler:
 
     /// Creates new string abstraction from `u16` slice, replacing invalid utf-16 data with `REPLACEMENT_CHARACTER` (\u{FFFD}) and truncating size if bigger than [`SIZE`]
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
     /// let string = LimitedString::from_utf16_truncate(music)?;
@@ -497,10 +497,10 @@ pub trait StringHandler:
     ///
     /// It's UB if `slice` is not a valid utf-8 string or `slice.len()` > [`SIZE`].
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use limited_string::prelude::*;
+    /// # use arraystring::prelude::*;
     /// let string = unsafe { LimitedString::from_utf8_unchecked("My String") };
     /// assert_eq!(string.as_str(), "My String");
     ///
@@ -522,7 +522,7 @@ pub trait StringHandler:
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let s = LimitedString::from_str("My String")?;
     /// assert_eq!(s.as_str(), "My String");
@@ -539,7 +539,7 @@ pub trait StringHandler:
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("My String")?;
     /// assert_eq!(s.as_str_mut(), "My String");
@@ -556,7 +556,7 @@ pub trait StringHandler:
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let s = LimitedString::from_str("My String")?;
     /// assert_eq!(s.as_bytes(), "My String".as_bytes());
@@ -573,7 +573,7 @@ pub trait StringHandler:
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("My String")?;
     /// assert_eq!(unsafe { s.as_bytes_mut() }, "My String".as_bytes());
@@ -589,11 +589,11 @@ pub trait StringHandler:
 
     /// Pushes string slice to the end of the string abstraction if total size is lower or equal to [`SIZE`], otherwise returns an error.
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("My String")?;
     /// s.push_str(" My other String")?;
@@ -615,11 +615,11 @@ pub trait StringHandler:
 
     /// Pushes string slice to the end of the string abstraction truncating total size if bigger than [`SIZE`].
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("My String")?;
     /// s.push_str_truncate(" My other String");
@@ -647,11 +647,11 @@ pub trait StringHandler:
     ///
     /// It's UB if `self.len() + string.len()` > [`SIZE`].
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("My String")?;
     /// unsafe { s.push_str_unchecked(" My other String") };
@@ -682,11 +682,11 @@ pub trait StringHandler:
 
     /// Inserts character to the end of the `LimitedList` erroring if total size if bigger than [`SIZE`].
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("My String")?;
     /// s.push('!')?;
@@ -710,11 +710,11 @@ pub trait StringHandler:
     ///
     /// It's UB if `self.len() + character.len_utf8()` > [`SIZE`]
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("My String")?;
     /// unsafe { s.push_unchecked('!') };
@@ -734,11 +734,11 @@ pub trait StringHandler:
         self.add_assign_len(chlen);
     }
 
-    /// Truncates `StringHandler` to specified size (if smaller than current size and a valid utf-8 char index).
+    /// Truncates `ArrayString` to specified size (if smaller than current size and a valid utf-8 char index).
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("My String")?;
     /// s.truncate(5)?;
@@ -761,11 +761,11 @@ pub trait StringHandler:
         is_char_boundary(self, len).map(|()| self.replace_len(len))
     }
 
-    /// Removes last character from `StringHandler`, if any.
+    /// Removes last character from `ArrayString`, if any.
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("A🤔")?;
     /// assert_eq!(s.pop(), Some('🤔'));
@@ -787,7 +787,7 @@ pub trait StringHandler:
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::prelude::*;
+    /// # use arraystring::prelude::*;
     /// # fn main() -> Result<(), OutOfBoundsError> {
     /// let mut string = LimitedString::from_str("   to be trimmed     ")?;
     /// string.trim();
@@ -820,11 +820,11 @@ pub trait StringHandler:
         self.replace_len(end - start + 1);
     }
 
-    /// Removes specified char from `StringHandler`
+    /// Removes specified char from `ArrayString`
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("ABCD🤔")?;
     /// assert_eq!(s.remove(10), Err(Error::OutOfBounds));
@@ -853,7 +853,7 @@ pub trait StringHandler:
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("ABCD🤔")?;
     /// s.retain(|c| c != '🤔');
@@ -872,13 +872,13 @@ pub trait StringHandler:
     ///
     /// Returns [`OutOfBounds`] if `idx` is out of bounds and [`FromUtf8`] if `idx` is not a char position
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
     /// [`FromUtf8`]: ../enum.Error.html#FromUtf8
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("ABCD🤔")?;
     /// s.insert(1, 'A')?;
@@ -910,11 +910,11 @@ pub trait StringHandler:
     ///
     /// It's UB if `self.len() + character.len_utf8()` > [`SIZE`]
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("ABCD🤔")?;
     /// unsafe { s.insert_unchecked(1, 'A') };
@@ -941,13 +941,13 @@ pub trait StringHandler:
     /// Returns [`OutOfBounds`] if `idx` is out of bounds
     /// Returns [`FromUtf8`] if `idx` is not a char position
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
     /// [`FromUtf8`]: ../enum.Error.html#FromUtf8
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("ABCD🤔")?;
     /// s.insert_str(1, "AB")?;
@@ -977,13 +977,13 @@ pub trait StringHandler:
     ///
     /// Returns [`OutOfBounds`] if `idx` is out of bounds and [`FromUtf8`] if `idx` is not a char position
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
     /// [`FromUtf8`]: ../enum.Error.html#FromUtf8
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("ABCD🤔")?;
     /// s.insert_str_truncate(1, "AB")?;
@@ -1020,11 +1020,11 @@ pub trait StringHandler:
     ///
     /// It's UB if `self.len() + string.len()` > [`SIZE`]
     ///
-    /// [`SIZE`]: ./trait.StringHandler.html#SIZE
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("ABCD🤔")?;
     /// unsafe { s.insert_str_unchecked(1, "AB") };
@@ -1054,11 +1054,11 @@ pub trait StringHandler:
         self.add_assign_len(slen);
     }
 
-    /// Returns `StringHandler` length.
+    /// Returns `ArrayString` length.
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("ABCD")?;
     /// assert_eq!(s.len(), 4);
@@ -1074,11 +1074,11 @@ pub trait StringHandler:
         self.get_len()
     }
 
-    /// Checks if `StringHandler` is empty.
+    /// Checks if `ArrayString` is empty.
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("ABCD")?;
     /// assert!(!s.is_empty());
@@ -1102,7 +1102,7 @@ pub trait StringHandler:
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("AB🤔CD")?;
     /// assert_eq!(s.split_off(6)?.as_str(), "CD");
@@ -1126,7 +1126,7 @@ pub trait StringHandler:
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("ABCD")?;
     /// assert!(!s.is_empty());
@@ -1141,13 +1141,13 @@ pub trait StringHandler:
         self.replace_len(0);
     }
 
-    /// Creates a draining iterator that removes the specified range in the `StringHandler` and yields the removed chars.
+    /// Creates a draining iterator that removes the specified range in the `ArrayString` and yields the removed chars.
     ///
     /// Note: The element range is removed even if the iterator is not consumed until the end.
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("ABCD🤔")?;
     /// assert_eq!(s.drain(..3)?.collect::<Vec<_>>(), vec!['A', 'B', 'C']);
@@ -1194,7 +1194,7 @@ pub trait StringHandler:
     ///
     /// ```rust
     /// # use std::str::FromStr;
-    /// # use limited_string::{Error, prelude::*};
+    /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = LimitedString::from_str("ABCD🤔")?;
     /// s.replace_range(2..4, "EFGHI")?;

@@ -2,9 +2,9 @@
 
 use core::{fmt, fmt::Display, fmt::Formatter, str::EncodeUtf16, str::Utf8Error};
 
-/// Every error possible when using the [`StringHandler`]
+/// Every error possible when using the [`ArrayString`]
 ///
-/// [`StringHandler`]: ./handler/trait.StringHandler.html
+/// [`ArrayString`]: ./array/trait.ArrayString.html
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum Error {
     /// Conversion from byte slice to UTF-8 failed (invalid data or invalid index)

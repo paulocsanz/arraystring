@@ -20,7 +20,7 @@ pub(crate) unsafe fn never(s: &str) -> ! {
 ///
 /// It's UB if index is out of bounds
 #[inline]
-pub(crate) unsafe fn encode_char_utf8_unchecked<S: StringHandler>(
+pub(crate) unsafe fn encode_char_utf8_unchecked<S: ArrayString>(
     s: &mut S,
     ch: char,
     index: Size,
@@ -36,7 +36,7 @@ pub(crate) unsafe fn encode_char_utf8_unchecked<S: StringHandler>(
 }
 
 #[inline]
-pub(crate) unsafe fn shift_right_unchecked<S: StringHandler>(s: &mut S, from: Size, to: Size) {
+pub(crate) unsafe fn shift_right_unchecked<S: ArrayString>(s: &mut S, from: Size, to: Size) {
     debug_assert!(from <= to);
     debug_assert!(to <= S::SIZE);
     let (from, to, len) = (from as usize, to as usize, (s.len() - from) as usize);
@@ -54,7 +54,7 @@ pub(crate) unsafe fn shift_right_unchecked<S: StringHandler>(s: &mut S, from: Si
 }
 
 #[inline]
-pub(crate) unsafe fn shift_left_unchecked<S: StringHandler>(s: &mut S, from: Size, to: Size) {
+pub(crate) unsafe fn shift_left_unchecked<S: ArrayString>(s: &mut S, from: Size, to: Size) {
     debug_assert!(to <= from && from <= s.len());
     let len = (s.len() - to) as usize;
     debug!(
@@ -75,7 +75,7 @@ pub(crate) fn out_of_bounds(size: Size, limit: Size) -> Result<(), OutOfBoundsEr
 }
 
 #[inline]
-pub(crate) fn is_char_boundary<S: StringHandler>(s: &S, idx: Size) -> Result<(), FromUtf8Error> {
+pub(crate) fn is_char_boundary<S: ArrayString>(s: &S, idx: Size) -> Result<(), FromUtf8Error> {
     Some(())
         .filter(|_| s.as_str().is_char_boundary(idx as usize))
         .ok_or(FromUtf8Error)
@@ -90,12 +90,12 @@ pub(crate) fn truncate_str(slice: &str, size: Size) -> &str {
     ch.as_str()
 }
 
-/// Creates new [`StringHandler`] from string slice if length is lower or equal to [`SIZE`], otherwise returns an error.
+/// Creates new [`ArrayString`] from string slice if length is lower or equal to [`SIZE`], otherwise returns an error.
 ///
-/// [`StringHandler`]: ../handler/trait.StringHandler.html
-/// [`SIZE`]: ../handler/trait.StringHandler.html#SIZE
+/// [`ArrayString`]: ../array/trait.ArrayString.html
+/// [`SIZE`]: ../array/trait.ArrayString.html#SIZE
 /// ```rust
-/// # use limited_string::{Error, prelude::*, utils::from_str};
+/// # use arraystring::{error::Error, prelude::*, utils::from_str};
 /// # fn main() -> Result<(), Error> {
 /// let string: LimitedString = from_str("My String")?;
 /// assert_eq!(string.as_str(), "My String");
@@ -109,8 +109,8 @@ pub(crate) fn truncate_str(slice: &str, size: Size) -> &str {
 /// ```
 pub fn from_str<H, S>(s: S) -> Result<H, OutOfBoundsError>
 where
-    H: StringHandler,
-    S: AsRef<str>
+    H: ArrayString,
+    S: AsRef<str>,
 {
     trace!("FromStr: {:?}", s.as_ref());
     out_of_bounds(s.as_ref().len() as Size, H::SIZE)?;

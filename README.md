@@ -1,30 +1,51 @@
-# Limited String
+# ArrayString
 
-A stack based string that has a maximum (customizable) size.
+A stack based strings with a maximum (customizable) size.
+
+**Never panics (all panic branches are impossible and therefore removed at compile time)**
 
 ## Why
 
 Data is generally bounded, you don't want a phone number with 30 characters, nor a username with 100. You probably don't even support it in your database.
 
-Why use a heap allocated string with unlimited size if you have limited bounds?
+Why pay the cost of heap allocations of strings with unlimited capacity if you have limited boundaries?
 
-There are other stack based strings out there, they generally do grow, but the stack based size is defined by the library implementor, we go through a different route. 
+Array based strings always occupy the full space in memory, so they may use more size than dynamic strings.
 
-Limited strings are created through a macro that creates the appropriate structure and implements the appropriate traits to opperate like a string
+Array based strings are generally faster to create, clone and append than heap based strings (custom allocators and thread-locals may help with heap based ones).
+
+There are other stack based strings out there, they generally can grow (heap allocate), but the stack based size is defined by the library implementor, we go through a different route (fully stack based with customizable maximum size - per type)
+
+ArrayStrings types are created through a macro with customizable maximum size (implementing the appropriate traits)
 
 ```rust
-// Uses 21 bytes of space
+// Always occupies 21 bytes of memory (in the stack)
+//
+// String's current (2018) implementation always uses 24 bytes + up to 20 bytes (actual username)
+//   - Assuming 64 bit usize
+//
+// Remember that UTF-8 characters can use up to 4 bytes
 impl_string(struct Username(20));
 ```
 
 **TODO: bench against other implementations**
 
+## Features
+
+**default:** `std`
+
+- `std` enabled by default, enables `std` compatibility (remove it to be `#[no_std]` compatible)
+- `serde-traits` enables serde traits integration (`Serialize`/`Deserialize`)
+- `diesel-traits` (being implemented)
+- `logs` enables internal logging (you probably don't need it)
+- `nightly` enables benchmarks (we will move to criterion eventually)
+
 ## Examples
 
 ```rust
-extern crate limited_string;
+extern crate arraystring;
 #[macro_use]
-use limited_string::{Error, prelude::*}];
+use arraystring::{Error, prelude::*};
 
 impl_string!(pub struct Username(20));
 impl_string!(pub struct Role(5));
@@ -37,8 +58,8 @@ pub struct User {
 
 fn main() -> Result<(), Error> {
     let user = User {
-        username: LimitedString::from_str("user")?,
-        role: LimitedString::from_str("admin")?
+        username: Username::from_str("user")?,
+        role: Role::from_str("admin")?
     };
     println!("{:?}", user);
 }
@@ -46,10 +67,9 @@ fn main() -> Result<(), Error> {
 
 ## Roadmap
 
-- `no_std`
-- Serde integration
 - Diesel integration
+- Never panics (panic branches are removed at compile time)
 
 ## Licenses
 
-[MIT](blob/master/license/MIT) and [Apache-2.0](blob/master/license/APACHE)
+[MIT](master/license/MIT) and [Apache-2.0](master/license/APACHE)

@@ -1,13 +1,20 @@
-extern crate limited_string;
+extern crate arraystring;
 
 #[cfg(feature = "logs")]
 extern crate env_logger;
 
-use limited_string::prelude::*;
+use arraystring::prelude::*;
 use std::{fmt::Debug, iter::FromIterator, str::FromStr};
 
-static STRINGS: [&'static str; 5] = [
-    "ABCDEFGHIJKLMNOPQRS",
+macro_rules! panic_wrap {
+    ($x: expr) => {{
+        ::std::panic::catch_unwind(|| $x)
+    }};
+}
+
+static STRINGS: [&'static str; 6] = [
+    "🤔🤔🤔🤔🤔🤔🤔",
+    "ABCDEFGHIJKLMNOPQRSASHUDAHSDIUASH",
     "iejueueheuheuheu",
     "",
     "1",
@@ -28,8 +35,8 @@ fn assert<F, G, T, U>(f: F, g: G)
 where
     T: Debug + PartialEq + AsRef<str>,
     U: Debug + PartialEq + AsRef<str>,
-    F: Fn(&str) -> T,
-    G: Fn(&str) -> U,
+    F: Fn(&'static str) -> T,
+    G: Fn(&'static str) -> U,
 {
     for string in STRINGS.into_iter() {
         assert_eq!(f(string).as_ref(), g(string).as_ref());
@@ -38,30 +45,26 @@ where
 
 #[test]
 fn from_str() {
-    assert(
-        |s| String::from(s),
-        |s| <LimitedString as FromStr>::from_str(s).unwrap(),
-    );
+    assert(String::from, |s| MaxString::from_str(s).unwrap());
 }
 
 #[test]
 fn from_str_truncate() {
-    assert(|s| String::from(s), |s| LimitedString::from_str_truncate(s));
+    assert(String::from, MaxString::from_str_truncate);
 }
 
 #[test]
 fn from_str_unchecked() {
-    assert(
-        |s| String::from(s),
-        |s| unsafe { LimitedString::from_str_unchecked(s) },
-    );
+    assert(String::from, |s| unsafe {
+        MaxString::from_str_unchecked(s)
+    });
 }
 
 #[test]
 fn from_chars() {
     assert(
         |s| String::from_iter(s.chars()),
-        |s| LimitedString::from_chars(s.chars()).unwrap(),
+        |s| MaxString::from_chars(s.chars()).unwrap(),
     );
 }
 
@@ -69,7 +72,7 @@ fn from_chars() {
 fn from_chars_truncate() {
     assert(
         |s| String::from_iter(s.chars()),
-        |s| LimitedString::from_chars_truncate(s.chars()),
+        |s| MaxString::from_chars_truncate(s.chars()),
     );
 }
 
@@ -77,7 +80,7 @@ fn from_chars_truncate() {
 fn from_chars_unchecked() {
     assert(
         |s| String::from_iter(s.chars()),
-        |s| unsafe { LimitedString::from_chars_unchecked(s.chars()) },
+        |s| unsafe { MaxString::from_chars_unchecked(s.chars()) },
     );
 }
 
@@ -85,7 +88,7 @@ fn from_chars_unchecked() {
 fn from_iter() {
     assert(
         |s| String::from_iter(vec![s]),
-        |s| LimitedString::from_iterator(vec![s]).unwrap(),
+        |s| MaxString::from_iterator(vec![s]).unwrap(),
     );
 }
 
@@ -93,7 +96,7 @@ fn from_iter() {
 fn from_iter_truncate() {
     assert(
         |s| String::from_iter(vec![s]),
-        |s| LimitedString::from_iterator_truncate(vec![s]),
+        |s| MaxString::from_iterator_truncate(vec![s]),
     );
 }
 
@@ -101,7 +104,7 @@ fn from_iter_truncate() {
 fn from_iter_unchecked() {
     assert(
         |s| String::from_iter(vec![s]),
-        |s| unsafe { LimitedString::from_iterator_unchecked(vec![s]) },
+        |s| unsafe { MaxString::from_iterator_unchecked(vec![s]) },
     );
 }
 
@@ -109,7 +112,7 @@ fn from_iter_unchecked() {
 fn from_utf8() {
     assert(
         |s| String::from_utf8(s.as_bytes().to_vec()).unwrap(),
-        |s| LimitedString::from_utf8(s.as_bytes()).unwrap(),
+        |s| MaxString::from_utf8(s.as_bytes()).unwrap(),
     );
 }
 
@@ -118,7 +121,7 @@ fn from_utf16() {
     let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
     assert(
         |s| String::from_utf16(&utf16(s)).unwrap(),
-        |s| LimitedString::from_utf16(&utf16(s)).unwrap(),
+        |s| MaxString::from_utf16(&utf16(s)).unwrap(),
     );
 }
 
@@ -127,129 +130,298 @@ fn from_utf8_unchecked() {
     unsafe {
         assert(
             |s| String::from_utf8_unchecked(s.as_bytes().to_vec()),
-            |s| LimitedString::from_utf8_unchecked(s.as_bytes()),
+            |s| MaxString::from_utf8_unchecked(s.as_bytes()),
         );
     }
 }
 
 #[test]
+fn push_str() {
+    assert(|s| {
+        let mut st = String::from(s);
+        st.push_str(s);
+        st
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.push_str(s).unwrap();
+        ms
+    });
+}
+
+#[test]
+fn push_str_truncate() {
+    assert(|s| {
+        let mut st = String::from(s);
+        st.push_str(s);
+        st
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.push_str_truncate(s);
+        ms
+    });
+}
+
+#[test]
+fn add_str() {
+    assert(
+        |s| String::from(s) + s,
+        |s| MaxString::from_str(s).unwrap() + s
+    );
+}
+
+#[test]
+fn push_str_unchecked() {
+    assert(|s| {
+        let mut st = String::from(s);
+        st.push_str(s);
+        s
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        unsafe { ms.push_str_unchecked(s) };
+        ms
+    });
+}
+
+#[test]
+fn push() {
+    assert(|s| {
+        let mut s = String::from(s);
+        s.push('🤔');
+        s
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.push('🤔').unwrap();
+        ms
+    });
+}
+
+#[test]
+fn push_unchecked() {
+    assert(|s| {
+        let mut s = String::from(s);
+        s.push('🤔');
+        s
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        unsafe { ms.push_unchecked('🤔') };
+        ms
+    });
+}
+
+#[test]
+fn truncate() {
+    assert(|s| {
+        let mut s = String::from(s);
+        s.truncate(10);
+        s
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.truncate(10).unwrap();
+        ms
+    });
+}
+
+#[test]
+fn pop() {
+    assert(|s| {
+        let mut s = String::from(s);
+        s.pop();
+        s
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.pop();
+        ms
+    });
+
+    assert(|s| {
+        let mut s = String::from(s);
+        s.pop().unwrap_or('0').to_string()
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.pop().unwrap_or('0').to_string()
+    });
+}
+
+#[test]
+fn remove() {
+    assert(|s| {
+        let mut s = String::from(s);
+        s.remove(2);
+        s
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.remove(2).unwrap();
+        ms
+    });
+
+    assert(|s| {
+        let mut s = String::from(s);
+        s.remove(2).to_string()
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.remove(2).unwrap().to_string()
+    });
+}
+
+#[test]
+fn retain() {
+    assert(|s| {
+        let mut s = String::from(s);
+        s.retain(|c| c == 'a');
+        s
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.retain(|c| c == 'a');
+        ms
+    });
+}
+
+#[test]
+fn insert() {
+    assert(|s| {
+        let mut s = String::from(s);
+        s.insert(0, 'a');
+        s
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.insert(0, 'a').unwrap();
+        ms
+    });
+}
+
+#[test]
+fn insert_unchecked() {
+    assert(|s| {
+        let mut s = String::from(s);
+        s.insert(0, 'a');
+        s
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        unsafe { ms.insert_unchecked(0, 'a') };
+        ms
+    });
+}
+
+#[test]
+fn insert_str() {
+    assert(|s| {
+        let mut st = String::from(s);
+        st.insert_str(0, s);
+        st
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.insert_str(0, s).unwrap();
+        ms
+    });
+}
+
+#[test]
+fn insert_str_truncate() {
+    assert(|s| {
+        let mut st = String::from(s);
+        st.insert_str(0, s);
+        st
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.insert_str_truncate(0, s).unwrap();
+        ms
+    });
+}
+
+#[test]
+fn insert_str_unchecked() {
+    assert(|s| {
+        let mut st = String::from(s);
+        st.insert_str(0, s);
+        st
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        unsafe { ms.insert_str_unchecked(0, s) };
+        ms
+    });
+}
+
+#[test]
+fn clear() {
+    assert(|s| {
+        let mut st = String::from(s);
+        st.clear();
+        st
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.clear();
+        ms
+    });
+}
+
+#[test]
+fn split_off() {
+    assert(|s| {
+        let mut st = String::from(s);
+        let _ = st.split_off(3);
+        st
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        let _ = ms.split_off(3).unwrap();
+        ms
+    });
+
+    assert(|s| {
+        let mut st = String::from(s);
+        st.split_off(3)
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.split_off(3).unwrap()
+    });
+}
+
+#[test]
+fn drain() {
+    assert(|s| {
+        let mut st = String::from(s);
+        let _ = st.drain(..5);
+        st
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        let _ = ms.drain(..5).unwrap();
+        ms
+    });
+
+    assert(|s| {
+        let mut st = String::from(s);
+        let s: String = st.drain(..5).collect();
+        s
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.drain(..5).unwrap().collect::<String>()
+    });
+}
+
+#[test]
+fn replace_range() {
+    assert(|s| {
+        let mut st = String::from(s);
+        st.replace_range(..5, s);
+        st
+    }, |s| {
+        let mut ms = MaxString::from_str(s).unwrap();
+        ms.replace_range(..5, s).unwrap();
+        ms
+    });
+}
+
+#[test]
 fn string_parity() {
     setup_logger();
-    assert_eq!(String::new().as_str(), LimitedString::new().as_str());
+    assert_eq!(String::new().as_str(), MaxString::new().as_str());
     for string in STRINGS.into_iter() {
         let string = *string;
         let mut s = String::from(string);
-        let mut ls: LimitedString = FromStr::from_str(string).unwrap();
+        let mut ms = MaxString::from_str(string).unwrap();
 
-        assert_eq!(s.len(), ls.len() as usize);
-        assert_eq!(s.is_empty(), ls.is_empty());
-
-        let mut s = String::from(string);
-        assert_eq!(s.as_mut_str(), ls.as_str_mut());
-        assert_eq!(s.as_bytes(), ls.as_bytes());
-
-        s.push_str(string);
-        ls.push_str(string).unwrap();
-        assert_eq!(s.as_str(), ls.as_str());
-
-        let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-        ls.push_str_truncate(string);
-        assert_eq!(s.as_str(), ls.as_str());
-
-        let ls: LimitedString = FromStr::from_str(string).unwrap();
-        assert_eq!(s.as_str(), (ls + string).as_str());
-
-        let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-        unsafe { ls.push_str_unchecked(string) };
-        assert_eq!(s.as_str(), ls.as_str());
-
-        let mut s = String::from(string);
-        s.push('🤔');
-
-        let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-        ls.push('🤔').unwrap();
-        assert_eq!(s.as_str(), ls.as_str());
-
-        let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-        unsafe { ls.push_unchecked('🤔') };
-        assert_eq!(s.as_str(), ls.as_str());
-
-        let mut s = String::from(string);
-        s.truncate(10);
-
-        let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-        ls.truncate(10).unwrap();
-        assert_eq!(s.as_str(), ls.as_str());
-
-        assert_eq!(s.pop(), ls.pop());
-
-        let mut s = String::from(string);
-        if s.len() > 2 {
-            let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-            assert_eq!(s.remove(2), ls.remove(2).unwrap());
-        }
-
-        let mut s = String::from(string);
-        let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-        s.retain(|c| c == 'a');
-        ls.retain(|c| c == 'a');
-        assert_eq!(s.as_str(), ls.as_str());
-
-        let mut s = String::from(string);
-        s.insert(0, 'a');
-
-        let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-        ls.insert(0, 'a').unwrap();
-        assert_eq!(s.as_str(), ls.as_str());
-
-        let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-        unsafe { ls.insert_unchecked(0, 'a') };
-        assert_eq!(s.as_str(), ls.as_str());
-
-        let mut s = String::from(string);
-        s.insert_str(0, "eifha");
-
-        let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-        ls.insert_str(0, "eifha").unwrap();
-        assert_eq!(s.as_str(), ls.as_str());
-
-        let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-        ls.insert_str_truncate(0, "eifha").unwrap();
-        assert_eq!(s.as_str(), ls.as_str());
-
-        let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-        unsafe { ls.insert_str_unchecked(0, "eifha") };
-        assert_eq!(s.as_str(), ls.as_str());
-
-        let mut s = String::from(string);
-        if s.len() > 2 {
-            let os = s.split_off(3);
-            let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-            let ols = ls.split_off(3).unwrap();
-            assert_eq!(s.as_str(), ls.as_str());
-            assert_eq!(os.as_str(), ols.as_str());
-        }
-
-        s.clear();
-        ls.clear();
-        assert_eq!(s.as_str(), ls.as_str());
-
-        let mut s = String::from(string);
-        if s.len() > 4 {
-            let sd: String = s.drain(..5).collect();
-            let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-            let lsd = ls.drain(..5).unwrap();
-            let lsd: String = lsd.collect();
-            assert_eq!(sd.as_str(), lsd.as_str());
-            assert_eq!(s.as_str(), ls.as_str());
-        }
-
-        let mut s = String::from(string);
-        if s.len() > 4 {
-            s.replace_range(..5, string);
-            let mut ls: LimitedString = FromStr::from_str(string).unwrap();
-            ls.replace_range(..5, string).unwrap();
-            assert_eq!(s.as_str(), ls.as_str());
-        }
+        assert_eq!(s.len(), ms.len() as usize);
+        assert_eq!(s.is_empty(), ms.is_empty());
+        assert_eq!(s.as_mut_str(), ms.as_str_mut());
+        assert_eq!(s.as_bytes(), ms.as_bytes());
     }
 }

@@ -1,6 +1,6 @@
 //! Stack based string with customized max-size
 
-//#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "nightly", feature(test))]
 #![deny(
     missing_docs,
@@ -36,6 +36,10 @@
 #[macro_use]
 extern crate log;
 
+#[cfg(feature = "serde-traits")]
+#[doc(hidden)]
+pub extern crate serde;
+
 //#[cfg(feature = "nightly")]
 //pub mod ffi;
 
@@ -51,7 +55,10 @@ mod mock {
     macro_rules! error(($($x:tt)*) => ());
 }
 
-use std as core;
+#[cfg(feature = "std")]
+#[doc(hidden)]
+#[macro_use]
+pub extern crate std as core;
 
 #[cfg(feature = "nightly")]
 extern crate test;
@@ -61,23 +68,23 @@ pub use test::black_box;
 #[macro_use]
 mod macros;
 pub mod error;
-pub mod handler;
+pub mod array;
 pub mod utils;
 
 /// Most used traits and data-strucutres
 pub mod prelude {
-    pub use error::{FromUtf16Error, FromUtf8Error, OutOfBoundsError, Error};
-    pub use handler::StringHandler;
-    pub use {Size, LimitedString, MaxString, SmallString};
+    pub use core::str::FromStr;
+    pub use error::{FromUtf16Error, FromUtf8Error, OutOfBoundsError};
+    pub use array::ArrayString;
+    pub use {LimitedString, MaxString, Size, SmallString};
 }
 
-/// [`StringHandler`]'s buffer index
+/// [`ArrayString`]'s buffer index
 ///
-/// [`StringHandler`]: ./handler/trait.StringHandler.html
+/// [`ArrayString`]: ./array/trait.ArrayString.html
 pub type Size = u8;
 
-
-pub use handler::StringHandler;
+pub use array::ArrayString;
 impl_string!(pub struct SmallString(23));
 impl_string!(pub struct LimitedString(63));
 impl_string!(pub struct MaxString(255));
@@ -106,7 +113,7 @@ mod tests {
 
     #[bench]
     #[cfg(feature = "nightly")]
-    fn limited_from_str(b: &mut Bencher) {
+    fn arrayfrom_str(b: &mut Bencher) {
         b.iter(|| unsafe { black_box(LimitedString::from_str_unchecked(DATA)) });
     }
 
@@ -120,7 +127,7 @@ mod tests {
 
     #[bench]
     #[cfg(feature = "nightly")]
-    fn limited_clone(b: &mut Bencher) {
+    fn arrayclone(b: &mut Bencher) {
         let string = unsafe { LimitedString::from_str_unchecked(DATA) };
         b.iter(|| black_box(string.clone()));
         //b.iter(|| black_box(clone_limited(&string)));
