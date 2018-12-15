@@ -69,14 +69,13 @@ pub use test::black_box;
 mod macros;
 pub mod error;
 pub mod array;
-pub mod utils;
+mod utils;
 
 /// Most used traits and data-strucutres
 pub mod prelude {
-    pub use core::str::FromStr;
     pub use error::{FromUtf16Error, FromUtf8Error, OutOfBoundsError};
     pub use array::ArrayString;
-    pub use {LimitedString, MaxString, Size, SmallString};
+    pub use {CacheString, MaxString, Size, SmallString};
 }
 
 /// [`ArrayString`]'s buffer index
@@ -86,7 +85,7 @@ pub type Size = u8;
 
 pub use array::ArrayString;
 impl_string!(pub struct SmallString(23));
-impl_string!(pub struct LimitedString(63));
+impl_string!(pub struct CacheString(63));
 impl_string!(pub struct MaxString(255));
 
 #[cfg(test)]
@@ -114,7 +113,7 @@ mod tests {
     #[bench]
     #[cfg(feature = "nightly")]
     fn arrayfrom_str(b: &mut Bencher) {
-        b.iter(|| unsafe { black_box(LimitedString::from_str_unchecked(DATA)) });
+        b.iter(|| unsafe { black_box(CacheString::from_str_unchecked(DATA)) });
     }
 
     #[bench]
@@ -128,7 +127,7 @@ mod tests {
     #[bench]
     #[cfg(feature = "nightly")]
     fn arrayclone(b: &mut Bencher) {
-        let string = unsafe { LimitedString::from_str_unchecked(DATA) };
+        let string = unsafe { CacheString::from_str_unchecked(DATA) };
         b.iter(|| black_box(string.clone()));
         //b.iter(|| black_box(clone_limited(&string)));
     }

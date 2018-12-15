@@ -108,16 +108,15 @@ macro_rules! __inner_impl_string {
         /// Creates new `ArrayString` from string slice if length is lower or equal than `SIZE`, otherwise returns a error.
         ///
         /// ```rust
-        /// # use std::str::FromStr;
         /// # use arraystring::{error::Error, prelude::*};
         /// # fn main() -> Result<(), Error> {
-        /// let string = LimitedString::from_str("My String")?;
+        /// let string = CacheString::try_from_str("My String")?;
         /// assert_eq!(string.as_str(), "My String");
         ///
-        /// assert_eq!(LimitedString::from_str("")?.as_str(), "");
+        /// assert_eq!(CacheString::try_from_str("")?.as_str(), "");
         ///
-        /// let out_of_bounds = "0".repeat(LimitedString::SIZE as usize + 1);
-        /// assert!(LimitedString::from_str(&out_of_bounds).is_err());
+        /// let out_of_bounds = "0".repeat(CacheString::SIZE as usize + 1);
+        /// assert!(CacheString::try_from_str(&out_of_bounds).is_err());
         /// # Ok(())
         /// # }
         /// ```
@@ -126,7 +125,7 @@ macro_rules! __inner_impl_string {
 
             #[inline]
             fn from_str(s: &str) -> Result<Self, Self::Err> {
-                $crate::utils::from_str(s)
+                Self::try_from_str(s)
             }
         }
 
@@ -192,7 +191,7 @@ macro_rules! __inner_impl_string {
             fn add(self, other: &str) -> Self::Output {
                 let mut out = Self::default();
                 unsafe { out.push_str_unchecked(self.as_str()) };
-                out.push_str_truncate(other);
+                out.push_str(other);
                 out
             }
         }
@@ -200,7 +199,7 @@ macro_rules! __inner_impl_string {
         impl $crate::core::fmt::Write for $name {
             #[inline]
             fn write_str(&mut self, slice: &str) -> $crate::core::fmt::Result {
-                self.push_str(slice).map_err(|_| $crate::core::fmt::Error)
+                self.try_push_str(slice).map_err(|_| $crate::core::fmt::Error)
             }
         }
 

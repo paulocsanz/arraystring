@@ -3,7 +3,7 @@
 use core::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use core::str::{from_utf8, from_utf8_unchecked};
 use core::{cmp::min, iter::FusedIterator, ops::*, ptr::copy_nonoverlapping};
-use utils::{encode_char_utf8_unchecked, from_str, is_char_boundary, never, out_of_bounds};
+use utils::{encode_char_utf8_unchecked, is_char_boundary, never, out_of_bounds};
 use utils::{shift_left_unchecked, shift_right_unchecked, truncate_str};
 use {error::Error, prelude::*};
 
@@ -78,7 +78,7 @@ pub trait ArrayString:
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// let string = LimitedString::new();
+    /// let string = CacheString::new();
     /// assert!(string.is_empty());
     /// ```
     #[inline]
@@ -87,19 +87,46 @@ pub trait ArrayString:
         Self::default()
     }
 
+    /// Creates new [`ArrayString`] from string slice if length is lower or equal to [`SIZE`], otherwise returns an error.
+    ///
+    /// [`ArrayString`]: ../array/trait.ArrayString.html
+    /// [`SIZE`]: ../array/trait.ArrayString.html#SIZE
+    /// ```rust
+    /// # use arraystring::{error::Error, prelude::*};
+    /// # fn main() -> Result<(), Error> {
+    /// let string = CacheString::try_from_str("My String")?;
+    /// assert_eq!(string.as_str(), "My String");
+    ///
+    /// assert_eq!(CacheString::try_from_str("")?.as_str(), "");
+    ///
+    /// let out_of_bounds = "0".repeat(CacheString::SIZE as usize + 1);
+    /// assert!(CacheString::try_from_str(out_of_bounds).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[inline]
+    fn try_from_str<S>(s: S) -> Result<Self, OutOfBoundsError>
+    where
+        S: AsRef<str>
+    {
+        trace!("TryFromStr: {:?}", s.as_ref());
+        out_of_bounds(s.as_ref().len() as Size, Self::SIZE)?;
+        unsafe { Ok(Self::from_str_unchecked(s.as_ref())) }
+    }
+
     /// Creates new string abstraction from string slice truncating size if bigger than [`SIZE`].
     ///
     /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// let string = LimitedString::from_str_truncate("My String");
+    /// let string = CacheString::from_str_truncate("My String");
     /// # assert_eq!(string.as_str(), "My String");
     /// println!("{}", string);
     ///
-    /// let truncate = "0".repeat(LimitedString::SIZE as usize + 10);
-    /// let truncated = "0".repeat(LimitedString::SIZE as usize);
-    /// let string = LimitedString::from_str_truncate(&truncate);
+    /// let truncate = "0".repeat(CacheString::SIZE as usize + 10);
+    /// let truncated = "0".repeat(CacheString::SIZE as usize);
+    /// let string = CacheString::from_str_truncate(&truncate);
     /// assert_eq!(string.as_str(), truncated);
     /// ```
     #[inline]
@@ -121,15 +148,15 @@ pub trait ArrayString:
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// let filled = "0".repeat(LimitedString::SIZE as usize);
+    /// let filled = "0".repeat(CacheString::SIZE as usize);
     /// let string = unsafe {
-    ///     LimitedString::from_str_unchecked(&filled)
+    ///     CacheString::from_str_unchecked(&filled)
     /// };
     /// assert_eq!(string.as_str(), filled.as_str());
     ///
     /// // Undefined behavior, don't do it
-    /// // let out_of_bounds = "0".repeat(LimitedString::SIZE as usize + 1);
-    /// // let ub = unsafe { LimitedString::from_str_unchecked(&out_of_bounds) };
+    /// // let out_of_bounds = "0".repeat(CacheString::SIZE as usize + 1);
+    /// // let ub = unsafe { CacheString::from_str_unchecked(&out_of_bounds) };
     /// ```
     #[inline]
     unsafe fn from_str_unchecked<S>(string: S) -> Self
@@ -149,16 +176,16 @@ pub trait ArrayString:
     /// ```rust
     /// # use arraystring::prelude::*;
     /// # fn main() -> Result<(), OutOfBoundsError> {
-    /// let string = LimitedString::from_iterator(&["My String", " My Other String"][..])?;
+    /// let string = CacheString::try_from_iterator(&["My String", " My Other String"][..])?;
     /// assert_eq!(string.as_str(), "My String My Other String");
     ///
     /// let out_of_bounds = (0..100).map(|_| "000");
-    /// assert!(LimitedString::from_iterator(out_of_bounds).is_err());
+    /// assert!(CacheString::try_from_iterator(out_of_bounds).is_err());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn from_iterator<U, I>(iter: I) -> Result<Self, OutOfBoundsError>
+    fn try_from_iterator<U, I>(iter: I) -> Result<Self, OutOfBoundsError>
     where
         U: AsRef<str>,
         I: IntoIterator<Item = U>,
@@ -166,7 +193,7 @@ pub trait ArrayString:
         trace!("FromIterator");
         let mut out = Self::default();
         iter.into_iter()
-            .map(|s| out.push_str(s))
+            .map(|s| out.try_push_str(s))
             .collect::<Result<(), _>>()?;
         Ok(out)
     }
@@ -178,19 +205,19 @@ pub trait ArrayString:
     /// ```rust
     /// # use arraystring::prelude::*;
     /// # fn main() -> Result<(), OutOfBoundsError> {
-    /// let string = LimitedString::from_iterator_truncate(&["My String", " Other String"][..]);
+    /// let string = CacheString::from_iterator(&["My String", " Other String"][..]);
     /// assert_eq!(string.as_str(), "My String Other String");
     ///
     /// let out_of_bounds = (0..400).map(|_| "000");
-    /// let truncated = "0".repeat(LimitedString::SIZE as usize);
+    /// let truncated = "0".repeat(CacheString::SIZE as usize);
     ///
-    /// let truncate = LimitedString::from_iterator_truncate(out_of_bounds);
+    /// let truncate = CacheString::from_iterator(out_of_bounds);
     /// assert_eq!(truncate.as_str(), truncated.as_str());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn from_iterator_truncate<U, I>(iter: I) -> Self
+    fn from_iterator<U, I>(iter: I) -> Self
     where
         U: AsRef<str>,
         I: IntoIterator<Item = U>,
@@ -199,9 +226,9 @@ pub trait ArrayString:
         let mut out = Self::default();
         let _ = iter
             .into_iter()
-            .map(|s| out.push_str(s.as_ref()).map_err(|_| s))
+            .map(|s| out.try_push_str(s.as_ref()).map_err(|_| s))
             .collect::<Result<(), _>>()
-            .map_err(|s| out.push_str_truncate(s));
+            .map_err(|s| out.push_str(s));
         out
     }
 
@@ -216,14 +243,14 @@ pub trait ArrayString:
     /// ```rust
     /// # use arraystring::prelude::*;
     /// let string = unsafe {
-    ///     LimitedString::from_iterator_unchecked(&["My String", " My Other String"][..])
+    ///     CacheString::from_iterator_unchecked(&["My String", " My Other String"][..])
     /// };
     /// assert_eq!(string.as_str(), "My String My Other String");
     ///
     /// // Undefined behavior, don't do it
     /// // let out_of_bounds = (0..400).map(|_| "000");
     /// // let undefined_behavior = unsafe {
-    /// //     LimitedString::from_iterator_unchecked(out_of_bounds)
+    /// //     CacheString::from_iterator_unchecked(out_of_bounds)
     /// // };
     /// ```
     #[inline]
@@ -245,23 +272,23 @@ pub trait ArrayString:
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let string = LimitedString::from_chars("My String".chars())?;
+    /// let string = CacheString::try_from_chars("My String".chars())?;
     /// assert_eq!(string.as_str(), "My String");
     ///
-    /// let out_of_bounds = "0".repeat(LimitedString::SIZE as usize + 1);
-    /// assert!(LimitedString::from_chars(out_of_bounds.chars()).is_err());
+    /// let out_of_bounds = "0".repeat(CacheString::SIZE as usize + 1);
+    /// assert!(CacheString::try_from_chars(out_of_bounds.chars()).is_err());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn from_chars<I>(iter: I) -> Result<Self, OutOfBoundsError>
+    fn try_from_chars<I>(iter: I) -> Result<Self, OutOfBoundsError>
     where
         I: IntoIterator<Item = char>,
     {
-        trace!("From chars");
+        trace!("TryFrom chars");
         let mut out = Self::default();
         iter.into_iter()
-            .map(|c| out.push(c))
+            .map(|c| out.try_push(c))
             .collect::<Result<(), _>>()?;
         Ok(out)
     }
@@ -272,23 +299,23 @@ pub trait ArrayString:
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// let string = LimitedString::from_chars_truncate("My String".chars());
+    /// let string = CacheString::from_chars("My String".chars());
     /// assert_eq!(string.as_str(), "My String");
     ///
-    /// let out_of_bounds = "0".repeat(LimitedString::SIZE as usize + 1);
-    /// let truncated = "0".repeat(LimitedString::SIZE as usize);
+    /// let out_of_bounds = "0".repeat(CacheString::SIZE as usize + 1);
+    /// let truncated = "0".repeat(CacheString::SIZE as usize);
     ///
-    /// let truncate = LimitedString::from_chars_truncate(out_of_bounds.chars());
+    /// let truncate = CacheString::from_chars(out_of_bounds.chars());
     /// assert_eq!(truncate.as_str(), truncated.as_str());
     /// ```
     #[inline]
-    fn from_chars_truncate<I>(iter: I) -> Self
+    fn from_chars<I>(iter: I) -> Self
     where
         I: IntoIterator<Item = char>,
     {
         trace!("From chars truncate");
         let mut out = Self::default();
-        let _: Result<(), _> = iter.into_iter().map(|c| out.push(c)).collect();
+        let _: Result<(), _> = iter.into_iter().map(|c| out.try_push(c)).collect();
         out
     }
 
@@ -302,12 +329,12 @@ pub trait ArrayString:
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// let string = unsafe { LimitedString::from_chars_unchecked("My String".chars()) };
+    /// let string = unsafe { CacheString::from_chars_unchecked("My String".chars()) };
     /// assert_eq!(string.as_str(), "My String");
     ///
     /// // Undefined behavior, don't do it
     /// // let out_of_bounds = "000".repeat(400);
-    /// // let undefined_behavior = unsafe { LimitedString::from_chars_unchecked(out_of_bounds.chars()) };
+    /// // let undefined_behavior = unsafe { CacheString::from_chars_unchecked(out_of_bounds.chars()) };
     /// ```
     #[inline]
     unsafe fn from_chars_unchecked<I>(iter: I) -> Self
@@ -329,24 +356,24 @@ pub trait ArrayString:
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let string = LimitedString::from_utf8("My String")?;
+    /// let string = CacheString::try_from_utf8("My String")?;
     /// assert_eq!(string.as_str(), "My String");
     ///
     /// let invalid_utf8 = [0, 159, 146, 150];
-    /// assert_eq!(LimitedString::from_utf8(invalid_utf8), Err(Error::FromUtf8));
+    /// assert_eq!(CacheString::try_from_utf8(invalid_utf8), Err(Error::FromUtf8));
     ///
     /// let out_of_bounds = "0000".repeat(400);
-    /// assert_eq!(LimitedString::from_utf8(out_of_bounds.as_bytes()), Err(Error::OutOfBounds));
+    /// assert_eq!(CacheString::try_from_utf8(out_of_bounds.as_bytes()), Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn from_utf8<B>(slice: B) -> Result<Self, Error>
+    fn try_from_utf8<B>(slice: B) -> Result<Self, Error>
     where
         B: AsRef<[u8]>,
     {
         debug!("From utf8: {:?}", slice.as_ref());
-        Ok(from_str(from_utf8(slice.as_ref())?)?)
+        Ok(Self::try_from_str(from_utf8(slice.as_ref())?)?)
     }
 
     /// Creates new string abstraction from byte slice, returning [`FromUtf8Error`] on invalid utf-8 data, truncating if bigger than [`SIZE`].
@@ -357,20 +384,20 @@ pub trait ArrayString:
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let string = LimitedString::from_utf8_truncate("My String")?;
+    /// let string = CacheString::from_utf8("My String")?;
     /// assert_eq!(string.as_str(), "My String");
     ///
     /// let invalid_utf8 = [0, 159, 146, 150];
-    /// assert_eq!(LimitedString::from_utf8_truncate(invalid_utf8), Err(FromUtf8Error));
+    /// assert_eq!(CacheString::from_utf8(invalid_utf8), Err(FromUtf8Error));
     ///
     /// let out_of_bounds = "0".repeat(300);
-    /// assert_eq!(LimitedString::from_utf8_truncate(out_of_bounds.as_bytes())?.as_str(),
-    ///            "0".repeat(LimitedString::SIZE as usize).as_str());
+    /// assert_eq!(CacheString::from_utf8(out_of_bounds.as_bytes())?.as_str(),
+    ///            "0".repeat(CacheString::SIZE as usize).as_str());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn from_utf8_truncate<B>(slice: B) -> Result<Self, FromUtf8Error>
+    fn from_utf8<B>(slice: B) -> Result<Self, FromUtf8Error>
     where
         B: AsRef<[u8]>,
     {
@@ -388,6 +415,33 @@ pub trait ArrayString:
         unimplemented!();
     }
 
+    /// Creates new string abstraction from byte slice assuming it's utf-8 and of a appropriate size.
+    ///
+    /// # Safety
+    ///
+    /// It's UB if `slice` is not a valid utf-8 string or `slice.len()` > [`SIZE`].
+    ///
+    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
+    ///
+    /// ```rust
+    /// # use arraystring::prelude::*;
+    /// let string = unsafe { CacheString::from_utf8_unchecked("My String") };
+    /// assert_eq!(string.as_str(), "My String");
+    ///
+    /// // Undefined behavior, don't do it
+    /// // let out_of_bounds = "0".repeat(300);
+    /// // let ub = unsafe { CacheString::from_utf8_unchecked(out_of_bounds)) };
+    /// ```
+    #[inline]
+    unsafe fn from_utf8_unchecked<B>(slice: B) -> Self
+    where
+        B: AsRef<[u8]>,
+    {
+        trace!("From utf8 unchecked");
+        debug_assert!(from_utf8(slice.as_ref()).is_ok());
+        Self::from_str_unchecked(from_utf8_unchecked(slice.as_ref()))
+    }
+
     /// Creates new string abstraction from `u16` slice, returning [`FromUtf16`] on invalid utf-16 data or [`OutOfBounds`] if bigger than [`SIZE`]
     ///
     /// [`FromUtf16`]: ../enum.Error.html#FromUtf16
@@ -398,19 +452,19 @@ pub trait ArrayString:
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
-    /// let string = LimitedString::from_utf16_truncate(music)?;
+    /// let string = CacheString::try_from_utf16(music)?;
     /// assert_eq!(string.as_str(), "𝄞music");
     ///
     /// let invalid_utf16 = [0xD834, 0xDD1E, 0x006d, 0x0075, 0xD800, 0x0069, 0x0063];
-    /// assert_eq!(LimitedString::from_utf16(invalid_utf16), Err(Error::FromUtf16));
+    /// assert_eq!(CacheString::try_from_utf16(invalid_utf16), Err(Error::FromUtf16));
     ///
     /// let out_of_bounds: Vec<_> = (0..300).map(|_| 0).collect();
-    /// assert_eq!(LimitedString::from_utf16(out_of_bounds), Err(Error::OutOfBounds));
+    /// assert_eq!(CacheString::try_from_utf16(out_of_bounds), Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn from_utf16<B>(slice: B) -> Result<Self, Error>
+    fn try_from_utf16<B>(slice: B) -> Result<Self, Error>
     where
         B: AsRef<[u16]>,
     {
@@ -418,12 +472,12 @@ pub trait ArrayString:
         let mut out = Self::default();
         decode_utf16(slice.as_ref().iter().cloned())
             .map(|c| c.map_err(|_| Error::FromUtf16))
-            .map(|c| c.and_then(|c| Ok(out.push(c)?)))
+            .map(|c| c.and_then(|c| Ok(out.try_push(c)?)))
             .collect::<Result<(), _>>()?;
         Ok(out)
     }
 
-    /// Creates new string abstraction from u16 slice, returning [`FromUtf16Error`] on invalid utf-16 data, truncating if bigger than [`SIZE`].
+    /// Creates new string abstraction from `u16` slice, returning [`FromUtf16Error`] on invalid utf-16 data, truncating if bigger than [`SIZE`].
     ///
     /// [`FromUtf16Error`]: ../struct.FromUtf16Error.html
     /// [`SIZE`]: ./trait.ArrayString.html#SIZE
@@ -432,20 +486,20 @@ pub trait ArrayString:
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
-    /// let string = LimitedString::from_utf16_truncate(music)?;
+    /// let string = CacheString::from_utf16(music)?;
     /// assert_eq!(string.as_str(), "𝄞music");
     ///
     /// let invalid_utf16 = [0xD834, 0xDD1E, 0x006d, 0x0075, 0xD800, 0x0069, 0x0063];
-    /// assert_eq!(LimitedString::from_utf16_truncate(invalid_utf16), Err(FromUtf16Error));
+    /// assert_eq!(CacheString::from_utf16(invalid_utf16), Err(FromUtf16Error));
     ///
     /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
-    /// assert_eq!(LimitedString::from_utf16_truncate(out_of_bounds)?.as_str(),
-    ///            "\0".repeat(LimitedString::SIZE as usize).as_str());
+    /// assert_eq!(CacheString::from_utf16(out_of_bounds)?.as_str(),
+    ///            "\0".repeat(CacheString::SIZE as usize).as_str());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn from_utf16_truncate<B>(slice: B) -> Result<Self, FromUtf16Error>
+    fn from_utf16<B>(slice: B) -> Result<Self, FromUtf16Error>
     where
         B: AsRef<[u16]>,
     {
@@ -453,7 +507,7 @@ pub trait ArrayString:
         let mut out = Self::default();
         decode_utf16(slice.as_ref().iter().cloned())
             .map(|c| c.map_err(|_| FromUtf16Error))
-            .map(|c| c.map(|c| out.push(c).unwrap_or(())))
+            .map(|c| c.map(|c| out.try_push(c).unwrap_or(())))
             .collect::<Result<(), _>>()?;
         Ok(out)
     }
@@ -466,15 +520,15 @@ pub trait ArrayString:
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
-    /// let string = LimitedString::from_utf16_truncate(music)?;
+    /// let string = CacheString::from_utf16_lossy(music);
     /// assert_eq!(string.as_str(), "𝄞music");
     ///
     /// let invalid_utf16 = [0xD834, 0xDD1E, 0x006d, 0x0075, 0xD800, 0x0069, 0x0063];
-    /// assert_eq!(LimitedString::from_utf16_lossy(invalid_utf16).as_str(), "𝄞mu\u{FFFD}ic");
+    /// assert_eq!(CacheString::from_utf16_lossy(invalid_utf16).as_str(), "𝄞mu\u{FFFD}ic");
     ///
     /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
-    /// assert_eq!(LimitedString::from_utf16_lossy(&out_of_bounds).as_str(),
-    ///            "\0".repeat(LimitedString::SIZE as usize).as_str());
+    /// assert_eq!(CacheString::from_utf16_lossy(&out_of_bounds).as_str(),
+    ///            "\0".repeat(CacheString::SIZE as usize).as_str());
     /// # Ok(())
     /// # }
     /// ```
@@ -486,45 +540,17 @@ pub trait ArrayString:
         debug!("From utf16 lossy: {:?}", slice.as_ref());
         let mut out = Self::default();
         let _ = decode_utf16(slice.as_ref().iter().cloned())
-            .map(|c| out.push(c.unwrap_or(REPLACEMENT_CHARACTER)))
+            .map(|c| out.try_push(c.unwrap_or(REPLACEMENT_CHARACTER)))
             .collect::<Result<(), _>>();
         out
-    }
-
-    /// Creates new string abstraction from byte slice assuming it's utf-8 and of a appropriate size.
-    ///
-    /// # Safety
-    ///
-    /// It's UB if `slice` is not a valid utf-8 string or `slice.len()` > [`SIZE`].
-    ///
-    /// [`SIZE`]: ./trait.ArrayString.html#SIZE
-    ///
-    /// ```rust
-    /// # use arraystring::prelude::*;
-    /// let string = unsafe { LimitedString::from_utf8_unchecked("My String") };
-    /// assert_eq!(string.as_str(), "My String");
-    ///
-    /// // Undefined behavior, don't do it
-    /// // let out_of_bounds = "0".repeat(300);
-    /// // let ub = unsafe { LimitedString::from_utf8_unchecked(out_of_bounds)) };
-    /// ```
-    #[inline]
-    unsafe fn from_utf8_unchecked<B>(slice: B) -> Self
-    where
-        B: AsRef<[u8]>,
-    {
-        trace!("From utf8 unchecked");
-        debug_assert!(from_utf8(slice.as_ref()).is_ok());
-        Self::from_str_unchecked(from_utf8_unchecked(slice.as_ref()))
     }
 
     /// Extracts a string slice containing the entire string abstraction
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let s = LimitedString::from_str("My String")?;
+    /// let s = CacheString::try_from_str("My String")?;
     /// assert_eq!(s.as_str(), "My String");
     /// # Ok(())
     /// # }
@@ -538,10 +564,9 @@ pub trait ArrayString:
     /// Extracts a mutable string slice containing the entire string abstraction
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("My String")?;
+    /// let mut s = CacheString::try_from_str("My String")?;
     /// assert_eq!(s.as_str_mut(), "My String");
     /// # Ok(())
     /// # }
@@ -555,10 +580,9 @@ pub trait ArrayString:
     /// Extracts a byte slice containing the entire string abstraction
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let s = LimitedString::from_str("My String")?;
+    /// let s = CacheString::try_from_str("My String")?;
     /// assert_eq!(s.as_bytes(), "My String".as_bytes());
     /// # Ok(())
     /// # }
@@ -572,10 +596,9 @@ pub trait ArrayString:
     /// Extracts a mutable string slice containing the entire string abstraction
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("My String")?;
+    /// let mut s = CacheString::try_from_str("My String")?;
     /// assert_eq!(unsafe { s.as_bytes_mut() }, "My String".as_bytes());
     /// # Ok(())
     /// # }
@@ -592,19 +615,18 @@ pub trait ArrayString:
     /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("My String")?;
-    /// s.push_str(" My other String")?;
+    /// let mut s = CacheString::try_from_str("My String")?;
+    /// s.try_push_str(" My other String")?;
     /// assert_eq!(s.as_str(), "My String My other String");
     ///
-    /// assert!(s.push_str("0".repeat(LimitedString::SIZE as usize)).is_err());
+    /// assert!(s.try_push_str("0".repeat(CacheString::SIZE as usize)).is_err());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn push_str<S>(&mut self, string: S) -> Result<(), OutOfBoundsError>
+    fn try_push_str<S>(&mut self, string: S) -> Result<(), OutOfBoundsError>
     where
         S: AsRef<str>,
     {
@@ -618,21 +640,20 @@ pub trait ArrayString:
     /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("My String")?;
-    /// s.push_str_truncate(" My other String");
+    /// let mut s = CacheString::try_from_str("My String")?;
+    /// s.push_str(" My other String");
     /// assert_eq!(s.as_str(), "My String My other String");
     ///
     /// s.clear();
-    /// s.push_str_truncate("0".repeat(LimitedString::SIZE as usize + 10));
-    /// assert_eq!(s.as_str(), "0".repeat(LimitedString::SIZE as usize).as_str());
+    /// s.push_str("0".repeat(CacheString::SIZE as usize + 10));
+    /// assert_eq!(s.as_str(), "0".repeat(CacheString::SIZE as usize).as_str());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn push_str_truncate<S>(&mut self, string: S)
+    fn push_str<S>(&mut self, string: S)
     where
         S: AsRef<str>,
     {
@@ -650,16 +671,15 @@ pub trait ArrayString:
     /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("My String")?;
+    /// let mut s = CacheString::try_from_str("My String")?;
     /// unsafe { s.push_str_unchecked(" My other String") };
     /// assert_eq!(s.as_str(), "My String My other String");
     ///
     /// // Undefined behavior, don't do it
-    /// // let mut undefined_behavior = LimitedString::default();
-    /// // undefined_behavior.push_str_unchecked("0".repeat(LimitedString::SIZE as usize + 10));
+    /// // let mut undefined_behavior = CacheString::default();
+    /// // undefined_behavior.push_str_unchecked("0".repeat(CacheString::SIZE as usize + 10));
     /// # Ok(())
     /// # }
     /// ```
@@ -685,20 +705,19 @@ pub trait ArrayString:
     /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("My String")?;
-    /// s.push('!')?;
+    /// let mut s = CacheString::try_from_str("My String")?;
+    /// s.try_push('!')?;
     /// assert_eq!(s.as_str(), "My String!");
     ///
-    /// let mut s = LimitedString::from_str(&"0".repeat(LimitedString::SIZE as usize))?;
-    /// assert!(s.push('!').is_err());
+    /// let mut s = CacheString::try_from_str(&"0".repeat(CacheString::SIZE as usize))?;
+    /// assert!(s.try_push('!').is_err());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn push(&mut self, character: char) -> Result<(), OutOfBoundsError> {
+    fn try_push(&mut self, character: char) -> Result<(), OutOfBoundsError> {
         trace!("Push: {}", character);
         out_of_bounds(self.len() + character.len_utf8() as Size, Self::SIZE)?;
         Ok(unsafe { self.push_unchecked(character) })
@@ -713,14 +732,13 @@ pub trait ArrayString:
     /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("My String")?;
+    /// let mut s = CacheString::try_from_str("My String")?;
     /// unsafe { s.push_unchecked('!') };
     /// assert_eq!(s.as_str(), "My String!");
     ///
-    /// // s = LimitedString::from_str(&"0".repeat(LimitedString::SIZE as usize))?;
+    /// // s = CacheString::try_from_str(&"0".repeat(CacheString::SIZE as usize))?;
     /// // Undefined behavior, don't do it
     /// // s.push_unchecked('!');
     /// # Ok(())
@@ -737,10 +755,9 @@ pub trait ArrayString:
     /// Truncates `ArrayString` to specified size (if smaller than current size and a valid utf-8 char index).
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("My String")?;
+    /// let mut s = CacheString::try_from_str("My String")?;
     /// s.truncate(5)?;
     /// assert_eq!(s.as_str(), "My St");
     ///
@@ -749,7 +766,7 @@ pub trait ArrayString:
     /// assert_eq!(s.as_str(), "My St");
     ///
     /// // Index is not at a valid char
-    /// let mut s = LimitedString::from_str("🤔")?;
+    /// let mut s = CacheString::try_from_str("🤔")?;
     /// assert!(s.truncate(1).is_err());
     /// # Ok(())
     /// # }
@@ -764,10 +781,9 @@ pub trait ArrayString:
     /// Removes last character from `ArrayString`, if any.
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("A🤔")?;
+    /// let mut s = CacheString::try_from_str("A🤔")?;
     /// assert_eq!(s.pop(), Some('🤔'));
     /// assert_eq!(s.pop(), Some('A'));
     /// assert_eq!(s.pop(), None);
@@ -786,10 +802,9 @@ pub trait ArrayString:
     /// Removes spaces from the beggining and end of the string
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::prelude::*;
     /// # fn main() -> Result<(), OutOfBoundsError> {
-    /// let mut string = LimitedString::from_str("   to be trimmed     ")?;
+    /// let mut string = CacheString::try_from_str("   to be trimmed     ")?;
     /// string.trim();
     /// assert_eq!(string.as_str(), "to be trimmed");
     /// # Ok(())
@@ -823,10 +838,9 @@ pub trait ArrayString:
     /// Removes specified char from `ArrayString`
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("ABCD🤔")?;
+    /// let mut s = CacheString::try_from_str("ABCD🤔")?;
     /// assert_eq!(s.remove(10), Err(Error::OutOfBounds));
     /// assert_eq!(s.remove(6), Err(Error::FromUtf8));
     /// assert_eq!(s.remove(0), Ok('A'));
@@ -852,10 +866,9 @@ pub trait ArrayString:
     /// Retains only the characters specified by the predicate.
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("ABCD🤔")?;
+    /// let mut s = CacheString::try_from_str("ABCD🤔")?;
     /// s.retain(|c| c != '🤔');
     /// assert_eq!(s.as_str(), "ABCD");
     /// # Ok(())
@@ -877,23 +890,22 @@ pub trait ArrayString:
     /// [`FromUtf8`]: ../enum.Error.html#FromUtf8
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("ABCD🤔")?;
-    /// s.insert(1, 'A')?;
-    /// s.insert(2, 'B')?;
+    /// let mut s = CacheString::try_from_str("ABCD🤔")?;
+    /// s.try_insert(1, 'A')?;
+    /// s.try_insert(2, 'B')?;
     /// assert_eq!(s.as_str(), "AABBCD🤔");
-    /// assert_eq!(s.insert(20, 'C'), Err(Error::OutOfBounds));
-    /// assert_eq!(s.insert(8, 'D'), Err(Error::FromUtf8));
+    /// assert_eq!(s.try_insert(20, 'C'), Err(Error::OutOfBounds));
+    /// assert_eq!(s.try_insert(8, 'D'), Err(Error::FromUtf8));
     ///
-    /// let mut s = LimitedString::from_str(&"0".repeat(LimitedString::SIZE as usize))?;
-    /// assert_eq!(s.insert(0, 'C'), Err(Error::OutOfBounds));
+    /// let mut s = CacheString::try_from_str(&"0".repeat(CacheString::SIZE as usize))?;
+    /// assert_eq!(s.try_insert(0, 'C'), Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn insert(&mut self, idx: Size, ch: char) -> Result<(), Error> {
+    fn try_insert(&mut self, idx: Size, ch: char) -> Result<(), Error> {
         trace!("Insert {} to {}", ch, idx);
         out_of_bounds(idx, self.len())?;
         out_of_bounds(self.len() + ch.len_utf8() as Size, Self::SIZE)?;
@@ -913,10 +925,9 @@ pub trait ArrayString:
     /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("ABCD🤔")?;
+    /// let mut s = CacheString::try_from_str("ABCD🤔")?;
     /// unsafe { s.insert_unchecked(1, 'A') };
     /// unsafe { s.insert_unchecked(1, 'B') };
     /// assert_eq!(s.as_str(), "ABABCD🤔");
@@ -946,22 +957,21 @@ pub trait ArrayString:
     /// [`FromUtf8`]: ../enum.Error.html#FromUtf8
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("ABCD🤔")?;
-    /// s.insert_str(1, "AB")?;
-    /// s.insert_str(1, "BC")?;
-    /// assert_eq!(s.insert_str(1, "0".repeat(LimitedString::SIZE as usize)),
+    /// let mut s = CacheString::try_from_str("ABCD🤔")?;
+    /// s.try_insert_str(1, "AB")?;
+    /// s.try_insert_str(1, "BC")?;
+    /// assert_eq!(s.try_insert_str(1, "0".repeat(CacheString::SIZE as usize)),
     ///            Err(Error::OutOfBounds));
     /// assert_eq!(s.as_str(), "ABCABBCD🤔");
-    /// assert_eq!(s.insert_str(20, "C"), Err(Error::OutOfBounds));
-    /// assert_eq!(s.insert_str(10, "D"), Err(Error::FromUtf8));
+    /// assert_eq!(s.try_insert_str(20, "C"), Err(Error::OutOfBounds));
+    /// assert_eq!(s.try_insert_str(10, "D"), Err(Error::FromUtf8));
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn insert_str<S>(&mut self, idx: Size, s: S) -> Result<(), Error>
+    fn try_insert_str<S>(&mut self, idx: Size, s: S) -> Result<(), Error>
     where
         S: AsRef<str>,
     {
@@ -982,25 +992,24 @@ pub trait ArrayString:
     /// [`FromUtf8`]: ../enum.Error.html#FromUtf8
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("ABCD🤔")?;
-    /// s.insert_str_truncate(1, "AB")?;
-    /// s.insert_str_truncate(1, "BC")?;
+    /// let mut s = CacheString::try_from_str("ABCD🤔")?;
+    /// s.insert_str(1, "AB")?;
+    /// s.insert_str(1, "BC")?;
     /// assert_eq!(s.as_str(), "ABCABBCD🤔");
     ///
-    /// assert_eq!(s.insert_str_truncate(20, "C"), Err(Error::OutOfBounds));
-    /// assert_eq!(s.insert_str_truncate(10, "D"), Err(Error::FromUtf8));
+    /// assert_eq!(s.insert_str(20, "C"), Err(Error::OutOfBounds));
+    /// assert_eq!(s.insert_str(10, "D"), Err(Error::FromUtf8));
     ///
     /// s.clear();
-    /// s.insert_str_truncate(0, "0".repeat(LimitedString::SIZE as usize + 10))?;
-    /// assert_eq!(s.as_str(), "0".repeat(LimitedString::SIZE as usize).as_str());
+    /// s.insert_str(0, "0".repeat(CacheString::SIZE as usize + 10))?;
+    /// assert_eq!(s.as_str(), "0".repeat(CacheString::SIZE as usize).as_str());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn insert_str_truncate<S>(&mut self, idx: Size, string: S) -> Result<(), Error>
+    fn insert_str<S>(&mut self, idx: Size, string: S) -> Result<(), Error>
     where
         S: AsRef<str>,
     {
@@ -1023,10 +1032,9 @@ pub trait ArrayString:
     /// [`SIZE`]: ./trait.ArrayString.html#SIZE
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("ABCD🤔")?;
+    /// let mut s = CacheString::try_from_str("ABCD🤔")?;
     /// unsafe { s.insert_str_unchecked(1, "AB") };
     /// unsafe { s.insert_str_unchecked(1, "BC") };
     /// assert_eq!(s.as_str(), "ABCABBCD🤔");
@@ -1034,7 +1042,7 @@ pub trait ArrayString:
     /// // Undefined behavior, don't do it
     /// // unsafe { s.insert_str_unchecked(20, "C") };
     /// // unsafe { s.insert_str_unchecked(10, "D") };
-    /// // unsafe { s.insert_str_unchecked(1, "0".repeat(LimitedString::SIZE as usize)) };
+    /// // unsafe { s.insert_str_unchecked(1, "0".repeat(CacheString::SIZE as usize)) };
     /// # Ok(())
     /// # }
     /// ```
@@ -1057,12 +1065,11 @@ pub trait ArrayString:
     /// Returns `ArrayString` length.
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("ABCD")?;
+    /// let mut s = CacheString::try_from_str("ABCD")?;
     /// assert_eq!(s.len(), 4);
-    /// s.push('🤔')?;
+    /// s.try_push('🤔')?;
     /// // Emojis use 4 bytes (this is the default rust behavior, length of u8)
     /// assert_eq!(s.len(), 8);
     /// # Ok(())
@@ -1077,10 +1084,9 @@ pub trait ArrayString:
     /// Checks if `ArrayString` is empty.
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("ABCD")?;
+    /// let mut s = CacheString::try_from_str("ABCD")?;
     /// assert!(!s.is_empty());
     /// s.clear();
     /// assert!(s.is_empty());
@@ -1101,10 +1107,9 @@ pub trait ArrayString:
     /// [`FromUtf8`]: ../enum.Error.html#FromUtf8
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("AB🤔CD")?;
+    /// let mut s = CacheString::try_from_str("AB🤔CD")?;
     /// assert_eq!(s.split_off(6)?.as_str(), "CD");
     /// assert_eq!(s.as_str(), "AB🤔");
     /// assert_eq!(s.split_off(20), Err(Error::OutOfBounds));
@@ -1125,10 +1130,9 @@ pub trait ArrayString:
     /// Empties `LimitedSize`
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("ABCD")?;
+    /// let mut s = CacheString::try_from_str("ABCD")?;
     /// assert!(!s.is_empty());
     /// s.clear();
     /// assert!(s.is_empty());
@@ -1146,10 +1150,9 @@ pub trait ArrayString:
     /// Note: The element range is removed even if the iterator is not consumed until the end.
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("ABCD🤔")?;
+    /// let mut s = CacheString::try_from_str("ABCD🤔")?;
     /// assert_eq!(s.drain(..3)?.collect::<Vec<_>>(), vec!['A', 'B', 'C']);
     /// assert_eq!(s.as_str(), "D🤔");
     ///
@@ -1193,16 +1196,15 @@ pub trait ArrayString:
     /// Removes the specified range of the string abstraction, and replaces it with the given string. The given string doesn't need to have the same length as the range.
     ///
     /// ```rust
-    /// # use std::str::FromStr;
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = LimitedString::from_str("ABCD🤔")?;
+    /// let mut s = CacheString::try_from_str("ABCD🤔")?;
     /// s.replace_range(2..4, "EFGHI")?;
     /// assert_eq!(s.as_str(), "ABEFGHI🤔");
     ///
     /// assert_eq!(s.replace_range(9.., "J"), Err(Error::FromUtf8));
     /// assert_eq!(s.replace_range(..90, "K"), Err(Error::OutOfBounds));
-    /// assert_eq!(s.replace_range(0..1, "0".repeat(LimitedString::SIZE as usize)),
+    /// assert_eq!(s.replace_range(0..1, "0".repeat(CacheString::SIZE as usize)),
     ///            Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }

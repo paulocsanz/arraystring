@@ -11,7 +11,7 @@ pub(crate) unsafe fn never(s: &str) -> ! {
     panic!("{}", s);
 
     #[cfg(not(debug_assertions))]
-    ::std::hint::unreachable_unchecked()
+    ::core::hint::unreachable_unchecked()
 }
 
 /// Uninitialized safe version of `https://github.com/rust-lang/rust/blob/master/src/libcore/char/methods.rs#L447`
@@ -90,45 +90,16 @@ pub(crate) fn truncate_str(slice: &str, size: Size) -> &str {
     ch.as_str()
 }
 
-/// Creates new [`ArrayString`] from string slice if length is lower or equal to [`SIZE`], otherwise returns an error.
-///
-/// [`ArrayString`]: ../array/trait.ArrayString.html
-/// [`SIZE`]: ../array/trait.ArrayString.html#SIZE
-/// ```rust
-/// # use arraystring::{error::Error, prelude::*, utils::from_str};
-/// # fn main() -> Result<(), Error> {
-/// let string: LimitedString = from_str("My String")?;
-/// assert_eq!(string.as_str(), "My String");
-///
-/// assert_eq!(from_str::<LimitedString, _>("")?.as_str(), "");
-///
-/// let out_of_bounds = "0".repeat(LimitedString::SIZE as usize + 1);
-/// assert!(from_str::<LimitedString, _>(out_of_bounds).is_err());
-/// # Ok(())
-/// # }
-/// ```
-pub fn from_str<H, S>(s: S) -> Result<H, OutOfBoundsError>
-where
-    H: ArrayString,
-    S: AsRef<str>,
-{
-    trace!("FromStr: {:?}", s.as_ref());
-    out_of_bounds(s.as_ref().len() as Size, H::SIZE)?;
-    unsafe { Ok(H::from_str_unchecked(s.as_ref())) }
-}
-
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "logs")]
     extern crate env_logger;
 
     use super::*;
-    use std::str::FromStr;
-    use LimitedString;
 
-    #[cfg(feature = "logs")]
+    #[cfg(all(feature = "logs", feature = "std"))]
     fn setup_logger() {
-        use self::std::sync::Once;
+        use std::sync::Once;
         static INITIALIZE: Once = Once::new();
         INITIALIZE.call_once(env_logger::init);
     }
@@ -139,18 +110,18 @@ mod tests {
     #[test]
     fn shift() {
         setup_logger();
-        let mut ls = LimitedString::from_str("abcdefg").unwrap();
+        let mut ls = CacheString::try_from_str("abcdefg").unwrap();
         unsafe { shift_right_unchecked(&mut ls, 0, 1) };
         ls.0[0] = 'a' as u8;
         ls.1 += 1;
         assert_eq!(ls.as_str(), "aabcdefg");
 
-        let mut ls = LimitedString::from_str("abcdefg").unwrap();
+        let mut ls = CacheString::try_from_str("abcdefg").unwrap();
         unsafe { shift_left_unchecked(&mut ls, 1, 0) };
         ls.1 -= 1;
         assert_eq!(ls.as_str(), "bcdefg");
 
-        let mut ls = LimitedString::from_str("abcdefg").unwrap();
+        let mut ls = CacheString::try_from_str("abcdefg").unwrap();
         unsafe { shift_right_unchecked(&mut ls, 0, 0) };
         assert_eq!(ls.as_str(), "abcdefg");
         unsafe { shift_left_unchecked(&mut ls, 0, 0) };

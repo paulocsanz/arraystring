@@ -4,11 +4,11 @@ extern crate arraystring;
 extern crate env_logger;
 
 use arraystring::prelude::*;
-use std::{fmt::Debug, iter::FromIterator, str::FromStr};
+use std::{fmt::Debug, iter::FromIterator, panic::RefUnwindSafe};
 
-macro_rules! panic_wrap {
+macro_rules! unwind {
     ($x: expr) => {{
-        ::std::panic::catch_unwind(|| $x)
+        ::std::panic::catch_unwind(|| $x).map_err(|_| ())
     }};
 }
 
@@ -35,17 +35,17 @@ fn assert<F, G, T, U>(f: F, g: G)
 where
     T: Debug + PartialEq + AsRef<str>,
     U: Debug + PartialEq + AsRef<str>,
-    F: Fn(&'static str) -> T,
-    G: Fn(&'static str) -> U,
+    F: Fn(&'static str) -> T + RefUnwindSafe,
+    G: Fn(&'static str) -> U + RefUnwindSafe,
 {
     for string in STRINGS.into_iter() {
-        assert_eq!(f(string).as_ref(), g(string).as_ref());
+        assert_eq!(unwind!(f(string)).map(|s| s.as_ref().to_owned()), unwind!(g(string)).map(|s| s.as_ref().to_owned()));
     }
 }
 
 #[test]
-fn from_str() {
-    assert(String::from, |s| MaxString::from_str(s).unwrap());
+fn try_from_str() {
+    assert(String::from, |s| MaxString::try_from_str(s).unwrap());
 }
 
 #[test]
@@ -61,18 +61,18 @@ fn from_str_unchecked() {
 }
 
 #[test]
-fn from_chars() {
+fn try_from_chars() {
     assert(
         |s| String::from_iter(s.chars()),
-        |s| MaxString::from_chars(s.chars()).unwrap(),
+        |s| MaxString::try_from_chars(s.chars()).unwrap(),
     );
 }
 
 #[test]
-fn from_chars_truncate() {
+fn from_chars() {
     assert(
         |s| String::from_iter(s.chars()),
-        |s| MaxString::from_chars_truncate(s.chars()),
+        |s| MaxString::from_chars(s.chars()),
     );
 }
 
@@ -85,18 +85,18 @@ fn from_chars_unchecked() {
 }
 
 #[test]
-fn from_iter() {
+fn try_from_iter() {
     assert(
         |s| String::from_iter(vec![s]),
-        |s| MaxString::from_iterator(vec![s]).unwrap(),
+        |s| MaxString::try_from_iterator(vec![s]).unwrap(),
     );
 }
 
 #[test]
-fn from_iter_truncate() {
+fn from_iter() {
     assert(
         |s| String::from_iter(vec![s]),
-        |s| MaxString::from_iterator_truncate(vec![s]),
+        |s| MaxString::from_iterator(vec![s]),
     );
 }
 
@@ -136,27 +136,27 @@ fn from_utf8_unchecked() {
 }
 
 #[test]
+fn try_push_str() {
+    assert(|s| {
+        let mut st = String::from(s);
+        st.push_str(s);
+        st
+    }, |s| {
+        let mut ms = MaxString::try_from_str(s).unwrap();
+        ms.try_push_str(s).unwrap();
+        ms
+    });
+}
+
+#[test]
 fn push_str() {
     assert(|s| {
         let mut st = String::from(s);
         st.push_str(s);
         st
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
-        ms.push_str(s).unwrap();
-        ms
-    });
-}
-
-#[test]
-fn push_str_truncate() {
-    assert(|s| {
-        let mut st = String::from(s);
-        st.push_str(s);
-        st
-    }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
-        ms.push_str_truncate(s);
+        let mut ms = MaxString::try_from_str(s).unwrap();
+        ms.push_str(s);
         ms
     });
 }
@@ -165,7 +165,7 @@ fn push_str_truncate() {
 fn add_str() {
     assert(
         |s| String::from(s) + s,
-        |s| MaxString::from_str(s).unwrap() + s
+        |s| MaxString::try_from_str(s).unwrap() + s
     );
 }
 
@@ -174,9 +174,9 @@ fn push_str_unchecked() {
     assert(|s| {
         let mut st = String::from(s);
         st.push_str(s);
-        s
+        st
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         unsafe { ms.push_str_unchecked(s) };
         ms
     });
@@ -189,8 +189,8 @@ fn push() {
         s.push('🤔');
         s
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
-        ms.push('🤔').unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
+        ms.try_push('🤔').unwrap();
         ms
     });
 }
@@ -202,7 +202,7 @@ fn push_unchecked() {
         s.push('🤔');
         s
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         unsafe { ms.push_unchecked('🤔') };
         ms
     });
@@ -215,7 +215,7 @@ fn truncate() {
         s.truncate(10);
         s
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         ms.truncate(10).unwrap();
         ms
     });
@@ -228,7 +228,7 @@ fn pop() {
         s.pop();
         s
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         ms.pop();
         ms
     });
@@ -237,7 +237,7 @@ fn pop() {
         let mut s = String::from(s);
         s.pop().unwrap_or('0').to_string()
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         ms.pop().unwrap_or('0').to_string()
     });
 }
@@ -249,7 +249,7 @@ fn remove() {
         s.remove(2);
         s
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         ms.remove(2).unwrap();
         ms
     });
@@ -258,7 +258,7 @@ fn remove() {
         let mut s = String::from(s);
         s.remove(2).to_string()
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         ms.remove(2).unwrap().to_string()
     });
 }
@@ -270,21 +270,21 @@ fn retain() {
         s.retain(|c| c == 'a');
         s
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         ms.retain(|c| c == 'a');
         ms
     });
 }
 
 #[test]
-fn insert() {
+fn try_insert() {
     assert(|s| {
         let mut s = String::from(s);
         s.insert(0, 'a');
         s
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
-        ms.insert(0, 'a').unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
+        ms.try_insert(0, 'a').unwrap();
         ms
     });
 }
@@ -296,8 +296,21 @@ fn insert_unchecked() {
         s.insert(0, 'a');
         s
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         unsafe { ms.insert_unchecked(0, 'a') };
+        ms
+    });
+}
+
+#[test]
+fn try_insert_str() {
+    assert(|s| {
+        let mut st = String::from(s);
+        st.insert_str(0, s);
+        st
+    }, |s| {
+        let mut ms = MaxString::try_from_str(s).unwrap();
+        ms.try_insert_str(0, s).unwrap();
         ms
     });
 }
@@ -309,21 +322,8 @@ fn insert_str() {
         st.insert_str(0, s);
         st
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         ms.insert_str(0, s).unwrap();
-        ms
-    });
-}
-
-#[test]
-fn insert_str_truncate() {
-    assert(|s| {
-        let mut st = String::from(s);
-        st.insert_str(0, s);
-        st
-    }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
-        ms.insert_str_truncate(0, s).unwrap();
         ms
     });
 }
@@ -335,7 +335,7 @@ fn insert_str_unchecked() {
         st.insert_str(0, s);
         st
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         unsafe { ms.insert_str_unchecked(0, s) };
         ms
     });
@@ -348,7 +348,7 @@ fn clear() {
         st.clear();
         st
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         ms.clear();
         ms
     });
@@ -361,7 +361,7 @@ fn split_off() {
         let _ = st.split_off(3);
         st
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         let _ = ms.split_off(3).unwrap();
         ms
     });
@@ -370,7 +370,7 @@ fn split_off() {
         let mut st = String::from(s);
         st.split_off(3)
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         ms.split_off(3).unwrap()
     });
 }
@@ -382,7 +382,7 @@ fn drain() {
         let _ = st.drain(..5);
         st
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         let _ = ms.drain(..5).unwrap();
         ms
     });
@@ -392,7 +392,7 @@ fn drain() {
         let s: String = st.drain(..5).collect();
         s
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         ms.drain(..5).unwrap().collect::<String>()
     });
 }
@@ -404,7 +404,7 @@ fn replace_range() {
         st.replace_range(..5, s);
         st
     }, |s| {
-        let mut ms = MaxString::from_str(s).unwrap();
+        let mut ms = MaxString::try_from_str(s).unwrap();
         ms.replace_range(..5, s).unwrap();
         ms
     });
@@ -417,7 +417,7 @@ fn string_parity() {
     for string in STRINGS.into_iter() {
         let string = *string;
         let mut s = String::from(string);
-        let mut ms = MaxString::from_str(string).unwrap();
+        let mut ms = MaxString::try_from_str(string).unwrap();
 
         assert_eq!(s.len(), ms.len() as usize);
         assert_eq!(s.is_empty(), ms.is_empty());
