@@ -36,6 +36,10 @@
 #[macro_use]
 extern crate log;
 
+#[cfg(feature = "diesel-traits")]
+#[doc(hidden)]
+pub extern crate diesel;
+
 #[cfg(feature = "serde-traits")]
 #[doc(hidden)]
 pub extern crate serde;

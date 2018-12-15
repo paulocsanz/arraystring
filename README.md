@@ -36,7 +36,7 @@ impl_string(struct Username(20));
 
 - `std` enabled by default, enables `std` compatibility (remove it to be `#[no_std]` compatible)
 - `serde-traits` enables serde traits integration (`Serialize`/`Deserialize`)
-- `diesel-traits` (being implemented)
+- `diesel-traits` enables diesel traits integration (opperates like `String`)
 - `logs` enables internal logging (you probably don't need it)
 - `nightly` enables benchmarks (we will move to criterion eventually)
 
@@ -67,7 +67,6 @@ fn main() -> Result<(), Error> {
 
 ## Roadmap
 
-- Diesel integration
 - Never panics (panic branches are removed at compile time)
 
 ## Licenses

@@ -20,6 +20,7 @@ macro_rules! impl_string {
     ($(#[$attr:meta])* pub struct $name: ident ($size: expr)) => {
         /// Customized stack based string
         #[derive(Copy, Clone)]
+        #[cfg_attr(features = "diesel-traits", derive(FromSqlRow, AsExpression, SqlType))]
         #[allow(trivial_numeric_casts)]
         $(#[$attr:meta])*
         pub struct $name([u8; $size as usize], $crate::Size);
@@ -29,6 +30,7 @@ macro_rules! impl_string {
         /// Customized stack based string
         #[derive(Copy, Clone)]
         #[allow(trivial_numeric_casts)]
+        #[cfg_attr(features = "diesel-traits", derive(FromSqlRow, AsExpression, SqlType))]
         $(#[$attr:meta])*
         struct $name([u8; $size as usize], $crate::Size);
         __inner_impl_string!($name, $size);
@@ -110,13 +112,13 @@ macro_rules! __inner_impl_string {
         /// ```rust
         /// # use arraystring::{error::Error, prelude::*};
         /// # fn main() -> Result<(), Error> {
-        /// let string = CacheString::try_from_str("My String")?;
+        /// let string = CacheString::from_str("My String")?;
         /// assert_eq!(string.as_str(), "My String");
         ///
-        /// assert_eq!(CacheString::try_from_str("")?.as_str(), "");
+        /// assert_eq!(CacheString::from_str("")?.as_str(), "");
         ///
         /// let out_of_bounds = "0".repeat(CacheString::SIZE as usize + 1);
-        /// assert!(CacheString::try_from_str(&out_of_bounds).is_err());
+        /// assert!(CacheString::from_str(&out_of_bounds).is_err());
         /// # Ok(())
         /// # }
         /// ```
@@ -379,6 +381,39 @@ macro_rules! __inner_impl_string {
                 }
 
                 des.deserialize_str(InnerVisitor($crate::core::marker::PhantomData))
+            }
+        }
+
+        #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
+        #[cfg(feature = "diesel-traits")]
+        impl $crate::diesel::expression::Expression for $name {
+            type SqlType = $crate::diesel::sql_types::VarChar;
+        }
+
+
+        #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
+        #[cfg(feature = "diesel-traits")]
+        impl<ST, DB> $crate::diesel::deserialize::FromSql<ST, DB> for $name
+        where
+            DB: $crate::diesel::backend::Backend,
+            *const str: $crate::diesel::deserialize::FromSql<ST, DB>
+        {
+            fn from_sql(bytes: Option<&DB::RawValue>) -> $crate::diesel::deserialize::Result<Self> {
+                let ptr = <*const str as $crate::diesel::deserialize::FromSql<ST, DB>>::from_sql(bytes)?;
+                // We know that the pointer impl will never return null
+                let string = unsafe { &*ptr };
+                Ok(Self::from_str_truncate(string))
+            }
+        }
+
+        #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
+        #[cfg(feature = "diesel-traits")]
+        impl<DB> $crate::diesel::serialize::ToSql<$crate::diesel::sql_types::VarChar, DB> for $name
+        where
+            DB: $crate::diesel::backend::Backend,
+        {
+            fn to_sql<W: $crate::core::io::Write>(&self, out: &mut $crate::diesel::serialize::Output<W, DB>) -> $crate::diesel::serialize::Result {
+                <str as $crate::diesel::serialize::ToSql<$crate::diesel::sql_types::VarChar, DB>>::to_sql(self.as_str(), out)
             }
         }
     };
