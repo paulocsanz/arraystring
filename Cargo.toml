@@ -1,12 +1,13 @@
 [package]
 name = "arraystring"
 version = "0.1.0"
+repository = "https://github.com/paulocsanz/arraystring"
+description = "Array based string with customizable maximum size"
 authors = ["Paulo Cabral Sanz <paulosanz@poli.ufrj.br>"]
 license = "MIT OR Apache-2.0"
-
-[profile.release]
-panic = 'abort'
-lto = true
+readme = "README.md"
+keywords = ["string", "array", "stack", "inline", "no_std"]
+categories = ["data-structures"]
 
 [lib]
 name = "arraystring"
@@ -28,4 +29,4 @@ diesel-traits = ["diesel"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "docs_rs_workaraound"]
-features = ["logs", "serde-traits"]
+features = ["logs", "serde-traits", "diesel-traits", "std"]
