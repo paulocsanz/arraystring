@@ -39,66 +39,66 @@ impl<'a> From<EncodeUtf16<'a>> for Error {
 
 /// Error caused by invalid UTF-8 data
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
-pub struct FromUtf8Error;
+pub struct FromUtf8;
 
-impl From<Utf8Error> for FromUtf8Error {
+impl From<Utf8Error> for FromUtf8 {
     fn from(_: Utf8Error) -> Self {
-        FromUtf8Error
+        FromUtf8
     }
 }
 
-impl Display for FromUtf8Error {
+impl Display for FromUtf8 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "FromUtf8Error")
+        write!(f, "FromUtf8")
     }
 }
 
-impl From<FromUtf8Error> for Error {
+impl From<FromUtf8> for Error {
     #[inline]
-    fn from(_: FromUtf8Error) -> Self {
-        trace!("From FromUtf8Error");
+    fn from(_: FromUtf8) -> Self {
+        trace!("From FromUtf8");
         Error::FromUtf8
     }
 }
 
 /// Error caused by invalid UTF-16 data
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
-pub struct FromUtf16Error;
+pub struct FromUtf16;
 
-impl<'a> From<EncodeUtf16<'a>> for FromUtf16Error {
+impl<'a> From<EncodeUtf16<'a>> for FromUtf16 {
     fn from(_: EncodeUtf16) -> Self {
-        FromUtf16Error
+        FromUtf16
     }
 }
 
-impl Display for FromUtf16Error {
+impl Display for FromUtf16 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "FromUtf16Error")
+        write!(f, "FromUtf16")
     }
 }
 
-impl From<FromUtf16Error> for Error {
+impl From<FromUtf16> for Error {
     #[inline]
-    fn from(_: FromUtf16Error) -> Self {
-        trace!("From FromUtf16Error");
+    fn from(_: FromUtf16) -> Self {
+        trace!("From FromUtf16");
         Error::FromUtf16
     }
 }
 
 /// Error caused by out of bounds access to `LimitedString`
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
-pub struct OutOfBoundsError;
+pub struct OutOfBounds;
 
-impl Display for OutOfBoundsError {
+impl Display for OutOfBounds {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "OutOfBoundsError")
+        write!(f, "OutOfBounds")
     }
 }
 
-impl From<OutOfBoundsError> for Error {
+impl From<OutOfBounds> for Error {
     #[inline]
-    fn from(_: OutOfBoundsError) -> Self {
-        trace!("From OutOfBoundsError");
+    fn from(_: OutOfBounds) -> Self {
+        trace!("From OutOfBounds");
         Error::OutOfBounds
     }
 }

@@ -1,51 +1,28 @@
 extern crate arraystring;
 
-#[cfg(feature = "logs")]
-extern crate env_logger;
-
 use arraystring::prelude::*;
-use std::{fmt::Debug, iter::FromIterator, panic::RefUnwindSafe};
+use std::{fmt::Debug, iter::FromIterator, panic::RefUnwindSafe, panic::catch_unwind, panic::AssertUnwindSafe};
 
-macro_rules! unwind {
-    ($x: expr) => {{
-        ::std::panic::catch_unwind(|| $x).map_err(|_| ())
-    }};
+fn unwind<R, F>(func: F) -> Result<R, ()>
+where
+    F: FnOnce() -> R
+{
+    catch_unwind(AssertUnwindSafe(func)).map_err(|_| ())
 }
 
-static STRINGS: [&'static str; 6] = [
+static STRINGS: [&'static str; 7] = [
     "🤔🤔🤔🤔🤔🤔🤔",
-    "ABCDEFGHIJKLMNOPQRSASHUDAHSDIUASH",
-    "iejueueheuheuheu",
+    "ABCDEFGHIJKLMNOPQRSASHUDAHSDIUASH         ",
+    "iejueueheuheuheu        0",
     "",
     "1",
-    "899saH(8hadhaiuhsidnkandu",
+    "   ",
+    "        899saH(8hadhaiuhsidnkandu",
 ];
-
-#[cfg(feature = "logs")]
-fn setup_logger() {
-    use self::std::sync::Once;
-    static INITIALIZE: Once = Once::new();
-    INITIALIZE.call_once(env_logger::init);
-}
-
-#[cfg(not(feature = "logs"))]
-fn setup_logger() {}
-
-fn assert<F, G, T, U>(f: F, g: G)
-where
-    T: Debug + PartialEq + AsRef<str>,
-    U: Debug + PartialEq + AsRef<str>,
-    F: Fn(&'static str) -> T + RefUnwindSafe,
-    G: Fn(&'static str) -> U + RefUnwindSafe,
-{
-    for string in STRINGS.into_iter() {
-        assert_eq!(unwind!(f(string)).map(|s| s.as_ref().to_owned()), unwind!(g(string)).map(|s| s.as_ref().to_owned()));
-    }
-}
 
 #[test]
 fn try_from_str() {
-    assert(String::from, |s| MaxString::try_from_str(s).unwrap());
+    assert(String::from, MaxString::try_from_str);
 }
 
 #[test]
@@ -55,16 +32,16 @@ fn from_str_truncate() {
 
 #[test]
 fn from_str_unchecked() {
-    assert(String::from, |s| unsafe {
-        MaxString::from_str_unchecked(s)
-    });
+    assert(String::from,
+        |s| unsafe { MaxString::from_str_unchecked(s) },
+    );
 }
 
 #[test]
 fn try_from_chars() {
     assert(
         |s| String::from_iter(s.chars()),
-        |s| MaxString::try_from_chars(s.chars()).unwrap(),
+        |s| MaxString::try_from_chars(s.chars()),
     );
 }
 
@@ -88,7 +65,7 @@ fn from_chars_unchecked() {
 fn try_from_iter() {
     assert(
         |s| String::from_iter(vec![s]),
-        |s| MaxString::try_from_iterator(vec![s]).unwrap(),
+        |s| MaxString::try_from_iterator(vec![s]),
     );
 }
 
@@ -109,10 +86,80 @@ fn from_iter_unchecked() {
 }
 
 #[test]
+fn try_from_utf8() {
+    assert(
+        |s| String::from_utf8(s.as_bytes().to_vec()),
+        |s| MaxString::try_from_utf8(s.as_bytes()),
+    );
+}
+
+#[test]
 fn from_utf8() {
     assert(
-        |s| String::from_utf8(s.as_bytes().to_vec()).unwrap(),
-        |s| MaxString::from_utf8(s.as_bytes()).unwrap(),
+        |s| String::from_utf8(s.as_bytes().to_vec()),
+        |s| MaxString::from_utf8(s.as_bytes()),
+    );
+}
+
+#[test]
+#[ignore]
+/// TODO
+fn from_utf8_lossy() {
+    assert(
+        |s| String::from_utf8(s.as_bytes().to_vec()),
+        |s| MaxString::from_utf8_lossy(s.as_bytes()),
+    );
+}
+
+#[inline]
+fn invalidate_utf8(buf: &mut [u8]) -> &mut [u8] {
+    if buf.len() >= 4 {
+        buf[0] = 0;
+        buf[1] = 159;
+        buf[2] = 146;
+        buf[3] = 150;
+    }
+    buf
+}
+
+#[test]
+fn try_from_utf8_invalid() {
+    unsafe {
+        assert(
+            |s| String::from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut()).to_vec()),
+            |s| MaxString::try_from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut())),
+        );
+    }
+}
+
+#[test]
+fn from_utf8_invalid() {
+    unsafe {
+        assert(
+            |s| String::from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut()).to_vec()),
+            |s| MaxString::from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut())),
+        );
+    }
+}
+
+#[test]
+#[ignore]
+/// TODO
+fn from_utf8_lossy_invalid() {
+    unsafe {
+        assert(
+            |s| String::from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut()).to_vec()),
+            |s| MaxString::from_utf8_lossy(invalidate_utf8(s.to_owned().as_bytes_mut())),
+        );
+    }
+}
+
+#[test]
+fn try_from_utf16() {
+    let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
+    assert(
+        |s| String::from_utf16(&utf16(s)),
+        |s| MaxString::try_from_utf16(&utf16(s)),
     );
 }
 
@@ -120,8 +167,57 @@ fn from_utf8() {
 fn from_utf16() {
     let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
     assert(
-        |s| String::from_utf16(&utf16(s)).unwrap(),
-        |s| MaxString::from_utf16(&utf16(s)).unwrap(),
+        |s| String::from_utf16(&utf16(s)),
+        |s| MaxString::from_utf16(&utf16(s)),
+    );
+}
+
+#[test]
+fn from_utf16_lossy() {
+    let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
+    assert(
+        |s| String::from_utf16(&utf16(s)),
+        |s| MaxString::from_utf16(&utf16(s)),
+    );
+}
+
+fn invalidate_utf16(buf: &mut [u16]) -> &mut [u16] {
+    if buf.len() >= 7 {
+        buf[0] = 0xD834;
+        buf[1] = 0xDD1E;
+        buf[2] = 0x006D;
+        buf[3] = 0x0075;
+        buf[4] = 0xD800;
+        buf[5] = 0x0069;
+        buf[6] = 0x0063;
+    }
+    buf
+}
+
+#[test]
+fn try_from_utf16_invalid() {
+    let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
+    assert(
+        |s| String::from_utf16(invalidate_utf16(&mut utf16(s))),
+        |s| MaxString::try_from_utf16(invalidate_utf16(&mut utf16(s))),
+    );
+}
+
+#[test]
+fn from_utf16_invalid() {
+    let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
+    assert(
+        |s| String::from_utf16(invalidate_utf16(&mut utf16(s))),
+        |s| MaxString::from_utf16(invalidate_utf16(&mut utf16(s))),
+    );
+}
+
+#[test]
+fn from_utf16_lossy_invalid() {
+    let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
+    assert(
+        |s| String::from_utf16(invalidate_utf16(&mut utf16(s))),
+        |s| MaxString::from_utf16(invalidate_utf16(&mut utf16(s))),
     );
 }
 
@@ -137,291 +233,412 @@ fn from_utf8_unchecked() {
 
 #[test]
 fn try_push_str() {
-    assert(|s| {
-        let mut st = String::from(s);
-        st.push_str(s);
-        st
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.try_push_str(s).unwrap();
-        ms
-    });
+    assert(
+        |s| {
+            let mut st = String::from(s);
+            st.push_str(s);
+            st
+        },
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            ms.try_push_str(s).map(|()| ms)
+        },
+    );
 }
 
 #[test]
 fn push_str() {
-    assert(|s| {
-        let mut st = String::from(s);
-        st.push_str(s);
-        st
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.push_str(s);
-        ms
-    });
+    assert(
+        |s| {
+            let mut st = String::from(s);
+            st.push_str(s);
+            st
+        },
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            ms.push_str(s);
+            ms
+        },
+    );
 }
 
 #[test]
 fn add_str() {
     assert(
         |s| String::from(s) + s,
-        |s| MaxString::try_from_str(s).unwrap() + s
+        |s| MaxString::try_from_str(s).unwrap() + s,
     );
 }
 
 #[test]
 fn push_str_unchecked() {
-    assert(|s| {
-        let mut st = String::from(s);
-        st.push_str(s);
-        st
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        unsafe { ms.push_str_unchecked(s) };
-        ms
-    });
+    assert(
+        |s| {
+            let mut st = String::from(s);
+            st.push_str(s);
+            st
+        },
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            unsafe { ms.push_str_unchecked(s) };
+            ms
+        },
+    );
 }
 
 #[test]
 fn push() {
-    assert(|s| {
-        let mut s = String::from(s);
-        s.push('🤔');
-        s
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.try_push('🤔').unwrap();
-        ms
-    });
+    assert(
+        |s| {
+            let mut s = String::from(s);
+            s.push('🤔');
+            s
+        },
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            ms.try_push('🤔').map(|()| ms)
+        },
+    );
 }
 
 #[test]
 fn push_unchecked() {
-    assert(|s| {
-        let mut s = String::from(s);
-        s.push('🤔');
-        s
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        unsafe { ms.push_unchecked('🤔') };
-        ms
-    });
+    assert(
+        |s| {
+            let mut s = String::from(s);
+            s.push('🤔');
+            s
+        },
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            unsafe { ms.push_unchecked('🤔') };
+            ms
+        },
+    );
 }
 
 #[test]
 fn truncate() {
-    assert(|s| {
-        let mut s = String::from(s);
-        s.truncate(10);
-        s
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.truncate(10).unwrap();
-        ms
-    });
+    assert(
+        |s| unwind(move || {
+            let mut s = String::from(s);
+            s.truncate(2);
+            s
+        }),
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            ms.truncate(2).map(|()| ms)
+        },
+    );
 }
 
 #[test]
 fn pop() {
-    assert(|s| {
-        let mut s = String::from(s);
-        s.pop();
-        s
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.pop();
-        ms
-    });
+    assert(
+        |s| {
+            let mut s = String::from(s);
+            let old = s.pop();
+            (s, old)
+        },
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            let old = ms.pop();
+            (ms, old)
+        },
+    );
+}
 
-    assert(|s| {
-        let mut s = String::from(s);
-        s.pop().unwrap_or('0').to_string()
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.pop().unwrap_or('0').to_string()
-    });
+#[test]
+fn trim() {
+    assert(
+        |s| String::from(s).trim().to_owned(),
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            ms.trim();
+            ms
+        },
+    );
 }
 
 #[test]
 fn remove() {
-    assert(|s| {
-        let mut s = String::from(s);
-        s.remove(2);
-        s
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.remove(2).unwrap();
-        ms
-    });
-
-    assert(|s| {
-        let mut s = String::from(s);
-        s.remove(2).to_string()
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.remove(2).unwrap().to_string()
-    });
+    assert(
+        |s| unwind(move || {
+            let mut s = String::from(s);
+            let removed = s.remove(2);
+            (removed, s)
+        }),
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            ms.remove(2).map(|r| (r, ms))
+        },
+    );
 }
 
 #[test]
 fn retain() {
-    assert(|s| {
-        let mut s = String::from(s);
-        s.retain(|c| c == 'a');
-        s
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.retain(|c| c == 'a');
-        ms
-    });
+    assert(
+        |s| {
+            let mut s = String::from(s);
+            s.retain(|c| c == 'a');
+            s
+        },
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            ms.retain(|c| c == 'a');
+            ms
+        },
+    );
 }
 
 #[test]
 fn try_insert() {
-    assert(|s| {
-        let mut s = String::from(s);
-        s.insert(0, 'a');
-        s
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.try_insert(0, 'a').unwrap();
-        ms
-    });
+    assert(
+        |s| unwind(move || {
+            let mut s = String::from(s);
+            s.insert(2, 'a');
+            ((), s)
+       }),
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            ms.try_insert(2, 'a').map(|r| (r, ms))
+        },
+    );
 }
 
 #[test]
 fn insert_unchecked() {
-    assert(|s| {
-        let mut s = String::from(s);
-        s.insert(0, 'a');
-        s
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        unsafe { ms.insert_unchecked(0, 'a') };
-        ms
-    });
+    assert(
+        |s| unwind(move || {
+            let mut s = String::from(s);
+            s.insert(2, 'a');
+            s
+        }),
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            unsafe { ms.insert_unchecked(2, 'a') };
+            ms
+        },
+    );
 }
 
 #[test]
 fn try_insert_str() {
-    assert(|s| {
-        let mut st = String::from(s);
-        st.insert_str(0, s);
-        st
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.try_insert_str(0, s).unwrap();
-        ms
-    });
+    assert(
+        |s| unwind(move || {
+            let mut st = String::from(s);
+            st.insert_str(2, s);
+            st
+        }),
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            ms.try_insert_str(2, s).unwrap();
+            ms
+        },
+    );
 }
 
 #[test]
 fn insert_str() {
-    assert(|s| {
-        let mut st = String::from(s);
-        st.insert_str(0, s);
-        st
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.insert_str(0, s).unwrap();
-        ms
-    });
+    assert(
+        |s| unwind(move || {
+            let mut st = String::from(s);
+            st.insert_str(2, s);
+            (st, ())
+        }),
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            let res = ms.insert_str(2, s);
+            (ms, res)
+        },
+    );
 }
 
 #[test]
 fn insert_str_unchecked() {
-    assert(|s| {
-        let mut st = String::from(s);
-        st.insert_str(0, s);
-        st
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        unsafe { ms.insert_str_unchecked(0, s) };
-        ms
-    });
+    assert(
+        |s| unwind(move || {
+            let mut st = String::from(s);
+            st.insert_str(2, s);
+            st
+        }),
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            unsafe { ms.insert_str_unchecked(2, s) };
+            ms
+        },
+    );
 }
 
 #[test]
 fn clear() {
-    assert(|s| {
-        let mut st = String::from(s);
-        st.clear();
-        st
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.clear();
-        ms
-    });
+    assert(
+        |s| {
+            let mut st = String::from(s);
+            st.clear();
+            st
+        },
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            ms.clear();
+            ms
+        },
+    );
 }
 
 #[test]
 fn split_off() {
-    assert(|s| {
-        let mut st = String::from(s);
-        let _ = st.split_off(3);
-        st
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        let _ = ms.split_off(3).unwrap();
-        ms
-    });
-
-    assert(|s| {
-        let mut st = String::from(s);
-        st.split_off(3)
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.split_off(3).unwrap()
-    });
+    assert(
+        |s| unwind(move || {
+            let mut st = String::from(s);
+            let split = st.split_off(2);
+            (st, split)
+        }),
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            let split = ms.split_off(2);
+            split.map(|s| (ms, s))
+        },
+    );
 }
 
 #[test]
 fn drain() {
-    assert(|s| {
-        let mut st = String::from(s);
-        let _ = st.drain(..5);
-        st
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        let _ = ms.drain(..5).unwrap();
-        ms
-    });
-
-    assert(|s| {
-        let mut st = String::from(s);
-        let s: String = st.drain(..5).collect();
-        s
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.drain(..5).unwrap().collect::<String>()
-    });
+    assert(
+        |s| unwind(move || {
+            let mut st = String::from(s);
+            let drained: String = st.drain(..2).collect();
+            (st, drained)
+        }),
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            let drained = ms.drain(..2).map(|d| d.collect::<String>());
+            drained.map(|d| (ms, d))
+        },
+    );
 }
 
 #[test]
 fn replace_range() {
-    assert(|s| {
-        let mut st = String::from(s);
-        st.replace_range(..5, s);
-        st
-    }, |s| {
-        let mut ms = MaxString::try_from_str(s).unwrap();
-        ms.replace_range(..5, s).unwrap();
-        ms
-    });
+    assert(
+        |s| unwind(move || {
+            let mut st = String::from(s);
+            st.replace_range(..2, s);
+            (st, ())
+        }),
+        |s| {
+            let mut ms = MaxString::try_from_str(s).unwrap();
+            let ret = ms.replace_range(..2, s);
+            (ms, ret)
+        },
+    );
 }
 
 #[test]
-fn string_parity() {
-    setup_logger();
-    assert_eq!(String::new().as_str(), MaxString::new().as_str());
-    for string in STRINGS.into_iter() {
-        let string = *string;
-        let mut s = String::from(string);
-        let mut ms = MaxString::try_from_str(string).unwrap();
+fn len() {
+    assert(
+        |s| {
+            let st = String::from(s);
+            st.len().to_string()
+        },
+        |s| {
+            let ms = MaxString::try_from_str(s).unwrap();
+            ms.len().to_string()
+        },
+    );
+}
 
-        assert_eq!(s.len(), ms.len() as usize);
-        assert_eq!(s.is_empty(), ms.is_empty());
-        assert_eq!(s.as_mut_str(), ms.as_str_mut());
-        assert_eq!(s.as_bytes(), ms.as_bytes());
+#[test]
+fn is_empty() {
+    assert(
+        |s| {
+            let st = String::from(s);
+            st.is_empty().to_string()
+        },
+        |s| {
+            let ms = MaxString::try_from_str(s).unwrap();
+            ms.is_empty().to_string()
+        },
+    );
+}
+
+#[test]
+fn new() {
+    assert_eq!(String::new().as_str(), MaxString::new().as_str());
+}
+
+// Internal hackery to make the function `assert` possible
+
+trait Normalize<EQ: PartialEq> {
+    fn normalize(&self) -> EQ;
+}
+
+impl Normalize<Result<String, ()>> for () {
+    fn normalize(&self) -> Result<String, ()> {
+        Ok("".to_owned())
+    }
+}
+
+impl Normalize<Result<String, ()>> for MaxString {
+    fn normalize(&self) -> Result<String, ()> {
+        Ok(self.as_str().to_owned())
+    }
+}
+
+impl Normalize<Result<String, ()>> for String {
+    fn normalize(&self) -> Result<String, ()> {
+        Ok(self.as_str().to_owned())
+    }
+}
+
+impl<'a> Normalize<Result<String, ()>> for &'a str {
+    fn normalize(&self) -> Result<String, ()> {
+        Ok(self.to_string())
+    }
+}
+
+impl Normalize<Result<String, ()>> for char {
+    fn normalize(&self) -> Result<String, ()> {
+        Ok(self.to_string())
+    }
+}
+
+impl<N: Normalize<Result<String, ()>>> Normalize<Result<String, ()>> for Option<N> {
+    fn normalize(&self) -> Result<String, ()> {
+        self.as_ref().ok_or(()).and_then(|n| n.normalize())
+    }
+}
+
+impl<E, K: PartialEq, N: Normalize<Result<K, ()>>> Normalize<Result<K, ()>> for Result<N, E> {
+    fn normalize(&self) -> Result<K, ()> {
+        self.as_ref().map_err(|_| ()).and_then(|n| n.normalize())
+    }
+}
+
+impl<K: PartialEq, L: PartialEq, M: Normalize<K>, N: Normalize<L>> Normalize<Result<(K, L), ()>> for (M, N) {
+    fn normalize(&self) -> Result<(K, L), ()> {
+        Ok((self.0.normalize(), self.1.normalize()))
+    }
+}
+
+impl<J: PartialEq, K: PartialEq, L: PartialEq, M: Normalize<J>, N: Normalize<K>, O: Normalize<L>> Normalize<Result<(J, K, L), ()>> for (M, N, O) {
+    fn normalize(&self) -> Result<(J, K, L), ()> {
+        Ok((self.0.normalize(), self.1.normalize(), self.2.normalize()))
+    }
+}
+
+fn assert<Q, F, G, T, U>(f: F, g: G)
+where
+    Q: PartialEq + Debug,
+    T: Normalize<Q>,
+    U: Normalize<Q>,
+    F: Fn(&'static str) -> T + RefUnwindSafe,
+    G: Fn(&'static str) -> U + RefUnwindSafe,
+{
+    setup_logger();
+    for string in STRINGS.into_iter() {
+        let f = f(string).normalize();
+        let g = g(string).normalize();
+        assert_eq!(f, g);
     }
 }

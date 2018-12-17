@@ -3,9 +3,23 @@
 use core::ptr::copy;
 use prelude::*;
 
+/// Setup `env_logger`
+#[cfg(all(feature = "logs", feature = "std"))]
+pub fn setup_logger() {
+    use std::sync::Once;
+    static INITIALIZE: Once = Once::new();
+    INITIALIZE.call_once(env_logger::init);
+}
+
+/// Mocks `setup_logger`
+#[cfg(any(not(feature = "logs"), not(feature = "std")))]
+#[doc(hidden)]
+pub fn setup_logger() {}
+
 /// Marks branch as impossible, UB if taken in prod, panics in debug
 ///
 /// This function should never be used lightly, it will cause UB if used wrong
+#[allow(unused_variables)]
 pub(crate) unsafe fn never(s: &str) -> ! {
     #[cfg(debug_assertions)]
     panic!("{}", s);
@@ -14,71 +28,60 @@ pub(crate) unsafe fn never(s: &str) -> ! {
     ::core::hint::unreachable_unchecked()
 }
 
-/// Uninitialized safe version of `https://github.com/rust-lang/rust/blob/master/src/libcore/char/methods.rs#L447`
-///
 /// # Safety
 ///
-/// It's UB if index is out of bounds
+/// It's UB if index is out of bounds (4 bytes needed at most)
 #[inline]
-pub(crate) unsafe fn encode_char_utf8_unchecked<S: ArrayString>(
-    s: &mut S,
-    ch: char,
-    index: Size,
-) {
+pub(crate) unsafe fn encode_char_utf8_unchecked<S: ArrayString>(s: &mut S, ch: char, index: Size) {
     trace!("Encode char: {} to {}", ch, index);
-    debug_assert!(index + ch.len_utf8() as Size <= S::SIZE);
+    debug_assert!(index + ch.len_utf8() as Size <= S::CAPACITY);
     let buf = s.buffer().get_unchecked_mut(index as usize..);
-    if buf.len() >= ch.len_utf8() {
+    if buf.len() >= 4 {
         let _ = ch.encode_utf8(buf);
     } else {
-        never("Buffer size is too small");
+        ::core::hint::unreachable_unchecked();
     }
 }
 
 #[inline]
+pub unsafe fn shift_unchecked(s: &mut str, from: usize, to: usize, len: usize) {
+    debug!("Shift {}, {} to {}", &s[from..from + len], from, to);
+    let from = s.as_bytes().as_ptr().add(from);
+    let to = s.as_bytes_mut().as_mut_ptr().add(to);
+    copy(from, to, len);
+}
+
+/// # Safety
+///
+/// It's UB if `to + (s.len() - from)` is out of [`S::CAPACITY`]
+///
+/// [`S::CAPACITY`]: ../array/trait.ArrayString.html#CAPACITY
+#[inline]
 pub(crate) unsafe fn shift_right_unchecked<S: ArrayString>(s: &mut S, from: Size, to: Size) {
-    debug_assert!(from <= to);
-    debug_assert!(to <= S::SIZE);
-    let (from, to, len) = (from as usize, to as usize, (s.len() - from) as usize);
-    debug!(
-        "Shift right unchecked {:?} (from: {}) to {}",
-        s.as_str().get_unchecked(from..from + len),
-        from,
-        to
-    );
-    copy(
-        s.as_bytes().as_ptr().add(from),
-        s.as_bytes_mut().as_mut_ptr().add(to),
-        len,
-    );
+    let (from, to, len) = (from as usize, to as usize, s.len() - from);
+    debug_assert!(from <= to && to + len as usize <= S::CAPACITY as usize);
+    shift_unchecked(s.as_mut_str(), from, to, len as usize);
 }
 
 #[inline]
 pub(crate) unsafe fn shift_left_unchecked<S: ArrayString>(s: &mut S, from: Size, to: Size) {
     debug_assert!(to <= from && from <= s.len());
-    let len = (s.len() - to) as usize;
-    debug!(
-        "Shift left unchecked {:?} from: {} to {}",
-        &s.as_str()[from as usize..from as usize + len],
-        from,
-        to
-    );
-    let from = s.as_bytes().as_ptr().add(from as usize);
-    let to = s.as_bytes_mut().as_mut_ptr().add(to as usize);
-    copy(from, to, len);
+    let (from, to, len) = (from as usize, to as usize, s.len() - to);
+    shift_unchecked(s.as_mut_str(), from, to, len as usize);
 }
 
 #[inline]
-pub(crate) fn out_of_bounds(size: Size, limit: Size) -> Result<(), OutOfBoundsError> {
+pub(crate) fn is_inside_boundary(size: Size, limit: Size) -> Result<(), OutOfBounds> {
     trace!("Out of bounds: ensures {} < {}", size, limit);
-    Some(()).filter(|_| size <= limit).ok_or(OutOfBoundsError)
+    Some(()).filter(|_| size <= limit).ok_or(OutOfBounds)
 }
 
 #[inline]
-pub(crate) fn is_char_boundary<S: ArrayString>(s: &S, idx: Size) -> Result<(), FromUtf8Error> {
-    Some(())
-        .filter(|_| s.as_str().is_char_boundary(idx as usize))
-        .ok_or(FromUtf8Error)
+pub(crate) fn is_char_boundary<S: ArrayString>(s: &S, idx: Size) -> Result<(), FromUtf8> {
+    if s.as_str().is_char_boundary(idx as usize) {
+        return Ok(());
+    }
+    Err(FromUtf8)
 }
 
 #[inline]
@@ -108,19 +111,26 @@ mod tests {
     fn setup_logger() {}
 
     #[test]
-    fn shift() {
+    fn shift_right() {
         setup_logger();
         let mut ls = CacheString::try_from_str("abcdefg").unwrap();
-        unsafe { shift_right_unchecked(&mut ls, 0, 1) };
-        ls.0[0] = 'a' as u8;
-        ls.1 += 1;
-        assert_eq!(ls.as_str(), "aabcdefg");
+        unsafe { shift_right_unchecked(&mut ls, 0, 4) };
+        ls.1 += 4;
+        assert_eq!(ls.as_str(), "abcdabcdefg");
+    }
 
+    #[test]
+    fn shift_left() {
+        setup_logger();
         let mut ls = CacheString::try_from_str("abcdefg").unwrap();
         unsafe { shift_left_unchecked(&mut ls, 1, 0) };
         ls.1 -= 1;
         assert_eq!(ls.as_str(), "bcdefg");
+    }
 
+    #[test]
+    fn shift_nop() {
+        setup_logger();
         let mut ls = CacheString::try_from_str("abcdefg").unwrap();
         unsafe { shift_right_unchecked(&mut ls, 0, 0) };
         assert_eq!(ls.as_str(), "abcdefg");

@@ -25,7 +25,11 @@
 //! //   - Assuming 64 bit usize
 //! //
 //! // Remember that UTF-8 characters can use up to 4 bytes
-//! impl_string(struct Username(20));
+//! # #[macro_use]
+//! # extern crate arraystring;
+//! # fn main() {
+//! impl_string!(struct Username(20));
+//! # }
 //! ```
 //!
 //! ## Features
@@ -36,14 +40,13 @@
 //! - `serde-traits` enables serde traits integration (`Serialize`/`Deserialize`)
 //! - `diesel-traits` enables diesel traits integration (opperates like `String`)
 //! - `logs` enables internal logging (you probably don't need it)
-//! - `nightly` enables benchmarks (we will move to criterion eventually)
 //!
 //! ## Examples
 //!
 //! ```rust
-//! extern crate arraystring;
 //! #[macro_use]
-//! use arraystring::{Error, prelude::*};
+//! extern crate arraystring;
+//! use arraystring::{error::Error, prelude::*};
 //!
 //! impl_string!(pub struct Username(20));
 //! impl_string!(pub struct Role(5));
@@ -56,10 +59,12 @@
 //!
 //! fn main() -> Result<(), Error> {
 //!     let user = User {
-//!         username: Username::from_str("user")?,
-//!         role: Role::from_str("admin")?
+//!         username: Username::try_from_str("user")?,
+//!         role: Role::try_from_str("admin")?
 //!     };
 //!     println!("{:?}", user);
+//!
+//!     Ok(())
 //! }
 //! ```
 //!
@@ -69,7 +74,6 @@
 
 #![doc(html_root_url = "https://docs.rs/arraystring/0.1.0/arraystring")]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "nightly", feature(test))]
 #![deny(
     missing_docs,
     missing_debug_implementations,
@@ -104,6 +108,9 @@
 #[macro_use]
 extern crate log;
 
+#[cfg(feature = "logs")]
+extern crate env_logger;
+
 #[cfg(feature = "diesel-traits")]
 #[doc(hidden)]
 pub extern crate diesel;
@@ -112,8 +119,8 @@ pub extern crate diesel;
 #[doc(hidden)]
 pub extern crate serde;
 
-//#[cfg(feature = "nightly")]
-//pub mod ffi;
+#[cfg(feature = "ffi")]
+pub mod ffi;
 
 /// Remove logging macros when they are disabled (at compile time)
 #[macro_use]
@@ -132,21 +139,17 @@ mod mock {
 #[macro_use]
 pub extern crate std as core;
 
-#[cfg(feature = "nightly")]
-extern crate test;
-#[cfg(feature = "nightly")]
-pub use test::black_box;
-
 #[macro_use]
 mod macros;
-pub mod error;
 pub mod array;
+pub mod error;
 mod utils;
 
 /// Most used traits and data-strucutres
 pub mod prelude {
-    pub use error::{FromUtf16Error, FromUtf8Error, OutOfBoundsError};
     pub use array::ArrayString;
+    pub use error::{FromUtf16, FromUtf8, OutOfBounds};
+    pub use utils::setup_logger;
     pub use {CacheString, MaxString, Size, SmallString};
 }
 
@@ -159,56 +162,3 @@ pub use array::ArrayString;
 impl_string!(pub struct SmallString(23));
 impl_string!(pub struct CacheString(63));
 impl_string!(pub struct MaxString(255));
-
-#[cfg(test)]
-mod tests {
-    #[cfg(feature = "nightly")]
-    use super::prelude::*;
-    #[cfg(feature = "nightly")]
-    use std;
-    #[cfg(feature = "nightly")]
-    extern crate test;
-    #[cfg(feature = "nightly")]
-    use self::std::sync::Arc;
-    #[cfg(feature = "nightly")]
-    use self::test::{black_box, Bencher};
-
-    #[cfg(feature = "nightly")]
-    static DATA: &str = "ajio";
-
-    #[bench]
-    #[cfg(feature = "nightly")]
-    fn string_from_str(b: &mut Bencher) {
-        b.iter(|| black_box(String::from(DATA)));
-    }
-
-    #[bench]
-    #[cfg(feature = "nightly")]
-    fn arrayfrom_str(b: &mut Bencher) {
-        b.iter(|| unsafe { black_box(CacheString::from_str_unchecked(DATA)) });
-    }
-
-    #[bench]
-    #[cfg(feature = "nightly")]
-    fn string_clone(b: &mut Bencher) {
-        let string = String::from(DATA);
-        b.iter(|| black_box(string.clone()));
-        //b.iter(|| black_box(clone_string(&string)));
-    }
-
-    #[bench]
-    #[cfg(feature = "nightly")]
-    fn arrayclone(b: &mut Bencher) {
-        let string = unsafe { CacheString::from_str_unchecked(DATA) };
-        b.iter(|| black_box(string.clone()));
-        //b.iter(|| black_box(clone_limited(&string)));
-    }
-
-    #[bench]
-    #[cfg(feature = "nightly")]
-    fn arc_clone(b: &mut Bencher) {
-        let string = Arc::new(String::from(DATA));
-        b.iter(|| black_box(string.clone()));
-        //b.iter(|| black_box(clone_limited(&string)));
-    }
-}

@@ -38,7 +38,6 @@ impl_string(struct Username(20));
 - `serde-traits` enables serde traits integration (`Serialize`/`Deserialize`)
 - `diesel-traits` enables diesel traits integration (opperates like `String`)
 - `logs` enables internal logging (you probably don't need it)
-- `nightly` enables benchmarks (we will move to criterion eventually)
 
 ## Examples
 

@@ -43,29 +43,22 @@ macro_rules! __inner_impl_string {
     ($name: ident, $size: expr) => {
         #[allow(unused_imports)]
         use $crate::prelude::*;
-        impl $crate::array::ArrayBuffer for $name {
+        impl $crate::array::Buffer for $name {
             #[inline]
             unsafe fn buffer(&mut self) -> &mut [u8] {
                 self.0.as_mut()
             }
 
             #[inline]
-            fn add_assign_len(&mut self, v: Size) {
-                self.1 = self.1.saturating_add(v);
+            fn update_len<F>(&mut self, f: F)
+            where
+                F: FnOnce(&mut Size)
+            {
+                f(&mut self.1)
             }
 
             #[inline]
-            fn sub_assign_len(&mut self, v: Size) {
-                self.1 = self.1.saturating_sub(v);
-            }
-
-            #[inline]
-            fn replace_len(&mut self, v: Size) {
-                self.1 = v;
-            }
-
-            #[inline]
-            fn get_len(&self) -> Size {
+            fn fetch_len(&self) -> Size {
                 self.1
             }
         }
@@ -88,8 +81,8 @@ macro_rules! __inner_impl_string {
         impl AsMut<str> for $name {
             #[inline]
             fn as_mut(&mut self) -> &mut str {
-                use $crate::array::ArrayBuffer;
-                let len = self.get_len() as usize;
+                use $crate::array::Buffer;
+                let len = self.fetch_len() as usize;
                 let slice = unsafe { self.0.get_unchecked_mut(..len) };
                 unsafe { $crate::core::str::from_utf8_unchecked_mut(slice) }
             }
@@ -98,32 +91,32 @@ macro_rules! __inner_impl_string {
         impl AsRef<[u8]> for $name {
             #[inline]
             fn as_ref(&self) -> &[u8] {
-                use $crate::array::ArrayBuffer;
-                unsafe { self.0.get_unchecked(..self.get_len() as usize) }
+                use $crate::array::Buffer;
+                unsafe { self.0.get_unchecked(..self.fetch_len() as usize) }
             }
         }
 
         impl $crate::ArrayString for $name {
-            const SIZE: $crate::Size = $size;
+            const CAPACITY: Size = $size;
+
+            /*
+            unsafe fn from_str_unchecked<S>(s: S) -> Self
+            where
+                S: AsRef<str>,
+            {
+                use $crate::core::{mem::uninitialized, ptr::copy_nonoverlapping, ptr::write_bytes};
+                let mut array: [u8; Self::CAPACITY as usize] = uninitialized();
+                let (s, dest) = (s.as_ref(), &mut array as *mut [u8] as *mut u8);
+                copy_nonoverlapping(s.as_ptr(), dest, s.len());
+                write_bytes(dest.add(s.len()), 0, Self::CAPACITY as usize - s.len());
+                $name(array, s.len() as Size)
+
+            }
+            */
         }
 
-        /// Creates new `ArrayString` from string slice if length is lower or equal than `SIZE`, otherwise returns a error.
-        ///
-        /// ```rust
-        /// # use arraystring::{error::Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// let string = CacheString::from_str("My String")?;
-        /// assert_eq!(string.as_str(), "My String");
-        ///
-        /// assert_eq!(CacheString::from_str("")?.as_str(), "");
-        ///
-        /// let out_of_bounds = "0".repeat(CacheString::SIZE as usize + 1);
-        /// assert!(CacheString::from_str(&out_of_bounds).is_err());
-        /// # Ok(())
-        /// # }
-        /// ```
         impl $crate::core::str::FromStr for $name {
-            type Err = $crate::error::OutOfBoundsError;
+            type Err = $crate::error::OutOfBounds;
 
             #[inline]
             fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -134,11 +127,11 @@ macro_rules! __inner_impl_string {
         impl $crate::core::fmt::Debug for $name {
             #[inline]
             fn fmt(&self, f: &mut $crate::core::fmt::Formatter) -> $crate::core::fmt::Result {
-                use $crate::array::ArrayBuffer;
+                use $crate::array::Buffer;
                 let s: &str = self.as_ref();
                 f.debug_tuple(stringify!($name))
                     .field(&s)
-                    .field(&self.get_len())
+                    .field(&self.fetch_len())
                     .finish()
             }
         }
@@ -233,7 +226,7 @@ macro_rules! __inner_impl_string {
             fn index_mut(&mut self, index: $crate::core::ops::RangeFrom<Size>) -> &mut str {
                 let start = index.start as usize;
                 let start = $crate::core::ops::RangeFrom { start };
-                self.as_str_mut().index_mut(start)
+                self.as_mut_str().index_mut(start)
             }
         }
 
@@ -241,7 +234,7 @@ macro_rules! __inner_impl_string {
             #[inline]
             fn index_mut(&mut self, index: $crate::core::ops::RangeTo<Size>) -> &mut str {
                 let end = index.end as usize;
-                self.as_str_mut()
+                self.as_mut_str()
                     .index_mut($crate::core::ops::RangeTo { end })
             }
         }
@@ -249,7 +242,7 @@ macro_rules! __inner_impl_string {
         impl $crate::core::ops::IndexMut<$crate::core::ops::RangeFull> for $name {
             #[inline]
             fn index_mut(&mut self, index: $crate::core::ops::RangeFull) -> &mut str {
-                self.as_str_mut().index_mut(index)
+                self.as_mut_str().index_mut(index)
             }
         }
 
@@ -258,7 +251,7 @@ macro_rules! __inner_impl_string {
             fn index_mut(&mut self, index: $crate::core::ops::Range<Size>) -> &mut str {
                 let (start, end) = (index.start as usize, index.end as usize);
                 let range = $crate::core::ops::Range { start, end };
-                self.as_str_mut().index_mut(range)
+                self.as_mut_str().index_mut(range)
             }
         }
 
@@ -267,7 +260,7 @@ macro_rules! __inner_impl_string {
             fn index_mut(&mut self, index: $crate::core::ops::RangeToInclusive<Size>) -> &mut str {
                 let end = index.end as usize;
                 let range = $crate::core::ops::RangeToInclusive { end };
-                self.as_str_mut().index_mut(range)
+                self.as_mut_str().index_mut(range)
             }
         }
 
@@ -276,7 +269,7 @@ macro_rules! __inner_impl_string {
             fn index_mut(&mut self, index: $crate::core::ops::RangeInclusive<Size>) -> &mut str {
                 let (start, end) = (*index.start() as usize, *index.end() as usize);
                 let range = $crate::core::ops::RangeInclusive::new(start, end);
-                self.as_str_mut().index_mut(range)
+                self.as_mut_str().index_mut(range)
             }
         }
 
