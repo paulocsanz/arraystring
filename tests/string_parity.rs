@@ -1,6 +1,6 @@
 extern crate arraystring;
 
-use arraystring::prelude::*;
+use arraystring::{error::Error, utils::is_char_boundary, prelude::*, utils::is_inside_boundary};
 use std::{fmt::Debug, iter::FromIterator, panic::RefUnwindSafe, panic::catch_unwind, panic::AssertUnwindSafe};
 
 fn unwind<R, F>(func: F) -> Result<R, ()>
@@ -10,12 +10,13 @@ where
     catch_unwind(AssertUnwindSafe(func)).map_err(|_| ())
 }
 
-static STRINGS: [&'static str; 7] = [
+static STRINGS: [&'static str; 8] = [
     "🤔🤔🤔🤔🤔🤔🤔",
     "ABCDEFGHIJKLMNOPQRSASHUDAHSDIUASH         ",
     "iejueueheuheuheu        0",
     "",
     "1",
+    "ab",
     "   ",
     "        899saH(8hadhaiuhsidnkandu",
 ];
@@ -397,11 +398,11 @@ fn try_insert() {
         |s| unwind(move || {
             let mut s = String::from(s);
             s.insert(2, 'a');
-            ((), s)
+            s
        }),
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
-            ms.try_insert(2, 'a').map(|r| (r, ms))
+            ms.try_insert(2, 'a').map(|()| ms)
         },
     );
 }
@@ -416,8 +417,11 @@ fn insert_unchecked() {
         }),
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
-            unsafe { ms.insert_unchecked(2, 'a') };
-            ms
+            is_inside_boundary(2, ms.len())
+                .map_err(Error::from)
+                .and_then(|()| Ok(is_char_boundary(&ms, 2)?))
+                .map(|()| unsafe { ms.insert_unchecked(2, 'a') })
+                .map(|()| ms)
         },
     );
 }
@@ -432,8 +436,7 @@ fn try_insert_str() {
         }),
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
-            ms.try_insert_str(2, s).unwrap();
-            ms
+            ms.try_insert_str(2, s).map(|()| ms)
         },
     );
 }
@@ -449,7 +452,7 @@ fn insert_str() {
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
             let res = ms.insert_str(2, s);
-            (ms, res)
+            res.map(|()| (ms, ()))
         },
     );
 }
@@ -464,8 +467,11 @@ fn insert_str_unchecked() {
         }),
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
-            unsafe { ms.insert_str_unchecked(2, s) };
-            ms
+            is_inside_boundary(2, ms.len())
+                .map_err(Error::from)
+                .and_then(|()| Ok(is_char_boundary(&ms, 2)?))
+                .map(|()| unsafe { ms.insert_str_unchecked(2, s) })
+                .map(|()| ms)
         },
     );
 }
@@ -496,8 +502,7 @@ fn split_off() {
         }),
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
-            let split = ms.split_off(2);
-            split.map(|s| (ms, s))
+            ms.split_off(2).map(|s| (ms, s))
         },
     );
 }
@@ -528,8 +533,7 @@ fn replace_range() {
         }),
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
-            let ret = ms.replace_range(..2, s);
-            (ms, ret)
+            ms.replace_range(..2, s).map(|()| (ms, ()))
         },
     );
 }

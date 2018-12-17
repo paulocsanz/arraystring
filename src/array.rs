@@ -4,7 +4,7 @@ use core::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use core::str::{from_utf8, from_utf8_unchecked};
 use core::{cmp::min, iter::FusedIterator, ops::*, ptr::copy_nonoverlapping};
 use utils::{encode_char_utf8_unchecked, is_char_boundary, never, is_inside_boundary};
-use utils::{shift_left_unchecked, shift_right_unchecked, shift_unchecked, truncate_str};
+use utils::{shift_left_unchecked, shift_right_unchecked, truncate_str};
 use {error::Error, prelude::*};
 
 /// Inner trait to abstract buffer handling, you should not use this
@@ -96,7 +96,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(CacheString::try_from_str("")?.as_str(), "");
     ///
     /// let out_of_bounds = "0".repeat(CacheString::CAPACITY as usize + 1);
-    /// assert!(CacheString::try_from_str(is_inside_boundary).is_err());
+    /// assert!(CacheString::try_from_str(out_of_bounds).is_err());
     /// # Ok(())
     /// # }
     /// ```
@@ -152,7 +152,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     ///
     /// // Undefined behavior, don't do it
     /// // let out_of_bounds = "0".repeat(CacheString::CAPACITY as usize + 1);
-    /// // let ub = unsafe { CacheString::from_str_unchecked(&is_inside_boundary) };
+    /// // let ub = unsafe { CacheString::from_str_unchecked(out_of_bounds) };
     /// ```
     #[inline]
     unsafe fn from_str_unchecked<S>(string: S) -> Self
@@ -176,7 +176,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(string.as_str(), "My String My Other String");
     ///
     /// let out_of_bounds = (0..100).map(|_| "000");
-    /// assert!(CacheString::try_from_iterator(is_inside_boundary).is_err());
+    /// assert!(CacheString::try_from_iterator(out_of_bounds).is_err());
     /// # Ok(())
     /// # }
     /// ```
@@ -188,9 +188,9 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         trace!("FromIterator");
         let mut out = Self::default();
-        iter.into_iter()
-            .map(|s| out.try_push_str(s))
-            .collect::<Result<(), _>>()?;
+        for s in iter.into_iter() {
+            out.try_push_str(s)?;
+        }
         Ok(out)
     }
 
@@ -207,7 +207,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// let out_of_bounds = (0..400).map(|_| "000");
     /// let truncated = "0".repeat(CacheString::CAPACITY as usize);
     ///
-    /// let truncate = CacheString::from_iterator(is_inside_boundary);
+    /// let truncate = CacheString::from_iterator(out_of_bounds);
     /// assert_eq!(truncate.as_str(), truncated.as_str());
     /// # Ok(())
     /// # }
@@ -220,11 +220,12 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         trace!("FromIterator truncate");
         let mut out = Self::default();
-        let _ = iter
-            .into_iter()
-            .map(|s| out.try_push_str(s.as_ref()).map_err(|_| s))
-            .collect::<Result<(), _>>()
-            .map_err(|s| out.push_str(s));
+        for s in iter.into_iter() {
+            if out.try_push_str(s.as_ref()).is_err() {
+                out.push_str(s);
+                break;
+            }
+        }
         out
     }
 
@@ -246,7 +247,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// // Undefined behavior, don't do it
     /// // let out_of_bounds = (0..400).map(|_| "000");
     /// // let undefined_behavior = unsafe {
-    /// //     CacheString::from_iterator_unchecked(is_inside_boundary)
+    /// //     CacheString::from_iterator_unchecked(out_of_bounds)
     /// // };
     /// ```
     #[inline]
@@ -257,7 +258,9 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         trace!("FromIterator unchecked");
         let mut out = Self::default();
-        let _ = iter.into_iter().map(|s| out.push_str_unchecked(s)).count();
+        for s in iter.into_iter() {
+            out.push_str_unchecked(s);
+        }
         out
     }
 
@@ -272,7 +275,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(string.as_str(), "My String");
     ///
     /// let out_of_bounds = "0".repeat(CacheString::CAPACITY as usize + 1);
-    /// assert!(CacheString::try_from_chars(is_inside_boundary.chars()).is_err());
+    /// assert!(CacheString::try_from_chars(out_of_bounds.chars()).is_err());
     /// # Ok(())
     /// # }
     /// ```
@@ -283,9 +286,9 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         trace!("TryFrom chars");
         let mut out = Self::default();
-        iter.into_iter()
-            .map(|c| out.try_push(c))
-            .collect::<Result<(), _>>()?;
+        for c in iter.into_iter() {
+            out.try_push(c)?;
+        }
         Ok(out)
     }
 
@@ -301,7 +304,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// let out_of_bounds = "0".repeat(CacheString::CAPACITY as usize + 1);
     /// let truncated = "0".repeat(CacheString::CAPACITY as usize);
     ///
-    /// let truncate = CacheString::from_chars(is_inside_boundary.chars());
+    /// let truncate = CacheString::from_chars(out_of_bounds.chars());
     /// assert_eq!(truncate.as_str(), truncated.as_str());
     /// ```
     #[inline]
@@ -311,7 +314,11 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         trace!("From chars truncate");
         let mut out = Self::default();
-        let _: Result<(), _> = iter.into_iter().map(|c| out.try_push(c)).collect();
+        for c in iter.into_iter() {
+            if out.try_push(c).is_err() {
+                break;
+            }
+        }
         out
     }
 
@@ -330,7 +337,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     ///
     /// // Undefined behavior, don't do it
     /// // let out_of_bounds = "000".repeat(400);
-    /// // let undefined_behavior = unsafe { CacheString::from_chars_unchecked(is_inside_boundary.chars()) };
+    /// // let undefined_behavior = unsafe { CacheString::from_chars_unchecked(out_of_bounds.chars()) };
     /// ```
     #[inline]
     unsafe fn from_chars_unchecked<I>(iter: I) -> Self
@@ -339,13 +346,15 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         trace!("From chars unchecked");
         let mut out = Self::default();
-        let _: () = iter.into_iter().map(|c| out.push_unchecked(c)).collect();
+        for c in iter.into_iter() {
+            out.push_unchecked(c)
+        }
         out
     }
 
-    /// Creates new string abstraction from byte slice, returning [`FromUtf8`] on invalid utf-8 data or [`OutOfBounds`] if bigger than [`CAPACITY`]
+    /// Creates new string abstraction from byte slice, returning [`Utf8`] on invalid utf-8 data or [`OutOfBounds`] if bigger than [`CAPACITY`]
     ///
-    /// [`FromUtf8`]: ../enum.Error.html#FromUtf8
+    /// [`Utf8`]: ../enum.Error.html#Utf8
     /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
     /// [`CAPACITY`]: ./trait.ArrayString.html#CAPACITY
     ///
@@ -356,10 +365,10 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(string.as_str(), "My String");
     ///
     /// let invalid_utf8 = [0, 159, 146, 150];
-    /// assert_eq!(CacheString::try_from_utf8(invalid_utf8), Err(Error::FromUtf8));
+    /// assert_eq!(CacheString::try_from_utf8(invalid_utf8), Err(Error::Utf8));
     ///
     /// let out_of_bounds = "0000".repeat(400);
-    /// assert_eq!(CacheString::try_from_utf8(is_inside_boundary.as_bytes()), Err(Error::OutOfBounds));
+    /// assert_eq!(CacheString::try_from_utf8(out_of_bounds.as_bytes()), Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
     /// ```
@@ -372,9 +381,9 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
         Ok(Self::try_from_str(from_utf8(slice.as_ref())?)?)
     }
 
-    /// Creates new string abstraction from byte slice, returning [`FromUtf8`] on invalid utf-8 data, truncating if bigger than [`CAPACITY`].
+    /// Creates new string abstraction from byte slice, returning [`Utf8`] on invalid utf-8 data, truncating if bigger than [`CAPACITY`].
     ///
-    /// [`FromUtf8`]: ../struct.FromUtf8.html
+    /// [`Utf8`]: ../struct.Utf8.html
     /// [`CAPACITY`]: ./trait.ArrayString.html#CAPACITY
     ///
     /// ```rust
@@ -384,16 +393,16 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(string.as_str(), "My String");
     ///
     /// let invalid_utf8 = [0, 159, 146, 150];
-    /// assert_eq!(CacheString::from_utf8(invalid_utf8), Err(FromUtf8));
+    /// assert_eq!(CacheString::from_utf8(invalid_utf8), Err(Utf8));
     ///
     /// let out_of_bounds = "0".repeat(300);
-    /// assert_eq!(CacheString::from_utf8(is_inside_boundary.as_bytes())?.as_str(),
+    /// assert_eq!(CacheString::from_utf8(out_of_bounds.as_bytes())?.as_str(),
     ///            "0".repeat(CacheString::CAPACITY as usize).as_str());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn from_utf8<B>(slice: B) -> Result<Self, FromUtf8>
+    fn from_utf8<B>(slice: B) -> Result<Self, Utf8>
     where
         B: AsRef<[u8]>,
     {
@@ -426,7 +435,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     ///
     /// // Undefined behavior, don't do it
     /// // let out_of_bounds = "0".repeat(300);
-    /// // let ub = unsafe { CacheString::from_utf8_unchecked(is_inside_boundary)) };
+    /// // let ub = unsafe { CacheString::from_utf8_unchecked(out_of_bounds)) };
     /// ```
     #[inline]
     unsafe fn from_utf8_unchecked<B>(slice: B) -> Self
@@ -438,9 +447,9 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
         Self::from_str_unchecked(from_utf8_unchecked(slice.as_ref()))
     }
 
-    /// Creates new string abstraction from `u16` slice, returning [`FromUtf16`] on invalid utf-16 data or [`OutOfBounds`] if bigger than [`CAPACITY`]
+    /// Creates new string abstraction from `u16` slice, returning [`Utf16`] on invalid utf-16 data or [`OutOfBounds`] if bigger than [`CAPACITY`]
     ///
-    /// [`FromUtf16`]: ../enum.Error.html#FromUtf16
+    /// [`Utf16`]: ../enum.Error.html#Utf16
     /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
     /// [`CAPACITY`]: ./trait.ArrayString.html#CAPACITY
     ///
@@ -452,10 +461,10 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(string.as_str(), "𝄞music");
     ///
     /// let invalid_utf16 = [0xD834, 0xDD1E, 0x006d, 0x0075, 0xD800, 0x0069, 0x0063];
-    /// assert_eq!(CacheString::try_from_utf16(invalid_utf16), Err(Error::FromUtf16));
+    /// assert_eq!(CacheString::try_from_utf16(invalid_utf16), Err(Error::Utf16));
     ///
     /// let out_of_bounds: Vec<_> = (0..300).map(|_| 0).collect();
-    /// assert_eq!(CacheString::try_from_utf16(is_inside_boundary), Err(Error::OutOfBounds));
+    /// assert_eq!(CacheString::try_from_utf16(out_of_bounds), Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
     /// ```
@@ -466,16 +475,15 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         debug!("From utf16: {:?}", slice.as_ref());
         let mut out = Self::default();
-        decode_utf16(slice.as_ref().iter().cloned())
-            .map(|c| c.map_err(|_| Error::FromUtf16))
-            .map(|c| c.and_then(|c| Ok(out.try_push(c)?)))
-            .collect::<Result<(), _>>()?;
+        for c in decode_utf16(slice.as_ref().iter().cloned()) {
+            out.try_push(c?)?;
+        }
         Ok(out)
     }
 
-    /// Creates new string abstraction from `u16` slice, returning [`FromUtf16`] on invalid utf-16 data, truncating if bigger than [`CAPACITY`].
+    /// Creates new string abstraction from `u16` slice, returning [`Utf16`] on invalid utf-16 data, truncating if bigger than [`CAPACITY`].
     ///
-    /// [`FromUtf16`]: ../struct.FromUtf16.html
+    /// [`Utf16`]: ../struct.Utf16.html
     /// [`CAPACITY`]: ./trait.ArrayString.html#CAPACITY
     ///
     /// ```rust
@@ -486,25 +494,26 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(string.as_str(), "𝄞music");
     ///
     /// let invalid_utf16 = [0xD834, 0xDD1E, 0x006d, 0x0075, 0xD800, 0x0069, 0x0063];
-    /// assert_eq!(CacheString::from_utf16(invalid_utf16), Err(FromUtf16));
+    /// assert_eq!(CacheString::from_utf16(invalid_utf16), Err(Utf16));
     ///
     /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
-    /// assert_eq!(CacheString::from_utf16(is_inside_boundary)?.as_str(),
+    /// assert_eq!(CacheString::from_utf16(out_of_bounds)?.as_str(),
     ///            "\0".repeat(CacheString::CAPACITY as usize).as_str());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    fn from_utf16<B>(slice: B) -> Result<Self, FromUtf16>
+    fn from_utf16<B>(slice: B) -> Result<Self, Utf16>
     where
         B: AsRef<[u16]>,
     {
         debug!("From utf16: {:?}", slice.as_ref());
         let mut out = Self::default();
-        decode_utf16(slice.as_ref().iter().cloned())
-            .map(|c| c.map_err(|_| FromUtf16))
-            .map(|c| c.map(|c| out.try_push(c).unwrap_or(())))
-            .collect::<Result<(), _>>()?;
+        for c in decode_utf16(slice.as_ref().iter().cloned()) {
+            if out.try_push(c?).is_err() {
+                break;
+            }
+        }
         Ok(out)
     }
 
@@ -523,7 +532,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(CacheString::from_utf16_lossy(invalid_utf16).as_str(), "𝄞mu\u{FFFD}ic");
     ///
     /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
-    /// assert_eq!(CacheString::from_utf16_lossy(&is_inside_boundary).as_str(),
+    /// assert_eq!(CacheString::from_utf16_lossy(&out_of_bounds).as_str(),
     ///            "\0".repeat(CacheString::CAPACITY as usize).as_str());
     /// # Ok(())
     /// # }
@@ -535,9 +544,11 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         debug!("From utf16 lossy: {:?}", slice.as_ref());
         let mut out = Self::default();
-        let _ = decode_utf16(slice.as_ref().iter().cloned())
-            .map(|c| out.try_push(c.unwrap_or(REPLACEMENT_CHARACTER)))
-            .collect::<Result<(), _>>();
+        for c in decode_utf16(slice.as_ref().iter().cloned()) {
+            if out.try_push(c.unwrap_or(REPLACEMENT_CHARACTER)).is_err() {
+                break;
+            }
+        }
         out
     }
 
@@ -765,7 +776,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// # }
     /// ```
     #[inline]
-    fn truncate(&mut self, size: Size) -> Result<(), FromUtf8> {
+    fn truncate(&mut self, size: Size) -> Result<(), Utf8> {
         debug!("Truncate: {}", size);
         let len = min(self.len(), size);
         is_char_boundary(self, len).map(|()| self.update_len(|l| *l = len))
@@ -830,13 +841,8 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
             }
         }
 
-        let len = if start == end {
-            0
-        } else {
-            end - start
-        };
         unsafe { shift_left_unchecked(self, start, 0) };
-        self.update_len(|l| *l = len);
+        self.update_len(|l| *l = end - start);
     }
 
     /// Removes specified char from `ArrayString`
@@ -845,8 +851,9 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = CacheString::try_from_str("ABCD🤔")?;
+    /// assert_eq!(s.remove("ABCD🤔".len() as Size), Err(Error::OutOfBounds));
     /// assert_eq!(s.remove(10), Err(Error::OutOfBounds));
-    /// assert_eq!(s.remove(6), Err(Error::FromUtf8));
+    /// assert_eq!(s.remove(6), Err(Error::Utf8));
     /// assert_eq!(s.remove(0), Ok('A'));
     /// assert_eq!(s.as_str(), "BCD🤔");
     /// assert_eq!(s.remove(2), Ok('D'));
@@ -886,11 +893,11 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
 
     /// Inserts character at specified index, returning error if total length is bigger than [`CAPACITY`].
     ///
-    /// Returns [`OutOfBounds`] if `idx` is out of bounds and [`FromUtf8`] if `idx` is not a char position
+    /// Returns [`OutOfBounds`] if `idx` is out of bounds and [`Utf8`] if `idx` is not a char position
     ///
     /// [`CAPACITY`]: ./trait.ArrayString.html#CAPACITY
     /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
-    /// [`FromUtf8`]: ../enum.Error.html#FromUtf8
+    /// [`Utf8`]: ../enum.Error.html#Utf8
     ///
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
@@ -900,7 +907,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// s.try_insert(2, 'B')?;
     /// assert_eq!(s.as_str(), "AABBCD🤔");
     /// assert_eq!(s.try_insert(20, 'C'), Err(Error::OutOfBounds));
-    /// assert_eq!(s.try_insert(8, 'D'), Err(Error::FromUtf8));
+    /// assert_eq!(s.try_insert(8, 'D'), Err(Error::Utf8));
     ///
     /// let mut s = CacheString::try_from_str(&"0".repeat(CacheString::CAPACITY as usize))?;
     /// assert_eq!(s.try_insert(0, 'C'), Err(Error::OutOfBounds));
@@ -945,19 +952,19 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     unsafe fn insert_unchecked(&mut self, idx: Size, ch: char) {
         let (_len, clen) = (self.len(), ch.len_utf8() as Size);
         debug!("Insert unchecked: {} ({}) at {}", ch, _len + clen, idx);
-        encode_char_utf8_unchecked(self, ch, idx);
         shift_right_unchecked(self, idx, idx + clen);
+        encode_char_utf8_unchecked(self, ch, idx);
         self.update_len(|l| *l = l.saturating_add(ch.len_utf8() as Size));
     }
 
     /// Inserts string slice at specified index, returning error if total length is bigger than [`CAPACITY`].
     ///
     /// Returns [`OutOfBounds`] if `idx` is out of bounds
-    /// Returns [`FromUtf8`] if `idx` is not a char position
+    /// Returns [`Utf8`] if `idx` is not a char position
     ///
     /// [`CAPACITY`]: ./trait.ArrayString.html#CAPACITY
     /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
-    /// [`FromUtf8`]: ../enum.Error.html#FromUtf8
+    /// [`Utf8`]: ../enum.Error.html#Utf8
     ///
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
@@ -969,7 +976,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     ///            Err(Error::OutOfBounds));
     /// assert_eq!(s.as_str(), "ABCABBCD🤔");
     /// assert_eq!(s.try_insert_str(20, "C"), Err(Error::OutOfBounds));
-    /// assert_eq!(s.try_insert_str(10, "D"), Err(Error::FromUtf8));
+    /// assert_eq!(s.try_insert_str(10, "D"), Err(Error::Utf8));
     /// # Ok(())
     /// # }
     /// ```
@@ -988,11 +995,11 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
 
     /// Inserts string slice at specified index, truncating size if bigger than [`CAPACITY`].
     ///
-    /// Returns [`OutOfBounds`] if `idx` is out of bounds and [`FromUtf8`] if `idx` is not a char position
+    /// Returns [`OutOfBounds`] if `idx` is out of bounds and [`Utf8`] if `idx` is not a char position
     ///
     /// [`CAPACITY`]: ./trait.ArrayString.html#CAPACITY
     /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
-    /// [`FromUtf8`]: ../enum.Error.html#FromUtf8
+    /// [`Utf8`]: ../enum.Error.html#Utf8
     ///
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
@@ -1003,7 +1010,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(s.as_str(), "ABCABBCD🤔");
     ///
     /// assert_eq!(s.insert_str(20, "C"), Err(Error::OutOfBounds));
-    /// assert_eq!(s.insert_str(10, "D"), Err(Error::FromUtf8));
+    /// assert_eq!(s.insert_str(10, "D"), Err(Error::Utf8));
     ///
     /// s.clear();
     /// s.insert_str(0, "0".repeat(CacheString::CAPACITY as usize + 10))?;
@@ -1056,12 +1063,12 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         let (s, slen) = (string.as_ref(), string.as_ref().len() as Size);
         let (ptr, len) = (s.as_ptr(), self.len());
-        warn!("Insert str unchecked: {} ({}) at {}", s, len + slen, idx);
+        trace!("Insert str unchecked: {} ({}) at {}", s, len + slen, idx);
         debug_assert!(len + slen <= Self::CAPACITY && idx <= len);
 
+        shift_right_unchecked(self, idx, idx + slen);
         let dest = self.as_mut_bytes().as_mut_ptr().add(idx as usize);
         copy_nonoverlapping(ptr, dest, slen as usize);
-        shift_unchecked(self.as_mut_str(), idx as usize, (idx + slen) as usize, (len - idx + slen) as usize);
         self.update_len(|l| *l = l.saturating_add(slen));
     }
 
@@ -1104,10 +1111,10 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
 
     /// Splits `LimitedSize` in two if `at` is smaller than `self.len()`.
     ///
-    /// Returns [`FromUtf8`] if `at` does not lie at a valid utf-8 char boundary and [`OutOfBounds`] if it's out of bounds
+    /// Returns [`Utf8`] if `at` does not lie at a valid utf-8 char boundary and [`OutOfBounds`] if it's out of bounds
     ///
     /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
-    /// [`FromUtf8`]: ../enum.Error.html#FromUtf8
+    /// [`Utf8`]: ../enum.Error.html#Utf8
     ///
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
@@ -1116,7 +1123,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(s.split_off(6)?.as_str(), "CD");
     /// assert_eq!(s.as_str(), "AB🤔");
     /// assert_eq!(s.split_off(20), Err(Error::OutOfBounds));
-    /// assert_eq!(s.split_off(4), Err(Error::FromUtf8));
+    /// assert_eq!(s.split_off(4), Err(Error::Utf8));
     /// # Ok(())
     /// # }
     /// ```
@@ -1159,7 +1166,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(s.drain(..3)?.collect::<Vec<_>>(), vec!['A', 'B', 'C']);
     /// assert_eq!(s.as_str(), "D🤔");
     ///
-    /// assert_eq!(s.drain(3..), Err(Error::FromUtf8));
+    /// assert_eq!(s.drain(3..), Err(Error::Utf8));
     /// assert_eq!(s.drain(10..), Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
@@ -1205,7 +1212,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// s.replace_range(2..4, "EFGHI")?;
     /// assert_eq!(s.as_str(), "ABEFGHI🤔");
     ///
-    /// assert_eq!(s.replace_range(9.., "J"), Err(Error::FromUtf8));
+    /// assert_eq!(s.replace_range(9.., "J"), Err(Error::Utf8));
     /// assert_eq!(s.replace_range(..90, "K"), Err(Error::OutOfBounds));
     /// assert_eq!(s.replace_range(0..1, "0".repeat(CacheString::CAPACITY as usize)),
     ///            Err(Error::OutOfBounds));

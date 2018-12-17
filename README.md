@@ -4,6 +4,8 @@ A stack based strings with a maximum (customizable) size.
 
 **Never panics (all panic branches are impossible and therefore removed at compile time)**
 
+**Never allocates memory on the heap**
+
 ## Why
 
 Data is generally bounded, you don't want a phone number with 30 characters, nor a username with 100. You probably don't even support it in your database.

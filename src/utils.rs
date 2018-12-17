@@ -30,21 +30,41 @@ pub(crate) unsafe fn never(s: &str) -> ! {
 
 /// # Safety
 ///
-/// It's UB if index is out of bounds (4 bytes needed at most)
+/// It's UB if index is out of bounds or buffer is too small (4 bytes needed at most)
 #[inline]
 pub(crate) unsafe fn encode_char_utf8_unchecked<S: ArrayString>(s: &mut S, ch: char, index: Size) {
     trace!("Encode char: {} to {}", ch, index);
     debug_assert!(index + ch.len_utf8() as Size <= S::CAPACITY);
-    let buf = s.buffer().get_unchecked_mut(index as usize..);
-    if buf.len() >= 4 {
-        let _ = ch.encode_utf8(buf);
+
+    // UTF-8 ranges and tags for encoding characters
+    const TAG_CONT: u8     = 0b1000_0000;
+    const TAG_TWO_B: u8    = 0b1100_0000;
+    const TAG_THREE_B: u8  = 0b1110_0000;
+    const TAG_FOUR_B: u8   = 0b1111_0000;
+    const MAX_ONE_B: u32   =     0x80;
+    const MAX_TWO_B: u32   =    0x800;
+    const MAX_THREE_B: u32 = 0x10000;
+
+    let (dst, code) = (s.buffer().get_unchecked_mut(index as usize..), ch as u32);
+    if code < MAX_ONE_B {
+        *dst.get_unchecked_mut(0) = code as u8;
+    } else if code < MAX_TWO_B {
+        *dst.get_unchecked_mut(0) = (code >> 6 & 0x1F) as u8 | TAG_TWO_B;
+        *dst.get_unchecked_mut(1) = (code & 0x3F) as u8 | TAG_CONT;
+    } else if code < MAX_THREE_B {
+        *dst.get_unchecked_mut(0) = (code >> 12 & 0x0F) as u8 | TAG_THREE_B;
+        *dst.get_unchecked_mut(1) = (code >>  6 & 0x3F) as u8 | TAG_CONT;
+        *dst.get_unchecked_mut(2) = (code & 0x3F) as u8 | TAG_CONT;
     } else {
-        ::core::hint::unreachable_unchecked();
+        *dst.get_unchecked_mut(0) = (code >> 18 & 0x07) as u8 | TAG_FOUR_B;
+        *dst.get_unchecked_mut(1) = (code >> 12 & 0x3F) as u8 | TAG_CONT;
+        *dst.get_unchecked_mut(2) = (code >>  6 & 0x3F) as u8 | TAG_CONT;
+        *dst.get_unchecked_mut(3) = (code & 0x3F) as u8 | TAG_CONT;
     }
 }
 
 #[inline]
-pub unsafe fn shift_unchecked(s: &mut str, from: usize, to: usize, len: usize) {
+unsafe fn shift_unchecked(s: &mut str, from: usize, to: usize, len: usize) {
     debug!("Shift {}, {} to {}", &s[from..from + len], from, to);
     let from = s.as_bytes().as_ptr().add(from);
     let to = s.as_bytes_mut().as_mut_ptr().add(to);
@@ -70,18 +90,20 @@ pub(crate) unsafe fn shift_left_unchecked<S: ArrayString>(s: &mut S, from: Size,
     shift_unchecked(s.as_mut_str(), from, to, len as usize);
 }
 
+/// Returns error if size is outside of specified boundary
 #[inline]
-pub(crate) fn is_inside_boundary(size: Size, limit: Size) -> Result<(), OutOfBounds> {
+pub fn is_inside_boundary(size: Size, limit: Size) -> Result<(), OutOfBounds> {
     trace!("Out of bounds: ensures {} < {}", size, limit);
     Some(()).filter(|_| size <= limit).ok_or(OutOfBounds)
 }
 
+/// Returns error if index is not at a valid utf-8 char boundary
 #[inline]
-pub(crate) fn is_char_boundary<S: ArrayString>(s: &S, idx: Size) -> Result<(), FromUtf8> {
+pub fn is_char_boundary<S: ArrayString>(s: &S, idx: Size) -> Result<(), Utf8> {
     if s.as_str().is_char_boundary(idx as usize) {
         return Ok(());
     }
-    Err(FromUtf8)
+    Err(Utf8)
 }
 
 #[inline]

@@ -143,12 +143,12 @@ pub extern crate std as core;
 mod macros;
 pub mod array;
 pub mod error;
-mod utils;
+pub mod utils;
 
 /// Most used traits and data-strucutres
 pub mod prelude {
     pub use array::ArrayString;
-    pub use error::{FromUtf16, FromUtf8, OutOfBounds};
+    pub use error::{Utf16, Utf8, OutOfBounds};
     pub use utils::setup_logger;
     pub use {CacheString, MaxString, Size, SmallString};
 }

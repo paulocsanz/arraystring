@@ -42,18 +42,18 @@ pub unsafe extern "C" fn from_iterator_unchecked(v: &[&str]) -> String {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn try_from_chars(v: Vec<char>) -> Result<String, OutOfBounds> {
-    String::try_from_chars(v)
+pub unsafe extern "C" fn try_from_chars(v: &str) -> Result<String, OutOfBounds> {
+    String::try_from_chars(v.chars())
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn from_chars(v: Vec<char>) -> String {
-    String::from_chars(v)
+pub unsafe extern "C" fn from_chars(v: &str) -> String {
+    String::from_chars(v.chars())
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn from_chars_unchecked(v: Vec<char>) -> String {
-    String::from_chars_unchecked(v)
+pub unsafe extern "C" fn from_chars_unchecked(v: &str) -> String {
+    String::from_chars_unchecked(v.chars())
 }
 
 #[no_mangle]
@@ -97,7 +97,7 @@ pub unsafe extern "C" fn push_unchecked(ls: &mut String, c: char) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn truncate(ls: &mut String, s: Size) -> Result<(), FromUtf8> {
+pub unsafe extern "C" fn truncate(ls: &mut String, s: Size) -> Result<(), Utf8> {
     ls.truncate(s)
 }
 
