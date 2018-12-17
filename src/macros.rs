@@ -99,7 +99,6 @@ macro_rules! __inner_impl_string {
         impl $crate::ArrayString for $name {
             const CAPACITY: Size = $size;
 
-            /*
             unsafe fn from_str_unchecked<S>(s: S) -> Self
             where
                 S: AsRef<str>,
@@ -112,7 +111,6 @@ macro_rules! __inner_impl_string {
                 $name(array, s.len() as Size)
 
             }
-            */
         }
 
         impl $crate::core::str::FromStr for $name {
