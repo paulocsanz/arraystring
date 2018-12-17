@@ -1,11 +1,12 @@
 extern crate arraystring;
 
-use arraystring::{error::Error, utils::is_char_boundary, prelude::*, utils::is_inside_boundary};
-use std::{fmt::Debug, iter::FromIterator, panic::RefUnwindSafe, panic::catch_unwind, panic::AssertUnwindSafe};
+use arraystring::{error::Error, prelude::*, utils::is_char_boundary, utils::is_inside_boundary};
+use std::panic::{AssertUnwindSafe, RefUnwindSafe, catch_unwind};
+use std::{fmt::Debug, iter::FromIterator};
 
 fn unwind<R, F>(func: F) -> Result<R, ()>
 where
-    F: FnOnce() -> R
+    F: FnOnce() -> R,
 {
     catch_unwind(AssertUnwindSafe(func)).map_err(|_| ())
 }
@@ -33,9 +34,9 @@ fn from_str_truncate() {
 
 #[test]
 fn from_str_unchecked() {
-    assert(String::from,
-        |s| unsafe { MaxString::from_str_unchecked(s) },
-    );
+    assert(String::from, |s| unsafe {
+        MaxString::from_str_unchecked(s)
+    });
 }
 
 #[test]
@@ -321,11 +322,13 @@ fn push_unchecked() {
 #[test]
 fn truncate() {
     assert(
-        |s| unwind(move || {
-            let mut s = String::from(s);
-            s.truncate(2);
-            s
-        }),
+        |s| {
+            unwind(move || {
+                let mut s = String::from(s);
+                s.truncate(2);
+                s
+            })
+        },
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
             ms.truncate(2).map(|()| ms)
@@ -364,11 +367,13 @@ fn trim() {
 #[test]
 fn remove() {
     assert(
-        |s| unwind(move || {
-            let mut s = String::from(s);
-            let removed = s.remove(2);
-            (removed, s)
-        }),
+        |s| {
+            unwind(move || {
+                let mut s = String::from(s);
+                let removed = s.remove(2);
+                (removed, s)
+            })
+        },
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
             ms.remove(2).map(|r| (r, ms))
@@ -395,11 +400,13 @@ fn retain() {
 #[test]
 fn try_insert() {
     assert(
-        |s| unwind(move || {
-            let mut s = String::from(s);
-            s.insert(2, 'a');
-            s
-       }),
+        |s| {
+            unwind(move || {
+                let mut s = String::from(s);
+                s.insert(2, 'a');
+                s
+            })
+        },
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
             ms.try_insert(2, 'a').map(|()| ms)
@@ -410,11 +417,13 @@ fn try_insert() {
 #[test]
 fn insert_unchecked() {
     assert(
-        |s| unwind(move || {
-            let mut s = String::from(s);
-            s.insert(2, 'a');
-            s
-        }),
+        |s| {
+            unwind(move || {
+                let mut s = String::from(s);
+                s.insert(2, 'a');
+                s
+            })
+        },
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
             is_inside_boundary(2, ms.len())
@@ -429,11 +438,13 @@ fn insert_unchecked() {
 #[test]
 fn try_insert_str() {
     assert(
-        |s| unwind(move || {
-            let mut st = String::from(s);
-            st.insert_str(2, s);
-            st
-        }),
+        |s| {
+            unwind(move || {
+                let mut st = String::from(s);
+                st.insert_str(2, s);
+                st
+            })
+        },
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
             ms.try_insert_str(2, s).map(|()| ms)
@@ -444,11 +455,13 @@ fn try_insert_str() {
 #[test]
 fn insert_str() {
     assert(
-        |s| unwind(move || {
-            let mut st = String::from(s);
-            st.insert_str(2, s);
-            (st, ())
-        }),
+        |s| {
+            unwind(move || {
+                let mut st = String::from(s);
+                st.insert_str(2, s);
+                (st, ())
+            })
+        },
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
             let res = ms.insert_str(2, s);
@@ -460,11 +473,13 @@ fn insert_str() {
 #[test]
 fn insert_str_unchecked() {
     assert(
-        |s| unwind(move || {
-            let mut st = String::from(s);
-            st.insert_str(2, s);
-            st
-        }),
+        |s| {
+            unwind(move || {
+                let mut st = String::from(s);
+                st.insert_str(2, s);
+                st
+            })
+        },
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
             is_inside_boundary(2, ms.len())
@@ -495,11 +510,13 @@ fn clear() {
 #[test]
 fn split_off() {
     assert(
-        |s| unwind(move || {
-            let mut st = String::from(s);
-            let split = st.split_off(2);
-            (st, split)
-        }),
+        |s| {
+            unwind(move || {
+                let mut st = String::from(s);
+                let split = st.split_off(2);
+                (st, split)
+            })
+        },
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
             ms.split_off(2).map(|s| (ms, s))
@@ -510,11 +527,13 @@ fn split_off() {
 #[test]
 fn drain() {
     assert(
-        |s| unwind(move || {
-            let mut st = String::from(s);
-            let drained: String = st.drain(..2).collect();
-            (st, drained)
-        }),
+        |s| {
+            unwind(move || {
+                let mut st = String::from(s);
+                let drained: String = st.drain(..2).collect();
+                (st, drained)
+            })
+        },
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
             let drained = ms.drain(..2).map(|d| d.collect::<String>());
@@ -526,11 +545,13 @@ fn drain() {
 #[test]
 fn replace_range() {
     assert(
-        |s| unwind(move || {
-            let mut st = String::from(s);
-            st.replace_range(..2, s);
-            (st, ())
-        }),
+        |s| {
+            unwind(move || {
+                let mut st = String::from(s);
+                st.replace_range(..2, s);
+                (st, ())
+            })
+        },
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
             ms.replace_range(..2, s).map(|()| (ms, ()))
@@ -619,13 +640,23 @@ impl<E, K: PartialEq, N: Normalize<Result<K, ()>>> Normalize<Result<K, ()>> for 
     }
 }
 
-impl<K: PartialEq, L: PartialEq, M: Normalize<K>, N: Normalize<L>> Normalize<Result<(K, L), ()>> for (M, N) {
+impl<K: PartialEq, L: PartialEq, M: Normalize<K>, N: Normalize<L>> Normalize<Result<(K, L), ()>>
+    for (M, N)
+{
     fn normalize(&self) -> Result<(K, L), ()> {
         Ok((self.0.normalize(), self.1.normalize()))
     }
 }
 
-impl<J: PartialEq, K: PartialEq, L: PartialEq, M: Normalize<J>, N: Normalize<K>, O: Normalize<L>> Normalize<Result<(J, K, L), ()>> for (M, N, O) {
+impl<
+        J: PartialEq,
+        K: PartialEq,
+        L: PartialEq,
+        M: Normalize<J>,
+        N: Normalize<K>,
+        O: Normalize<L>,
+    > Normalize<Result<(J, K, L), ()>> for (M, N, O)
+{
     fn normalize(&self) -> Result<(J, K, L), ()> {
         Ok((self.0.normalize(), self.1.normalize(), self.2.normalize()))
     }

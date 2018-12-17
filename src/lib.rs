@@ -148,7 +148,7 @@ pub mod utils;
 /// Most used traits and data-strucutres
 pub mod prelude {
     pub use array::ArrayString;
-    pub use error::{Utf16, Utf8, OutOfBounds};
+    pub use error::{OutOfBounds, Utf16, Utf8};
     pub use utils::setup_logger;
     pub use {CacheString, MaxString, Size, SmallString};
 }

@@ -34,40 +34,45 @@ pub(crate) unsafe fn never(s: &str) -> ! {
 #[inline]
 pub(crate) unsafe fn encode_char_utf8_unchecked<S: ArrayString>(s: &mut S, ch: char, index: Size) {
     trace!("Encode char: {} to {}", ch, index);
-    debug_assert!(index + ch.len_utf8() as Size <= S::CAPACITY);
 
     // UTF-8 ranges and tags for encoding characters
-    const TAG_CONT: u8     = 0b1000_0000;
-    const TAG_TWO_B: u8    = 0b1100_0000;
-    const TAG_THREE_B: u8  = 0b1110_0000;
-    const TAG_FOUR_B: u8   = 0b1111_0000;
-    const MAX_ONE_B: u32   =     0x80;
-    const MAX_TWO_B: u32   =    0x800;
+    const TAG_CONT: u8 = 0b1000_0000;
+    const TAG_TWO_B: u8 = 0b1100_0000;
+    const TAG_THREE_B: u8 = 0b1110_0000;
+    const TAG_FOUR_B: u8 = 0b1111_0000;
+    const MAX_ONE_B: u32 = 0x80;
+    const MAX_TWO_B: u32 = 0x800;
     const MAX_THREE_B: u32 = 0x10000;
 
+    debug_assert!(index + ch.len_utf8() as Size <= S::CAPACITY);
     let (dst, code) = (s.buffer().get_unchecked_mut(index as usize..), ch as u32);
+
     if code < MAX_ONE_B {
+        debug_assert!(dst.len() >= 1);
         *dst.get_unchecked_mut(0) = code as u8;
     } else if code < MAX_TWO_B {
+        debug_assert!(dst.len() >= 2);
         *dst.get_unchecked_mut(0) = (code >> 6 & 0x1F) as u8 | TAG_TWO_B;
         *dst.get_unchecked_mut(1) = (code & 0x3F) as u8 | TAG_CONT;
     } else if code < MAX_THREE_B {
+        debug_assert!(dst.len() >= 3);
         *dst.get_unchecked_mut(0) = (code >> 12 & 0x0F) as u8 | TAG_THREE_B;
-        *dst.get_unchecked_mut(1) = (code >>  6 & 0x3F) as u8 | TAG_CONT;
+        *dst.get_unchecked_mut(1) = (code >> 6 & 0x3F) as u8 | TAG_CONT;
         *dst.get_unchecked_mut(2) = (code & 0x3F) as u8 | TAG_CONT;
     } else {
+        debug_assert!(dst.len() >= 4);
         *dst.get_unchecked_mut(0) = (code >> 18 & 0x07) as u8 | TAG_FOUR_B;
         *dst.get_unchecked_mut(1) = (code >> 12 & 0x3F) as u8 | TAG_CONT;
-        *dst.get_unchecked_mut(2) = (code >>  6 & 0x3F) as u8 | TAG_CONT;
+        *dst.get_unchecked_mut(2) = (code >> 6 & 0x3F) as u8 | TAG_CONT;
         *dst.get_unchecked_mut(3) = (code & 0x3F) as u8 | TAG_CONT;
     }
 }
 
 #[inline]
-unsafe fn shift_unchecked(s: &mut str, from: usize, to: usize, len: usize) {
+unsafe fn shift_unchecked(s: &mut [u8], from: usize, to: usize, len: usize) {
+    debug_assert!(to + len <= s.len() && from + len <= s.len());
     debug!("Shift {}, {} to {}", &s[from..from + len], from, to);
-    let from = s.as_bytes().as_ptr().add(from);
-    let to = s.as_bytes_mut().as_mut_ptr().add(to);
+    let (from, to) = (s.as_ptr().add(from), s.as_mut_ptr().add(to));
     copy(from, to, len);
 }
 
@@ -80,14 +85,14 @@ unsafe fn shift_unchecked(s: &mut str, from: usize, to: usize, len: usize) {
 pub(crate) unsafe fn shift_right_unchecked<S: ArrayString>(s: &mut S, from: Size, to: Size) {
     let (from, to, len) = (from as usize, to as usize, s.len() - from);
     debug_assert!(from <= to && to + len as usize <= S::CAPACITY as usize);
-    shift_unchecked(s.as_mut_str(), from, to, len as usize);
+    shift_unchecked(s.buffer(), from, to, len as usize);
 }
 
 #[inline]
 pub(crate) unsafe fn shift_left_unchecked<S: ArrayString>(s: &mut S, from: Size, to: Size) {
     debug_assert!(to <= from && from <= s.len());
     let (from, to, len) = (from as usize, to as usize, s.len() - to);
-    shift_unchecked(s.as_mut_str(), from, to, len as usize);
+    shift_unchecked(s.buffer(), from, to, len as usize);
 }
 
 /// Returns error if size is outside of specified boundary
@@ -100,6 +105,7 @@ pub fn is_inside_boundary(size: Size, limit: Size) -> Result<(), OutOfBounds> {
 /// Returns error if index is not at a valid utf-8 char boundary
 #[inline]
 pub fn is_char_boundary<S: ArrayString>(s: &S, idx: Size) -> Result<(), Utf8> {
+    trace!("Is char boundary: {} at {}", s.as_str(), idx);
     if s.as_str().is_char_boundary(idx as usize) {
         return Ok(());
     }
@@ -108,6 +114,7 @@ pub fn is_char_boundary<S: ArrayString>(s: &S, idx: Size) -> Result<(), Utf8> {
 
 #[inline]
 pub(crate) fn truncate_str(slice: &str, size: Size) -> &str {
+    trace!("Truncate str: {} at {}", slice, size);
     let mut ch = slice.chars();
     while ch.as_str().len() > size as usize {
         let _ = ch.next_back();
