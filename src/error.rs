@@ -26,6 +26,9 @@ impl Display for Error {
     }
 }
 
+#[cfg(features = "std")]
+impl std::error::Error for Error {}
+
 impl From<Utf8Error> for Error {
     fn from(_: Utf8Error) -> Self {
         Error::Utf8
@@ -48,15 +51,18 @@ impl<'a> From<EncodeUtf16<'a>> for Error {
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 pub struct Utf8;
 
-impl From<Utf8Error> for Utf8 {
-    fn from(_: Utf8Error) -> Self {
-        Utf8
-    }
-}
-
 impl Display for Utf8 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Utf8")
+    }
+}
+
+#[cfg(features = "std")]
+impl std::error::Error for Utf8 {}
+
+impl From<Utf8Error> for Utf8 {
+    fn from(_: Utf8Error) -> Self {
+        Utf8
     }
 }
 
@@ -72,17 +78,8 @@ impl From<Utf8> for Error {
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 pub struct Utf16;
 
-impl From<DecodeUtf16Error> for Utf16 {
-    fn from(_: DecodeUtf16Error) -> Self {
-        Utf16
-    }
-}
-
-impl<'a> From<EncodeUtf16<'a>> for Utf16 {
-    fn from(_: EncodeUtf16) -> Self {
-        Utf16
-    }
-}
+#[cfg(features = "std")]
+impl std::error::Error for Utf16 {}
 
 impl Display for Utf16 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -98,6 +95,18 @@ impl From<Utf16> for Error {
     }
 }
 
+impl From<DecodeUtf16Error> for Utf16 {
+    fn from(_: DecodeUtf16Error) -> Self {
+        Utf16
+    }
+}
+
+impl<'a> From<EncodeUtf16<'a>> for Utf16 {
+    fn from(_: EncodeUtf16) -> Self {
+        Utf16
+    }
+}
+
 /// Error caused by out of bounds access to `LimitedString`
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 pub struct OutOfBounds;
@@ -107,6 +116,8 @@ impl Display for OutOfBounds {
         write!(f, "OutOfBounds")
     }
 }
+
+impl std::error::Error for OutOfBounds {}
 
 impl From<OutOfBounds> for Error {
     #[inline]

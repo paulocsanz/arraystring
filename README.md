@@ -66,10 +66,6 @@ fn main() -> Result<(), Error> {
 }
 ```
 
-## Roadmap
-
-- Never panics (panic branches are removed at compile time)
-
 ## Licenses
 
 [MIT](master/license/MIT) and [Apache-2.0](master/license/APACHE)
