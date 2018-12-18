@@ -24,7 +24,7 @@ fn clone_benchmark(c: &mut Criterion) {
 
     let array = Fun::new("Array", move |b, ()| b.iter(|| array.clone()));
     let heap = Fun::new("Heap", move |b, ()| b.iter(|| heap.clone()));
-    let arc = Fun::new("Heap", move |b, ()| b.iter(|| arc.clone()));
+    let arc = Fun::new("Arc", move |b, ()| b.iter(|| arc.clone()));
     let functions = vec![array, heap, arc];
     c.bench_functions("Clone", functions, ());
 }

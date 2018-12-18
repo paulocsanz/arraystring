@@ -11,7 +11,8 @@ categories = ["data-structures"]
 
 [lib]
 name = "arraystring"
-crate_type = ["lib", "cdylib", "staticlib"]
+crate_type = ["cdylib", "staticlib"]
+#crate_type = ["lib", "cdylib", "staticlib"]
 
 [dev-dependencies]
 criterion = "0.2"

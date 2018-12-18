@@ -83,7 +83,25 @@ fn max_clone_benchmark(c: &mut Criterion) {
     c.bench_function("max clone", move |b| b.iter(|| string.clone()));
 }
 
-criterion_group!(small, small_try_from_benchmark, small_from_unchecked_benchmark, small_from_truncate_benchmark, small_clone_benchmark);
-criterion_group!(cache, cache_try_from_benchmark, cache_from_unchecked_benchmark, cache_from_truncate_benchmark, cache_clone_benchmark);
-criterion_group!(max, max_try_from_benchmark, max_from_unchecked_benchmark, max_from_truncate_benchmark, max_clone_benchmark);
+criterion_group!(
+    small,
+    small_try_from_benchmark,
+    small_from_unchecked_benchmark,
+    small_from_truncate_benchmark,
+    small_clone_benchmark
+);
+criterion_group!(
+    cache,
+    cache_try_from_benchmark,
+    cache_from_unchecked_benchmark,
+    cache_from_truncate_benchmark,
+    cache_clone_benchmark
+);
+criterion_group!(
+    max,
+    max_try_from_benchmark,
+    max_from_unchecked_benchmark,
+    max_from_truncate_benchmark,
+    max_clone_benchmark
+);
 criterion_main!(small, cache, max);

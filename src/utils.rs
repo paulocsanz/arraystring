@@ -28,9 +28,17 @@ pub(crate) unsafe fn never(s: &str) -> ! {
     ::core::hint::unreachable_unchecked()
 }
 
+/// Encodes `char` into `ArrayString` at specified position, heavily unsafe
+///
+/// We reimplement the `core` function to avoid panicking (UB instead, be careful)
+///
+/// Reimplemented from:
+///
+/// `https://github.com/rust-lang/rust/blob/7843e2792dce0f20d23b3c1cca51652013bef0ea/src/libcore/char/methods.rs#L447`
 /// # Safety
 ///
-/// It's UB if index is out of bounds or buffer is too small (4 bytes needed at most)
+/// - It's UB if index is outside of buffer's boundaries (buffer needs at most 4 bytes)
+/// - It's UB if index is inside a character (like a index 3 for "a🤔")
 #[inline]
 pub(crate) unsafe fn encode_char_utf8_unchecked<S: ArrayString>(s: &mut S, ch: char, index: Size) {
     trace!("Encode char: {} to {}", ch, index);
@@ -45,6 +53,7 @@ pub(crate) unsafe fn encode_char_utf8_unchecked<S: ArrayString>(s: &mut S, ch: c
     const MAX_THREE_B: u32 = 0x10000;
 
     debug_assert!(index + ch.len_utf8() as Size <= S::CAPACITY);
+    debug_assert!(s.len() + ch.len_utf8() as Size <= S::CAPACITY);
     let (dst, code) = (s.buffer().get_unchecked_mut(index as usize..), ch as u32);
 
     if code < MAX_ONE_B {
@@ -115,11 +124,17 @@ pub fn is_char_boundary<S: ArrayString>(s: &S, idx: Size) -> Result<(), Utf8> {
 #[inline]
 pub(crate) fn truncate_str(slice: &str, size: Size) -> &str {
     trace!("Truncate str: {} at {}", slice, size);
-    let mut ch = slice.chars();
-    while ch.as_str().len() > size as usize {
-        let _ = ch.next_back();
+    if slice.is_char_boundary(size as usize) {
+        unsafe { &slice.get_unchecked(..size as usize) }
+    } else if (size as usize) < slice.len() {
+        let mut index = size.saturating_sub(1) as usize;
+        while !slice.is_char_boundary(index) {
+            index = index.saturating_sub(1);
+        }
+        unsafe { &slice.get_unchecked(..index) }
+    } else {
+        slice
     }
-    ch.as_str()
 }
 
 #[cfg(test)]
@@ -127,6 +142,7 @@ mod tests {
     #[cfg(feature = "logs")]
     extern crate env_logger;
 
+    use core::str::from_utf8;
     use super::*;
 
     #[cfg(all(feature = "logs", feature = "std"))]
@@ -138,6 +154,13 @@ mod tests {
 
     #[cfg(not(feature = "logs"))]
     fn setup_logger() {}
+
+    #[test]
+    fn truncate() {
+        assert_eq!(truncate_str("i", 10), "i");
+        assert_eq!(truncate_str("iiiiii", 3), "iii");
+        assert_eq!(truncate_str("🤔🤔🤔", 5), "🤔");
+    }
 
     #[test]
     fn shift_right() {
@@ -165,5 +188,19 @@ mod tests {
         assert_eq!(ls.as_str(), "abcdefg");
         unsafe { shift_left_unchecked(&mut ls, 0, 0) };
         assert_eq!(ls.as_str(), "abcdefg");
+    }
+
+
+    #[test]
+    fn encode_char_utf8() {
+        use array::Buffer;
+        setup_logger();
+        let mut string = CacheString::default();
+        unsafe { encode_char_utf8_unchecked(&mut string, 'a', 0) };
+        assert_eq!(from_utf8(unsafe { &string.buffer()[..1] }).unwrap(), "a");
+
+        let mut string = CacheString::try_from_str("a").unwrap();
+        unsafe { encode_char_utf8_unchecked(&mut string, '🤔', 1) };
+        assert_eq!(from_utf8(unsafe { &string.buffer()[..5] }).unwrap(), "a🤔");
     }
 }

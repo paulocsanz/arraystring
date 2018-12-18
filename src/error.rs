@@ -117,6 +117,7 @@ impl Display for OutOfBounds {
     }
 }
 
+#[cfg(features = "std")]
 impl std::error::Error for OutOfBounds {}
 
 impl From<OutOfBounds> for Error {

@@ -43,6 +43,29 @@ macro_rules! __inner_impl_string {
     ($name: ident, $size: expr) => {
         #[allow(unused_imports)]
         use $crate::prelude::*;
+
+        impl $name {
+            /// Extracts interior byte slice (with used length)
+            ///
+            /// ```rust
+            /// # use arraystring::{prelude::*, error::Error};
+            /// # fn main() -> Result<(), Error> {
+            /// let string = CacheString::try_from_str("Byte Slice")?;
+            /// let (array, len) = string.into_bytes();
+            /// assert_eq!(&array[..len as usize], b"Byte Slice");
+            /// # Ok(())
+            /// # }
+            /// ```
+            #[allow(trivial_numeric_casts)]
+            pub fn into_bytes(mut self) -> ([u8; $size as usize], Size) {
+                use $crate::core::ptr::write_bytes;
+                let dest = unsafe { (&mut self.0 as *mut [u8] as *mut u8).add(self.len() as usize) };
+                unsafe { write_bytes(dest, 0, (Self::CAPACITY - self.len()) as usize);
+                }
+                (self.0, self.1)
+            }
+        }
+
         impl $crate::array::Buffer for $name {
             #[inline]
             unsafe fn buffer(&mut self) -> &mut [u8] {
@@ -104,6 +127,7 @@ macro_rules! __inner_impl_string {
                 S: AsRef<str>,
             {
                 use $crate::core::{mem::uninitialized, ptr::copy_nonoverlapping, ptr::write_bytes};
+                debug_assert!(s.as_ref().len() as Size <= Self::CAPACITY);
                 let mut array: [u8; Self::CAPACITY as usize] = uninitialized();
                 let (s, dest) = (s.as_ref(), &mut array as *mut [u8] as *mut u8);
                 copy_nonoverlapping(s.as_ptr(), dest, s.len());
