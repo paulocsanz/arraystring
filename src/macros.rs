@@ -125,6 +125,7 @@ macro_rules! __inner_impl_string {
         impl $crate::ArrayString for $name {
             const CAPACITY: Size = $size;
 
+            /*
             #[inline]
             unsafe fn from_str_unchecked<S>(string: S) -> Self
             where
@@ -138,6 +139,28 @@ macro_rules! __inner_impl_string {
                 write_bytes(dest.add(s.len()), 0, (Self::CAPACITY as usize).saturating_sub(s.len()));
                 $name(array, s.len() as Size)
             }
+
+            #[inline]
+            unsafe fn from_iterator_unchecked<U, I>(iter: I) -> Self
+            where
+                U: AsRef<str>,
+                I: IntoIterator<Item = U>,
+            {
+                use $crate::core::{mem::uninitialized, ptr::copy_nonoverlapping, ptr::write_bytes};
+                let mut array: [u8; Self::CAPACITY as usize] = uninitialized();
+                let mut dest = &mut array as *mut [u8] as *mut u8;
+                let mut size: usize = 0;
+
+                for s in iter {
+                    let s = s.as_ref();
+                    copy_nonoverlapping(s.as_ptr(), dest, s.len());
+                    size = size.saturating_add(s.len());
+                    dest = dest.add(s.len());
+                }
+                write_bytes(dest, 0, (Self::CAPACITY as usize).saturating_sub(size));
+                $name(array, size as Size)
+            }
+            */
         }
 
         impl $crate::core::str::FromStr for $name {

@@ -119,9 +119,6 @@ pub extern crate diesel;
 #[doc(hidden)]
 pub extern crate serde;
 
-#[cfg(feature = "ffi")]
-pub mod ffi;
-
 /// Remove logging macros when they are disabled (at compile time)
 #[macro_use]
 #[cfg(not(feature = "logs"))]
@@ -152,6 +149,9 @@ pub mod prelude {
     pub use utils::setup_logger;
     pub use {CacheString, InlinableString, Size, SmallString};
 }
+
+#[cfg(feature = "ffi")]
+pub mod ffi;
 
 /// [`ArrayString`]'s buffer index
 ///

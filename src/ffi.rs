@@ -4,8 +4,10 @@ pub use error::Error;
 pub use prelude::*;
 pub use traits::Drain;
 
+impl_string!(pub struct MaxString(255));
+
 /// Alias to easily allow testing multiple sizes
-type String = InlinableString;
+type String = MaxString;
 
 /// Creates new empty string
 #[no_mangle]
