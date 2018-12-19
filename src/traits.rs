@@ -30,7 +30,7 @@ pub trait Buffer {
 ///
 /// [`ArrayString`]: ./trait.ArrayString.html
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
-pub struct Drain<S: ArrayString>(S, Size);
+pub struct Drain<S>(S, Size);
 
 impl<S: ArrayString> Drain<S> {
     /// Extracts string slice containing the entire `Drain`.
@@ -47,10 +47,10 @@ impl<S: ArrayString> Iterator for Drain<S> {
     fn next(&mut self) -> Option<Self::Item> {
         self.0
             .as_str()
-            .get(self.1 as usize..)
+            .get(self.1.into()..)
             .and_then(|s| s.chars().next())
             .map(|c| {
-                self.1 += c.len_utf8() as Size;
+                self.1 = self.1.saturating_add(c.len_utf8() as Size);
                 c
             })
     }
@@ -85,8 +85,8 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
 
     /// Creates new [`ArrayString`] from string slice if length is lower or equal to [`CAPACITY`], otherwise returns an error.
     ///
-    /// [`ArrayString`]: ../array/trait.ArrayString.html
-    /// [`CAPACITY`]: ../array/trait.ArrayString.html#CAPACITY
+    /// [`ArrayString`]: ../traits/trait.ArrayString.html
+    /// [`CAPACITY`]: ../traits/trait.ArrayString.html#CAPACITY
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
@@ -106,7 +106,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
         S: AsRef<str>,
     {
         trace!("Try from str: {:?}", s.as_ref());
-        is_inside_boundary(s.as_ref().len() as Size, Self::CAPACITY)?;
+        is_inside_boundary(s.as_ref().len(), Self::CAPACITY)?;
         unsafe { Ok(Self::from_str_unchecked(s.as_ref())) }
     }
 
@@ -121,7 +121,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// println!("{}", string);
     ///
     /// let truncate = "0".repeat(CacheString::CAPACITY as usize + 10);
-    /// let truncated = "0".repeat(CacheString::CAPACITY as usize);
+    /// let truncated = "0".repeat(CacheString::CAPACITY.into());
     /// let string = CacheString::from_str_truncate(&truncate);
     /// assert_eq!(string.as_str(), truncated);
     /// ```
@@ -144,14 +144,14 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// let filled = "0".repeat(CacheString::CAPACITY as usize);
+    /// let filled = "0".repeat(CacheString::CAPACITY.into());
     /// let string = unsafe {
     ///     CacheString::from_str_unchecked(&filled)
     /// };
     /// assert_eq!(string.as_str(), filled.as_str());
     ///
     /// // Undefined behavior, don't do it
-    /// // let out_of_bounds = "0".repeat(CacheString::CAPACITY as usize + 1);
+    /// // let out_of_bounds = "0".repeat(CacheString::CAPACITY.into() + 1);
     /// // let ub = unsafe { CacheString::from_str_unchecked(out_of_bounds) };
     /// ```
     #[inline]
@@ -188,7 +188,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         trace!("FromIterator");
         let mut out = Self::default();
-        for s in iter.into_iter() {
+        for s in iter {
             out.try_push_str(s)?;
         }
         Ok(out)
@@ -205,7 +205,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(string.as_str(), "My String Other String");
     ///
     /// let out_of_bounds = (0..400).map(|_| "000");
-    /// let truncated = "0".repeat(CacheString::CAPACITY as usize);
+    /// let truncated = "0".repeat(CacheString::CAPACITY.into());
     ///
     /// let truncate = CacheString::from_iterator(out_of_bounds);
     /// assert_eq!(truncate.as_str(), truncated.as_str());
@@ -220,7 +220,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         trace!("FromIterator truncate");
         let mut out = Self::default();
-        for s in iter.into_iter() {
+        for s in iter {
             if out.try_push_str(s.as_ref()).is_err() {
                 out.push_str(s);
                 break;
@@ -258,7 +258,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         trace!("FromIterator unchecked");
         let mut out = Self::default();
-        for s in iter.into_iter() {
+        for s in iter {
             out.push_str_unchecked(s);
         }
         out
@@ -286,7 +286,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         trace!("TryFrom chars");
         let mut out = Self::default();
-        for c in iter.into_iter() {
+        for c in iter {
             out.try_push(c)?;
         }
         Ok(out)
@@ -302,7 +302,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(string.as_str(), "My String");
     ///
     /// let out_of_bounds = "0".repeat(CacheString::CAPACITY as usize + 1);
-    /// let truncated = "0".repeat(CacheString::CAPACITY as usize);
+    /// let truncated = "0".repeat(CacheString::CAPACITY.into());
     ///
     /// let truncate = CacheString::from_chars(out_of_bounds.chars());
     /// assert_eq!(truncate.as_str(), truncated.as_str());
@@ -314,7 +314,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         trace!("From chars truncate");
         let mut out = Self::default();
-        for c in iter.into_iter() {
+        for c in iter {
             if out.try_push(c).is_err() {
                 break;
             }
@@ -346,7 +346,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         trace!("From chars unchecked");
         let mut out = Self::default();
-        for c in iter.into_iter() {
+        for c in iter {
             out.push_unchecked(c)
         }
         out
@@ -397,7 +397,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     ///
     /// let out_of_bounds = "0".repeat(300);
     /// assert_eq!(CacheString::from_utf8(out_of_bounds.as_bytes())?.as_str(),
-    ///            "0".repeat(CacheString::CAPACITY as usize).as_str());
+    ///            "0".repeat(CacheString::CAPACITY.into()).as_str());
     /// # Ok(())
     /// # }
     /// ```
@@ -408,16 +408,6 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         debug!("From utf8: {:?}", slice.as_ref());
         Ok(Self::from_str_truncate(from_utf8(slice.as_ref())?))
-    }
-
-    /// TODO
-    #[inline]
-    #[doc(hidden)]
-    fn from_utf8_lossy<B>(_slice: B) -> Self
-    where
-        B: AsRef<[u8]>,
-    {
-        unimplemented!();
     }
 
     /// Creates new string abstraction from byte slice assuming it's utf-8 and of a appropriate size.
@@ -498,7 +488,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     ///
     /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
     /// assert_eq!(CacheString::from_utf16(out_of_bounds)?.as_str(),
-    ///            "\0".repeat(CacheString::CAPACITY as usize).as_str());
+    ///            "\0".repeat(CacheString::CAPACITY.into()).as_str());
     /// # Ok(())
     /// # }
     /// ```
@@ -533,7 +523,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     ///
     /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
     /// assert_eq!(CacheString::from_utf16_lossy(&out_of_bounds).as_str(),
-    ///            "\0".repeat(CacheString::CAPACITY as usize).as_str());
+    ///            "\0".repeat(CacheString::CAPACITY.into()).as_str());
     /// # Ok(())
     /// # }
     /// ```
@@ -614,7 +604,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
         trace!("As mut str: {}", self.as_str());
         let len = self.len();
-        self.buffer().get_unchecked_mut(..len as usize)
+        self.buffer().get_unchecked_mut(..len.into())
     }
 
     /// Pushes string slice to the end of the string abstraction if total size is lower or equal to [`CAPACITY`], otherwise returns an error.
@@ -628,7 +618,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// s.try_push_str(" My other String")?;
     /// assert_eq!(s.as_str(), "My String My other String");
     ///
-    /// assert!(s.try_push_str("0".repeat(CacheString::CAPACITY as usize)).is_err());
+    /// assert!(s.try_push_str("0".repeat(CacheString::CAPACITY.into())).is_err());
     /// # Ok(())
     /// # }
     /// ```
@@ -638,8 +628,12 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
         S: AsRef<str>,
     {
         trace!("Push str");
-        is_inside_boundary(self.len() + string.as_ref().len() as Size, Self::CAPACITY)?;
-        Ok(unsafe { self.push_str_unchecked(string) })
+        is_inside_boundary(
+            string.as_ref().len().saturating_add(self.len().into()),
+            Self::CAPACITY,
+        )?;
+        unsafe { self.push_str_unchecked(string) };
+        Ok(())
     }
 
     /// Pushes string slice to the end of the string abstraction truncating total size if bigger than [`CAPACITY`].
@@ -655,7 +649,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     ///
     /// s.clear();
     /// s.push_str("0".repeat(CacheString::CAPACITY as usize + 10));
-    /// assert_eq!(s.as_str(), "0".repeat(CacheString::CAPACITY as usize).as_str());
+    /// assert_eq!(s.as_str(), "0".repeat(CacheString::CAPACITY.into()).as_str());
     /// # Ok(())
     /// # }
     /// ```
@@ -665,7 +659,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
         S: AsRef<str>,
     {
         trace!("Push str truncate");
-        let size = Self::CAPACITY - self.len();
+        let size = Self::CAPACITY.saturating_sub(self.len());
         unsafe { self.push_str_unchecked(truncate_str(string.as_ref(), size)) }
     }
 
@@ -686,7 +680,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     ///
     /// // Undefined behavior, don't do it
     /// // let mut undefined_behavior = CacheString::default();
-    /// // undefined_behavior.push_str_unchecked("0".repeat(CacheString::CAPACITY as usize + 10));
+    /// // undefined_behavior.push_str_unchecked("0".repeat(CacheString::CAPACITY.into() + 10));
     /// # Ok(())
     /// # }
     /// ```
@@ -696,10 +690,14 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
         S: AsRef<str>,
     {
         let (s, len) = (string.as_ref(), string.as_ref().len());
-        debug!("Push str unchecked: {} ({})", s, self.len() + len as Size);
-        debug_assert!(self.len() + len as Size <= Self::CAPACITY);
+        debug!(
+            "Push str unchecked: {} ({})",
+            s,
+            self.len().saturating_add(len as Size)
+        );
+        debug_assert!(len.saturating_add(self.len().into()) <= Self::CAPACITY as usize);
 
-        let dest = self.as_mut_bytes().as_mut_ptr().add(self.len() as usize);
+        let dest = self.as_mut_bytes().as_mut_ptr().add(self.len().into());
         copy_nonoverlapping(s.as_ptr(), dest, len);
         self.update_len(|l| *l = l.saturating_add(len as Size));
     }
@@ -715,7 +713,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// s.try_push('!')?;
     /// assert_eq!(s.as_str(), "My String!");
     ///
-    /// let mut s = CacheString::try_from_str(&"0".repeat(CacheString::CAPACITY as usize))?;
+    /// let mut s = CacheString::try_from_str(&"0".repeat(CacheString::CAPACITY.into()))?;
     /// assert!(s.try_push('!').is_err());
     /// # Ok(())
     /// # }
@@ -723,8 +721,12 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     #[inline]
     fn try_push(&mut self, character: char) -> Result<(), OutOfBounds> {
         trace!("Push: {}", character);
-        is_inside_boundary(self.len() + character.len_utf8() as Size, Self::CAPACITY)?;
-        Ok(unsafe { self.push_unchecked(character) })
+        is_inside_boundary(
+            character.len_utf8().saturating_add(self.len().into()),
+            Self::CAPACITY,
+        )?;
+        unsafe { self.push_unchecked(character) };
+        Ok(())
     }
 
     /// Inserts character to the end of the `LimitedList` assuming length is appropriate
@@ -742,7 +744,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// unsafe { s.push_unchecked('!') };
     /// assert_eq!(s.as_str(), "My String!");
     ///
-    /// // s = CacheString::try_from_str(&"0".repeat(CacheString::CAPACITY as usize))?;
+    /// // s = CacheString::try_from_str(&"0".repeat(CacheString::CAPACITY.into()))?;
     /// // Undefined behavior, don't do it
     /// // s.push_unchecked('!');
     /// # Ok(())
@@ -820,30 +822,32 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// ```
     #[inline]
     fn trim(&mut self) {
-        const SPACE: u8 = ' ' as u8;
-        let is_whitespace = |s: &[u8], index| {
+        /// Whitespace character as byte
+        const SPACE: u8 = b' ';
+        let is_whitespace = |s: &[u8], index: usize| {
             debug_assert!(index < s.len());
             unsafe { s.get_unchecked(index) == &SPACE }
         };
-        let (mut start, mut end, mut leave) = (0, self.len(), 0);
+        let (mut start, mut end, mut leave): (Size, _, Size) = (0, self.len(), 0);
         while start < end && leave < 2 {
             leave = 0;
 
-            if is_whitespace(self.as_bytes(), start as usize) {
-                start += 1;
+            if is_whitespace(self.as_bytes(), start.into()) {
+                start = start.saturating_add(1);
+                if start >= end { continue };
             } else {
-                leave += 1;
+                leave = leave.saturating_add(1);
             }
 
-            if start < end && is_whitespace(self.as_bytes(), end.saturating_sub(1) as usize) {
-                end -= 1;
-            } else if start < end {
-                leave += 1;
+            if start < end && is_whitespace(self.as_bytes(), end.saturating_sub(1).into()) {
+                end = end.saturating_sub(1);
+            } else {
+                leave = leave.saturating_add(1);
             }
         }
 
         unsafe { shift_left_unchecked(self, start, 0) };
-        self.update_len(|l| *l = end - start);
+        self.update_len(|l| *l = end.saturating_sub(start));
     }
 
     /// Removes specified char from `ArrayString`
@@ -865,12 +869,12 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     #[inline]
     fn remove(&mut self, idx: Size) -> Result<char, Error> {
         debug!("Remove: {}", idx);
-        is_inside_boundary(idx + 1, self.len())?;
+        is_inside_boundary((idx as usize).saturating_add(1), self.len())?;
         is_char_boundary(self, idx)?;
-        debug_assert!(idx < self.len() && self.as_str().is_char_boundary(idx as usize));
-        let ch = unsafe { self.as_str().get_unchecked(idx as usize..).chars().next() };
+        debug_assert!(idx < self.len() && self.as_str().is_char_boundary(idx.into()));
+        let ch = unsafe { self.as_str().get_unchecked(idx.into()..).chars().next() };
         let ch = ch.unwrap_or_else(|| unsafe { never("Missing char") });
-        unsafe { shift_left_unchecked(self, idx + ch.len_utf8() as Size, idx) };
+        unsafe { shift_left_unchecked(self, idx.saturating_add(ch.len_utf8() as Size), idx) };
         self.update_len(|l| *l = l.saturating_sub(ch.len_utf8() as Size));
         Ok(ch)
     }
@@ -911,7 +915,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// assert_eq!(s.try_insert(20, 'C'), Err(Error::OutOfBounds));
     /// assert_eq!(s.try_insert(8, 'D'), Err(Error::Utf8));
     ///
-    /// let mut s = CacheString::try_from_str(&"0".repeat(CacheString::CAPACITY as usize))?;
+    /// let mut s = CacheString::try_from_str(&"0".repeat(CacheString::CAPACITY.into()))?;
     /// assert_eq!(s.try_insert(0, 'C'), Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
@@ -920,7 +924,10 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     fn try_insert(&mut self, idx: Size, ch: char) -> Result<(), Error> {
         trace!("Insert {} to {}", ch, idx);
         is_inside_boundary(idx, self.len())?;
-        is_inside_boundary(self.len() + ch.len_utf8() as Size, Self::CAPACITY)?;
+        is_inside_boundary(
+            ch.len_utf8().saturating_add(self.len().into()),
+            Self::CAPACITY,
+        )?;
         is_char_boundary(self, idx)?;
         unsafe { self.insert_unchecked(idx, ch) };
         Ok(())
@@ -952,9 +959,14 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// ```
     #[inline]
     unsafe fn insert_unchecked(&mut self, idx: Size, ch: char) {
-        let (_len, clen) = (self.len(), ch.len_utf8() as Size);
-        debug!("Insert unchecked: {} ({}) at {}", ch, _len + clen, idx);
-        shift_right_unchecked(self, idx, idx + clen);
+        let clen = ch.len_utf8() as Size;
+        debug!(
+            "Insert unchecked: {} ({}) at {}",
+            ch,
+            self.len().saturating_add(clen),
+            idx
+        );
+        shift_right_unchecked(self, idx, idx.saturating_add(clen));
         encode_char_utf8_unchecked(self, ch, idx);
         self.update_len(|l| *l = l.saturating_add(ch.len_utf8() as Size));
     }
@@ -974,7 +986,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// let mut s = CacheString::try_from_str("ABCD🤔")?;
     /// s.try_insert_str(1, "AB")?;
     /// s.try_insert_str(1, "BC")?;
-    /// assert_eq!(s.try_insert_str(1, "0".repeat(CacheString::CAPACITY as usize)),
+    /// assert_eq!(s.try_insert_str(1, "0".repeat(CacheString::CAPACITY.into())),
     ///            Err(Error::OutOfBounds));
     /// assert_eq!(s.as_str(), "ABCABBCD🤔");
     /// assert_eq!(s.try_insert_str(20, "C"), Err(Error::OutOfBounds));
@@ -989,7 +1001,10 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         trace!("Try insert str");
         is_inside_boundary(idx, self.len())?;
-        is_inside_boundary(self.len() + s.as_ref().len() as Size, Self::CAPACITY)?;
+        is_inside_boundary(
+            s.as_ref().len().saturating_add(self.len().into()),
+            Self::CAPACITY,
+        )?;
         is_char_boundary(self, idx)?;
         unsafe { self.insert_str_unchecked(idx, s.as_ref()) };
         Ok(())
@@ -1016,7 +1031,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     ///
     /// s.clear();
     /// s.insert_str(0, "0".repeat(CacheString::CAPACITY as usize + 10))?;
-    /// assert_eq!(s.as_str(), "0".repeat(CacheString::CAPACITY as usize).as_str());
+    /// assert_eq!(s.as_str(), "0".repeat(CacheString::CAPACITY.into()).as_str());
     /// # Ok(())
     /// # }
     /// ```
@@ -1028,7 +1043,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
         trace!("Insert str");
         is_inside_boundary(idx, self.len())?;
         is_char_boundary(self, idx)?;
-        let size = Self::CAPACITY - self.len();
+        let size = Self::CAPACITY.saturating_sub(self.len());
         unsafe { self.insert_str_unchecked(idx, truncate_str(string.as_ref(), size)) };
         Ok(())
     }
@@ -1054,7 +1069,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     /// // Undefined behavior, don't do it
     /// // unsafe { s.insert_str_unchecked(20, "C") };
     /// // unsafe { s.insert_str_unchecked(10, "D") };
-    /// // unsafe { s.insert_str_unchecked(1, "0".repeat(CacheString::CAPACITY as usize)) };
+    /// // unsafe { s.insert_str_unchecked(1, "0".repeat(CacheString::CAPACITY.into())) };
     /// # Ok(())
     /// # }
     /// ```
@@ -1065,14 +1080,19 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     {
         let (s, slen) = (string.as_ref(), string.as_ref().len() as Size);
         let (ptr, len) = (s.as_ptr(), self.len());
-        trace!("Insert str unchecked: {} ({}) at {}", s, len + slen, idx);
-        debug_assert!(len + slen <= Self::CAPACITY);
+        trace!(
+            "Insert str unchecked: {} ({}) at {}",
+            s,
+            len.saturating_add(slen),
+            idx
+        );
+        debug_assert!(len.saturating_add(slen) <= Self::CAPACITY);
         debug_assert!(idx <= len);
-        debug_assert!(self.as_str().is_char_boundary(idx as usize));
+        debug_assert!(self.as_str().is_char_boundary(idx.into()));
 
-        shift_right_unchecked(self, idx, idx + slen);
-        let dest = self.as_mut_bytes().as_mut_ptr().add(idx as usize);
-        copy_nonoverlapping(ptr, dest, slen as usize);
+        shift_right_unchecked(self, idx, idx.saturating_add(slen));
+        let dest = self.as_mut_bytes().as_mut_ptr().add(idx.into());
+        copy_nonoverlapping(ptr, dest, slen.into());
         self.update_len(|l| *l = l.saturating_add(slen));
     }
 
@@ -1136,8 +1156,8 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
         debug!("Split off");
         is_inside_boundary(at, self.len())?;
         is_char_boundary(self, at)?;
-        debug_assert!(at <= self.len() && self.as_str().is_char_boundary(at as usize));
-        let new = unsafe { Self::from_utf8_unchecked(self.as_str().get_unchecked(at as usize..)) };
+        debug_assert!(at <= self.len() && self.as_str().is_char_boundary(at.into()));
+        let new = unsafe { Self::from_utf8_unchecked(self.as_str().get_unchecked(at.into()..)) };
         self.update_len(|l| *l = at);
         Ok(new)
     }
@@ -1198,15 +1218,15 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
         is_char_boundary(self, start)?;
         is_char_boundary(self, end)?;
         debug_assert!(start <= end && end <= self.len());
-        debug_assert!(self.as_str().is_char_boundary(start as usize));
-        debug_assert!(self.as_str().is_char_boundary(end as usize));
+        debug_assert!(self.as_str().is_char_boundary(start.into()));
+        debug_assert!(self.as_str().is_char_boundary(end.into()));
 
         let drain = unsafe {
-            let slice = self.as_str().get_unchecked(start as usize..end as usize);
+            let slice = self.as_str().get_unchecked(start.into()..end.into());
             Self::from_str_unchecked(slice)
         };
         unsafe { shift_left_unchecked(self, end, start) };
-        self.update_len(|l| *l = l.saturating_sub(end - start));
+        self.update_len(|l| *l = l.saturating_sub(end.saturating_sub(start)));
         Ok(Drain(drain, 0))
     }
 
@@ -1221,7 +1241,7 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
     ///
     /// assert_eq!(s.replace_range(9.., "J"), Err(Error::Utf8));
     /// assert_eq!(s.replace_range(..90, "K"), Err(Error::OutOfBounds));
-    /// assert_eq!(s.replace_range(0..1, "0".repeat(CacheString::CAPACITY as usize)),
+    /// assert_eq!(s.replace_range(0..1, "0".repeat(CacheString::CAPACITY.into())),
     ///            Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
@@ -1256,25 +1276,30 @@ pub trait ArrayString: AsRef<str> + AsMut<str> + AsRef<[u8]> + Default + Buffer 
 
         is_inside_boundary(start, end)?;
         is_inside_boundary(end, self.len())?;
-        is_inside_boundary(end - start + len, Self::CAPACITY)?;
+        is_inside_boundary(
+            (end as usize)
+                .saturating_sub(start.into())
+                .saturating_add(len.into()),
+            Self::CAPACITY,
+        )?;
         is_char_boundary(self, start)?;
         is_char_boundary(self, end)?;
 
         debug_assert!(start <= end && end <= self.len());
-        debug_assert!(end - start + len <= Self::CAPACITY);
-        debug_assert!(self.as_str().is_char_boundary(start as usize));
-        debug_assert!(self.as_str().is_char_boundary(end as usize));
+        debug_assert!(len.saturating_sub(end).saturating_add(start) <= Self::CAPACITY);
+        debug_assert!(self.as_str().is_char_boundary(start.into()));
+        debug_assert!(self.as_str().is_char_boundary(end.into()));
 
-        if start + len > end {
-            unsafe { shift_right_unchecked(self, end, start + len) };
+        if start.saturating_add(len) > end {
+            unsafe { shift_right_unchecked(self, end, start.saturating_add(len)) };
         } else {
-            unsafe { shift_left_unchecked(self, end, start + len) };
+            unsafe { shift_left_unchecked(self, end, start.saturating_add(len)) };
         }
 
-        self.update_len(|l| *l = l.saturating_add(len - end + start));
-        let (ptr, len) = (replace_with.as_ptr(), len as usize);
-        let dest = unsafe { self.as_mut_bytes().as_mut_ptr().add(start as usize) };
-        unsafe { copy_nonoverlapping(ptr, dest, len) };
+        self.update_len(|l| *l = l.saturating_add(len.saturating_sub(end).saturating_add(start)));
+        let ptr = replace_with.as_ptr();
+        let dest = unsafe { self.as_mut_bytes().as_mut_ptr().add(start.into()) };
+        unsafe { copy_nonoverlapping(ptr, dest, len.into()) };
         Ok(())
     }
 }

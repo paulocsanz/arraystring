@@ -2,7 +2,7 @@
 
 A stack based strings with a maximum (customizable) size.
 
-**Never panics (all panic branches are impossible and therefore removed at compile time)**
+**Never panics (branches that panic are impossible, so removed at compile time, except for the `Index` traits, since it is supposed to**
 
 **Never allocates memory on the heap**
 

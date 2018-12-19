@@ -5,7 +5,7 @@ use core::{char::DecodeUtf16Error, str::EncodeUtf16, str::Utf8Error};
 
 /// Every error possible when using the [`ArrayString`]
 ///
-/// [`ArrayString`]: ./array/trait.ArrayString.html
+/// [`ArrayString`]: ./traits/trait.ArrayString.html
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum Error {
     /// Conversion from byte slice to UTF-8 failed (invalid data or invalid index)
@@ -17,6 +17,7 @@ pub enum Error {
 }
 
 impl Display for Error {
+    #[inline]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Error::Utf8 => write!(f, "Utf8"),
@@ -30,18 +31,21 @@ impl Display for Error {
 impl std::error::Error for Error {}
 
 impl From<Utf8Error> for Error {
+    #[inline]
     fn from(_: Utf8Error) -> Self {
         Error::Utf8
     }
 }
 
 impl From<DecodeUtf16Error> for Error {
+    #[inline]
     fn from(_: DecodeUtf16Error) -> Self {
         Error::Utf16
     }
 }
 
 impl<'a> From<EncodeUtf16<'a>> for Error {
+    #[inline]
     fn from(_: EncodeUtf16) -> Self {
         Error::Utf16
     }
@@ -52,6 +56,7 @@ impl<'a> From<EncodeUtf16<'a>> for Error {
 pub struct Utf8;
 
 impl Display for Utf8 {
+    #[inline]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Utf8")
     }
@@ -61,6 +66,7 @@ impl Display for Utf8 {
 impl std::error::Error for Utf8 {}
 
 impl From<Utf8Error> for Utf8 {
+    #[inline]
     fn from(_: Utf8Error) -> Self {
         Utf8
     }
@@ -82,6 +88,7 @@ pub struct Utf16;
 impl std::error::Error for Utf16 {}
 
 impl Display for Utf16 {
+    #[inline]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Utf16")
     }
@@ -96,12 +103,14 @@ impl From<Utf16> for Error {
 }
 
 impl From<DecodeUtf16Error> for Utf16 {
+    #[inline]
     fn from(_: DecodeUtf16Error) -> Self {
         Utf16
     }
 }
 
 impl<'a> From<EncodeUtf16<'a>> for Utf16 {
+    #[inline]
     fn from(_: EncodeUtf16) -> Self {
         Utf16
     }
@@ -112,6 +121,7 @@ impl<'a> From<EncodeUtf16<'a>> for Utf16 {
 pub struct OutOfBounds;
 
 impl Display for OutOfBounds {
+    #[inline]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "OutOfBounds")
     }

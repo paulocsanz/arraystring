@@ -1,6 +1,8 @@
+//! All macros related to this crate
+
 /// Abstracts [`ArrayString`] implementation
 ///
-/// [`ArrayString`]: ./array/trait.ArrayString.html
+/// [`ArrayString`]: ./traits/trait.ArrayString.html
 ///
 /// ```rust
 /// # #[macro_use]
@@ -22,7 +24,7 @@ macro_rules! impl_string {
         #[derive(Copy, Clone)]
         #[cfg_attr(features = "diesel-traits", derive(FromSqlRow, AsExpression, SqlType))]
         #[allow(trivial_numeric_casts)]
-        $(#[$attr:meta])*
+        $(#[$attr])*
         pub struct $name([u8; $size as usize], $crate::Size);
         __inner_impl_string!($name, $size);
     };
@@ -31,7 +33,7 @@ macro_rules! impl_string {
         #[derive(Copy, Clone)]
         #[allow(trivial_numeric_casts)]
         #[cfg_attr(features = "diesel-traits", derive(FromSqlRow, AsExpression, SqlType))]
-        $(#[$attr:meta])*
+        $(#[$attr])*
         struct $name([u8; $size as usize], $crate::Size);
         __inner_impl_string!($name, $size);
     };
@@ -56,17 +58,18 @@ macro_rules! __inner_impl_string {
             /// # Ok(())
             /// # }
             /// ```
+            #[inline]
             #[allow(trivial_numeric_casts)]
             pub fn into_bytes(mut self) -> ([u8; $size as usize], Size) {
                 use $crate::core::ptr::write_bytes;
-                let dest = unsafe { (&mut self.0 as *mut [u8] as *mut u8).add(self.len() as usize) };
-                unsafe { write_bytes(dest, 0, (Self::CAPACITY - self.len()) as usize);
+                let dest = unsafe { (&mut self.0 as *mut [u8] as *mut u8).add(self.len().into()) };
+                unsafe { write_bytes(dest, 0, Self::CAPACITY.saturating_sub(self.len()).into());
                 }
                 (self.0, self.1)
             }
         }
 
-        impl $crate::array::Buffer for $name {
+        impl $crate::traits::Buffer for $name {
             #[inline]
             unsafe fn buffer(&mut self) -> &mut [u8] {
                 self.0.as_mut()
@@ -104,7 +107,7 @@ macro_rules! __inner_impl_string {
         impl AsMut<str> for $name {
             #[inline]
             fn as_mut(&mut self) -> &mut str {
-                use $crate::array::Buffer;
+                use $crate::traits::Buffer;
                 let len = self.fetch_len() as usize;
                 let slice = unsafe { self.0.get_unchecked_mut(..len) };
                 unsafe { $crate::core::str::from_utf8_unchecked_mut(slice) }
@@ -114,26 +117,26 @@ macro_rules! __inner_impl_string {
         impl AsRef<[u8]> for $name {
             #[inline]
             fn as_ref(&self) -> &[u8] {
-                use $crate::array::Buffer;
-                unsafe { self.0.get_unchecked(..self.fetch_len() as usize) }
+                use $crate::traits::Buffer;
+                unsafe { self.0.get_unchecked(..self.fetch_len().into()) }
             }
         }
 
         impl $crate::ArrayString for $name {
             const CAPACITY: Size = $size;
 
-            unsafe fn from_str_unchecked<S>(s: S) -> Self
+            #[inline]
+            unsafe fn from_str_unchecked<S>(string: S) -> Self
             where
                 S: AsRef<str>,
             {
                 use $crate::core::{mem::uninitialized, ptr::copy_nonoverlapping, ptr::write_bytes};
-                debug_assert!(s.as_ref().len() as Size <= Self::CAPACITY);
+                debug_assert!(string.as_ref().len() <= Self::CAPACITY as usize);
                 let mut array: [u8; Self::CAPACITY as usize] = uninitialized();
-                let (s, dest) = (s.as_ref(), &mut array as *mut [u8] as *mut u8);
+                let (s, dest) = (string.as_ref(), &mut array as *mut [u8] as *mut u8);
                 copy_nonoverlapping(s.as_ptr(), dest, s.len());
-                write_bytes(dest.add(s.len()), 0, Self::CAPACITY as usize - s.len());
+                write_bytes(dest.add(s.len()), 0, (Self::CAPACITY as usize).saturating_sub(s.len()));
                 $name(array, s.len() as Size)
-
             }
         }
 
@@ -149,7 +152,7 @@ macro_rules! __inner_impl_string {
         impl $crate::core::fmt::Debug for $name {
             #[inline]
             fn fmt(&self, f: &mut $crate::core::fmt::Formatter) -> $crate::core::fmt::Result {
-                use $crate::array::Buffer;
+                use $crate::traits::Buffer;
                 let s: &str = self.as_ref();
                 f.debug_tuple(stringify!($name))
                     .field(&s)
@@ -379,7 +382,7 @@ macro_rules! __inner_impl_string {
                     type Value = $name;
 
                     #[inline]
-                    fn expecting(
+                            fn expecting(
                         &self,
                         f: &mut $crate::core::fmt::Formatter,
                     ) -> $crate::core::fmt::Result {
@@ -387,7 +390,7 @@ macro_rules! __inner_impl_string {
                     }
 
                     #[inline]
-                    fn visit_str<E: $crate::serde::de::Error>(
+                            fn visit_str<E: $crate::serde::de::Error>(
                         self,
                         v: &str,
                     ) -> Result<Self::Value, E> {
@@ -413,6 +416,7 @@ macro_rules! __inner_impl_string {
             DB: $crate::diesel::backend::Backend,
             *const str: $crate::diesel::deserialize::FromSql<ST, DB>
         {
+            #[inline]
             fn from_sql(bytes: Option<&DB::RawValue>) -> $crate::diesel::deserialize::Result<Self> {
                 let ptr = <*const str as $crate::diesel::deserialize::FromSql<ST, DB>>::from_sql(bytes)?;
                 // We know that the pointer impl will never return null
@@ -427,6 +431,7 @@ macro_rules! __inner_impl_string {
         where
             DB: $crate::diesel::backend::Backend,
         {
+            #[inline]
             fn to_sql<W: $crate::core::io::Write>(&self, out: &mut $crate::diesel::serialize::Output<W, DB>) -> $crate::diesel::serialize::Result {
                 <str as $crate::diesel::serialize::ToSql<$crate::diesel::sql_types::VarChar, DB>>::to_sql(self.as_str(), out)
             }

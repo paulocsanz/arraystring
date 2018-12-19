@@ -50,21 +50,21 @@ fn cache_try_from_benchmark(c: &mut Criterion) {
 fn max_from_unchecked_benchmark(c: &mut Criterion) {
     let max_string = "0123456789";
     c.bench_function("max from unchecked", move |b| {
-        b.iter(|| unsafe { MaxString::from_str_unchecked(&max_string) })
+        b.iter(|| unsafe { InlinableString::from_str_unchecked(&max_string) })
     });
 }
 
 fn max_from_truncate_benchmark(c: &mut Criterion) {
     let max_string = "0123456789";
     c.bench_function("max from truncate", move |b| {
-        b.iter(|| MaxString::from_str_truncate(&max_string))
+        b.iter(|| InlinableString::from_str_truncate(&max_string))
     });
 }
 
 fn max_try_from_benchmark(c: &mut Criterion) {
     let max_string = "0123456789";
     c.bench_function("max try from", move |b| {
-        b.iter(|| MaxString::try_from_str(&max_string))
+        b.iter(|| InlinableString::try_from_str(&max_string))
     });
 }
 
@@ -79,7 +79,7 @@ fn cache_clone_benchmark(c: &mut Criterion) {
 }
 
 fn max_clone_benchmark(c: &mut Criterion) {
-    let string = MaxString::from_str_truncate("0123456789".repeat(26));
+    let string = InlinableString::from_str_truncate("0123456789".repeat(26));
     c.bench_function("max clone", move |b| b.iter(|| string.clone()));
 }
 

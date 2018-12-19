@@ -108,7 +108,7 @@
 #[macro_use]
 extern crate log;
 
-#[cfg(feature = "logs")]
+#[cfg(all(feature = "logs", feature = "std"))]
 extern crate env_logger;
 
 #[cfg(feature = "diesel-traits")]
@@ -141,24 +141,24 @@ pub extern crate std as core;
 
 #[macro_use]
 mod macros;
-pub mod array;
 pub mod error;
+pub mod traits;
 pub mod utils;
 
 /// Most used traits and data-strucutres
 pub mod prelude {
-    pub use array::ArrayString;
     pub use error::{OutOfBounds, Utf16, Utf8};
+    pub use traits::ArrayString;
     pub use utils::setup_logger;
-    pub use {CacheString, MaxString, Size, SmallString};
+    pub use {CacheString, InlinableString, Size, SmallString};
 }
 
 /// [`ArrayString`]'s buffer index
 ///
-/// [`ArrayString`]: ./array/trait.ArrayString.html
+/// [`ArrayString`]: ./traits/trait.ArrayString.html
 pub type Size = u8;
 
-pub use array::ArrayString;
+pub use traits::ArrayString;
 impl_string!(pub struct SmallString(23));
 impl_string!(pub struct CacheString(63));
-impl_string!(pub struct MaxString(255));
+impl_string!(pub struct InlinableString(128));
