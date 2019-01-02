@@ -119,7 +119,7 @@ pub unsafe extern "C" fn push_unchecked(ls: &mut String, c: char) {
 
 ///
 #[no_mangle]
-pub unsafe extern "C" fn truncate(ls: &mut String, s: Size) -> Result<(), Utf8> {
+pub unsafe extern "C" fn truncate(ls: &mut String, s: u8) -> Result<(), Utf8> {
     ls.truncate(s)
 }
 
@@ -131,7 +131,7 @@ pub unsafe extern "C" fn pop(ls: &mut String) -> Option<char> {
 
 ///
 #[no_mangle]
-pub unsafe extern "C" fn remove(ls: &mut String, idx: Size) -> Result<char, Error> {
+pub unsafe extern "C" fn remove(ls: &mut String, idx: u8) -> Result<char, Error> {
     ls.remove(idx)
 }
 
@@ -143,37 +143,37 @@ pub unsafe extern "C" fn retain(ls: &mut String) {
 
 ///
 #[no_mangle]
-pub unsafe extern "C" fn try_insert(ls: &mut String, idx: Size, c: char) -> Result<(), Error> {
+pub unsafe extern "C" fn try_insert(ls: &mut String, idx: u8, c: char) -> Result<(), Error> {
     ls.try_insert(idx, c)
 }
 
 ///
 #[no_mangle]
-pub unsafe extern "C" fn insert_unchecked(ls: &mut String, idx: Size, c: char) {
+pub unsafe extern "C" fn insert_unchecked(ls: &mut String, idx: u8, c: char) {
     ls.insert_unchecked(idx, c)
 }
 
 ///
 #[no_mangle]
-pub unsafe extern "C" fn try_insert_str(ls: &mut String, idx: Size, s: &str) -> Result<(), Error> {
+pub unsafe extern "C" fn try_insert_str(ls: &mut String, idx: u8, s: &str) -> Result<(), Error> {
     ls.try_insert_str(idx, s)
 }
 
 ///
 #[no_mangle]
-pub unsafe extern "C" fn insert_str(ls: &mut String, idx: Size, s: &str) -> Result<(), Error> {
+pub unsafe extern "C" fn insert_str(ls: &mut String, idx: u8, s: &str) -> Result<(), Error> {
     ls.insert_str(idx, s)
 }
 
 ///
 #[no_mangle]
-pub unsafe extern "C" fn insert_str_unchecked(ls: &mut String, idx: Size, s: &str) {
+pub unsafe extern "C" fn insert_str_unchecked(ls: &mut String, idx: u8, s: &str) {
     ls.insert_str_unchecked(idx, s)
 }
 
 ///
 #[no_mangle]
-pub unsafe extern "C" fn split_off(ls: &mut String, at: Size) -> Result<String, Error> {
+pub unsafe extern "C" fn split_off(ls: &mut String, at: u8) -> Result<String, Error> {
     ls.split_off(at)
 }
 
@@ -181,8 +181,8 @@ pub unsafe extern "C" fn split_off(ls: &mut String, at: Size) -> Result<String, 
 #[no_mangle]
 pub unsafe extern "C" fn replace_range(
     ls: &mut String,
-    start: Size,
-    end: Size,
+    start: u8,
+    end: u8,
     with: &str,
 ) -> Result<(), Error> {
     ls.replace_range(start..end, with)
@@ -192,8 +192,8 @@ pub unsafe extern "C" fn replace_range(
 #[no_mangle]
 pub unsafe extern "C" fn drain(
     ls: &mut String,
-    start: Size,
-    end: Size,
+    start: u8,
+    end: u8,
 ) -> Result<Drain<String>, Error> {
     ls.drain(start..end)
 }

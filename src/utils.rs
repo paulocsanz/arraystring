@@ -1,14 +1,14 @@
 //! Misc functions to improve readability
 
+use array::ArrayString;
 use core::ptr::copy;
+use generic_array::ArrayLength;
 use prelude::*;
+use typenum::Unsigned;
 
 /// Setup `env_logger`
 #[cfg(all(feature = "logs", feature = "std"))]
-#[cfg_attr(
-    docs_rs_workaround,
-    doc(cfg(all(feature = "logs", feature = "std")))
-)]
+#[cfg_attr(docs_rs_workaround, doc(cfg(all(feature = "logs", feature = "std"))))]
 #[inline]
 pub fn setup_logger() {
     use std::sync::Once;
@@ -48,7 +48,11 @@ pub(crate) unsafe fn never(s: &str) -> ! {
 /// - It's UB if index is outside of buffer's boundaries (buffer needs at most 4 bytes)
 /// - It's UB if index is inside a character (like a index 3 for "a🤔")
 #[inline]
-pub(crate) unsafe fn encode_char_utf8_unchecked<S: ArrayString>(s: &mut S, ch: char, index: Size) {
+pub(crate) unsafe fn encode_char_utf8_unchecked<S: ArrayLength<u8>>(
+    s: &mut ArrayString<S>,
+    ch: char,
+    index: u8,
+) {
     trace!("Encode char: {} to {}", ch, index);
 
     // UTF-8 ranges and tags for encoding characters
@@ -60,9 +64,14 @@ pub(crate) unsafe fn encode_char_utf8_unchecked<S: ArrayString>(s: &mut S, ch: c
     const MAX_TWO_B: u32 = 0x800;
     const MAX_THREE_B: u32 = 0x10000;
 
-    debug_assert!(ch.len_utf8().saturating_add(index.into()) <= S::CAPACITY as usize);
-    debug_assert!(ch.len_utf8().saturating_add(s.len().into()) <= S::CAPACITY as usize);
-    let (dst, code) = (s.buffer().get_unchecked_mut(index.into()..), ch as u32);
+    debug_assert!(ch.len_utf8().saturating_add(index.into()) <= <S as Unsigned>::to_u8() as usize);
+    debug_assert!(
+        ch.len_utf8().saturating_add(s.len().into()) <= <S as Unsigned>::to_u8() as usize
+    );
+    let (dst, code) = (
+        s.array.as_mut_slice().get_unchecked_mut(index.into()..),
+        ch as u32,
+    );
 
     if code < MAX_ONE_B {
         debug_assert!(!dst.is_empty());
@@ -102,24 +111,32 @@ unsafe fn shift_unchecked(s: &mut [u8], from: usize, to: usize, len: usize) {
 /// Shifts string right
 /// # Safety
 ///
-/// It's UB if `to + (s.len() - from)` is out of [`S::CAPACITY`]
+/// It's UB if `to + (s.len() - from)` is out of [`<S as Unsigned>::to_u8()`]
 ///
-/// [`S::CAPACITY`]: ../traits/trait.ArrayString.html#CAPACITY
+/// [`<S as Unsigned>::to_u8()`]: ../traits/trait.ArrayString.html#CAPACITY
 #[inline]
-pub(crate) unsafe fn shift_right_unchecked<S: ArrayString>(s: &mut S, from: Size, to: Size) {
+pub(crate) unsafe fn shift_right_unchecked<S: ArrayLength<u8>>(
+    s: &mut ArrayString<S>,
+    from: u8,
+    to: u8,
+) {
     let (f, t, l) = (from as usize, to as usize, s.len().saturating_sub(from));
-    debug_assert!(f <= t && t.saturating_add(l.into()) <= S::CAPACITY as usize);
+    debug_assert!(f <= t && t.saturating_add(l.into()) <= <S as Unsigned>::to_u8() as usize);
     debug_assert!(s.as_str().is_char_boundary(f));
-    shift_unchecked(s.buffer(), f, t, l.into());
+    shift_unchecked(s.array.as_mut_slice(), f, t, l.into());
 }
 
 /// Shifts string left
 #[inline]
-pub(crate) unsafe fn shift_left_unchecked<S: ArrayString>(s: &mut S, from: Size, to: Size) {
+pub(crate) unsafe fn shift_left_unchecked<S: ArrayLength<u8>>(
+    s: &mut ArrayString<S>,
+    from: u8,
+    to: u8,
+) {
     debug_assert!(to <= from && from <= s.len());
     let (f, t, l) = (from as usize, to as usize, s.len().saturating_sub(to));
     debug_assert!(s.as_str().is_char_boundary(f));
-    shift_unchecked(s.buffer(), f, t, l.into());
+    shift_unchecked(s.array.as_mut_slice(), f, t, l.into());
 }
 
 /// Returns error if size is outside of specified boundary
@@ -136,7 +153,7 @@ where
 
 /// Returns error if index is not at a valid utf-8 char boundary
 #[inline]
-pub fn is_char_boundary<S: ArrayString>(s: &S, idx: Size) -> Result<(), Utf8> {
+pub fn is_char_boundary<S: ArrayLength<u8>>(s: &ArrayString<S>, idx: u8) -> Result<(), Utf8> {
     trace!("Is char boundary: {} at {}", s.as_str(), idx);
     if s.as_str().is_char_boundary(idx.into()) {
         return Ok(());
@@ -146,7 +163,7 @@ pub fn is_char_boundary<S: ArrayString>(s: &S, idx: Size) -> Result<(), Utf8> {
 
 /// Truncates string to specified size (ignoring last bytes if they form a partial `char`)
 #[inline]
-pub(crate) fn truncate_str(slice: &str, size: Size) -> &str {
+pub(crate) fn truncate_str(slice: &str, size: u8) -> &str {
     trace!("Truncate str: {} at {}", slice, size);
     if slice.is_char_boundary(size.into()) {
         unsafe { slice.get_unchecked(..size.into()) }
@@ -220,12 +237,15 @@ mod tests {
         setup_logger();
         let mut string = CacheString::default();
         unsafe { encode_char_utf8_unchecked(&mut string, 'a', 0) };
-        assert_eq!(from_utf8(unsafe { &string.buffer()[..1] }).unwrap(), "a");
+        assert_eq!(
+            from_utf8(unsafe { &string.array.as_mut_slice()[..1] }).unwrap(),
+            "a"
+        );
 
         let mut string = CacheString::try_from_str("a").unwrap();
         unsafe { encode_char_utf8_unchecked(&mut string, '🤔', 1) };
         assert_eq!(
-            from_utf8(unsafe { &string.buffer()[..5] }).unwrap(),
+            from_utf8(unsafe { &string.array.as_mut_slice()[..5] }).unwrap(),
             "a🤔"
         );
     }

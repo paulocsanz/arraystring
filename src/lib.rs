@@ -74,7 +74,7 @@
 
 #![doc(html_root_url = "https://docs.rs/arraystring/0.1.0/arraystring")]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![deny(
+#![warn(
     missing_docs,
     missing_debug_implementations,
     trivial_numeric_casts,
@@ -104,6 +104,9 @@
 )]
 #![doc(test(attr(deny(warnings))))]
 
+extern crate generic_array;
+extern crate typenum;
+
 #[cfg(feature = "logs")]
 #[macro_use]
 extern crate log;
@@ -132,33 +135,17 @@ mod mock {
 }
 
 #[cfg(feature = "std")]
-#[doc(hidden)]
-#[macro_use]
-pub extern crate std as core;
+extern crate std as core;
 
-#[macro_use]
-mod macros;
+pub mod array;
 pub mod error;
-pub mod traits;
 pub mod utils;
 
 /// Most used traits and data-strucutres
 pub mod prelude {
     pub use error::{OutOfBounds, Utf16, Utf8};
-    pub use traits::ArrayString;
     pub use utils::setup_logger;
-    pub use {CacheString, InlinableString, Size, SmallString};
 }
 
-#[cfg(feature = "ffi")]
-pub mod ffi;
-
-/// [`ArrayString`]'s buffer index
-///
-/// [`ArrayString`]: ./traits/trait.ArrayString.html
-pub type Size = u8;
-
-pub use traits::ArrayString;
-impl_string!(pub struct SmallString(23));
-impl_string!(pub struct CacheString(63));
-impl_string!(pub struct InlinableString(128));
+//#[cfg(feature = "ffi")]
+//pub mod ffi;
