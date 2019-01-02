@@ -22,7 +22,7 @@ macro_rules! impl_string {
     ($(#[$attr:meta])* pub struct $name: ident ($size: expr)) => {
         /// Customized stack based string
         #[derive(Copy, Clone)]
-        #[cfg_attr(features = "diesel-traits", derive(FromSqlRow, AsExpression, SqlType))]
+        #[cfg_attr(feature = "diesel-traits", derive(FromSqlRow, AsExpression, SqlType))]
         #[allow(trivial_numeric_casts)]
         $(#[$attr])*
         pub struct $name([u8; $size as usize], $crate::Size);
@@ -32,7 +32,7 @@ macro_rules! impl_string {
         /// Customized stack based string
         #[derive(Copy, Clone)]
         #[allow(trivial_numeric_casts)]
-        #[cfg_attr(features = "diesel-traits", derive(FromSqlRow, AsExpression, SqlType))]
+        #[cfg_attr(feature = "diesel-traits", derive(FromSqlRow, AsExpression, SqlType))]
         $(#[$attr])*
         struct $name([u8; $size as usize], $crate::Size);
         __inner_impl_string!($name, $size);

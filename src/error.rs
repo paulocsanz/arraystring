@@ -2,6 +2,7 @@
 
 use crate::core::fmt::{self, Display, Formatter};
 use crate::core::{char::DecodeUtf16Error, str::EncodeUtf16, str::Utf8Error};
+#[cfg(feature = "logs")] use log::trace;
 
 /// Every error possible when using the [`ArrayString`]
 ///
@@ -27,7 +28,7 @@ impl Display for Error {
     }
 }
 
-#[cfg(features = "std")]
+#[cfg(feature = "std")]
 impl std::error::Error for Error {}
 
 impl From<Utf8Error> for Error {
@@ -62,7 +63,7 @@ impl Display for Utf8 {
     }
 }
 
-#[cfg(features = "std")]
+#[cfg(feature = "std")]
 impl std::error::Error for Utf8 {}
 
 impl From<Utf8Error> for Utf8 {
@@ -84,7 +85,7 @@ impl From<Utf8> for Error {
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 pub struct Utf16;
 
-#[cfg(features = "std")]
+#[cfg(feature = "std")]
 impl std::error::Error for Utf16 {}
 
 impl Display for Utf16 {
@@ -127,7 +128,7 @@ impl Display for OutOfBounds {
     }
 }
 
-#[cfg(features = "std")]
+#[cfg(feature = "std")]
 impl std::error::Error for OutOfBounds {}
 
 impl From<OutOfBounds> for Error {

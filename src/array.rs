@@ -3,17 +3,18 @@
 use core::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use core::str::{from_utf8, from_utf8_unchecked};
 use core::{cmp::min, iter::FusedIterator, ops::*, ptr::copy_nonoverlapping};
-use utils::{encode_char_utf8_unchecked, is_char_boundary, is_inside_boundary, never};
-use utils::{shift_left_unchecked, shift_right_unchecked, truncate_str};
-use {error::Error, prelude::*};
+use crate::utils::{encode_char_utf8_unchecked, is_char_boundary, is_inside_boundary, never};
+use crate::utils::{shift_left_unchecked, shift_right_unchecked, truncate_str};
+use crate::{error::Error, prelude::*};
+#[cfg(feature = "logs")] use log::{trace, debug};
 
 use core::ops::{
     Add, Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo,
     RangeToInclusive,
 };
-use error;
+use crate::error;
 use generic_array::{ArrayLength, GenericArray};
-use prelude::*;
+use crate::prelude::*;
 use typenum::Unsigned;
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]

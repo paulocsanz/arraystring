@@ -5,6 +5,7 @@ use crate::core::ptr::copy;
 use generic_array::ArrayLength;
 use crate::prelude::*;
 use typenum::Unsigned;
+#[cfg(feature = "logs")] use log::{trace, debug};
 
 /// Setup `env_logger`
 #[cfg(all(feature = "logs", feature = "std"))]

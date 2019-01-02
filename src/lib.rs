@@ -104,23 +104,7 @@
 )]
 #![doc(test(attr(deny(warnings))))]
 
-extern crate generic_array;
-pub extern crate typenum;
-
-#[cfg(feature = "logs")]
-#[macro_use]
-extern crate log;
-
-#[cfg(all(feature = "logs", feature = "std"))]
-extern crate env_logger;
-
-#[cfg(feature = "diesel-traits")]
-#[doc(hidden)]
-pub extern crate diesel;
-
-#[cfg(feature = "serde-traits")]
-#[doc(hidden)]
-pub extern crate serde;
+pub use typenum;
 
 /// Remove logging macros when they are disabled (at compile time)
 #[macro_use]
