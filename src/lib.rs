@@ -18,20 +18,6 @@
 //!
 //! ArrayStrings types are created through a macro with customizable maximum size (implementing the appropriate traits)
 //!
-//! ```rust
-//! // Always occupies 21 bytes of memory (in the stack)
-//! //
-//! // String's current (2018) implementation always uses 24 bytes + up to 20 bytes (actual username)
-//! //   - Assuming 64 bit usize
-//! //
-//! // Remember that UTF-8 characters can use up to 4 bytes
-//! # #[macro_use]
-//! # extern crate arraystring;
-//! # fn main() {
-//! impl_string!(struct Username(20));
-//! # }
-//! ```
-//!
 //! ## Features
 //!
 //! **default:** `std`
@@ -46,10 +32,10 @@
 //! ```rust
 //! #[macro_use]
 //! extern crate arraystring;
-//! use arraystring::{error::Error, prelude::*};
+//! use arraystring::{error::Error, prelude::*, typenum};
 //!
-//! impl_string!(pub struct Username(20));
-//! impl_string!(pub struct Role(5));
+//! type Username = ArrayString<typenum::U20>;
+//! type Role = ArrayString<typenum::U5>;
 //!
 //! #[derive(Debug)]
 //! pub struct User {
@@ -122,21 +108,24 @@ mod mock {
 extern crate std as core;
 
 pub mod array;
+#[cfg(any(feature = "serde-traits", feature = "diesel-traits"))]
+mod integration;
+pub mod drain;
+mod implementations;
+mod utils;
 pub mod error;
-pub mod utils;
 
 /// Most used traits and data-strucutres
 pub mod prelude {
+    pub use crate::drain::Drain;
     pub use crate::array::ArrayString;
     pub use crate::error::{OutOfBounds, Utf16, Utf8};
     #[doc(hidden)]
     pub use crate::utils::setup_logger;
-
     pub use crate::{SmallString, CacheString, MaxString, InlinableString};
-}
 
-//#[cfg(feature = "ffi")]
-//pub mod ffi;
+    pub(crate) use generic_array::ArrayLength;
+}
 
 use crate::array::ArrayString;
 use typenum::{U21, U63, U255, U127};

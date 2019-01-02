@@ -142,7 +142,7 @@ pub(crate) unsafe fn shift_left_unchecked<S: ArrayLength<u8>>(
 
 /// Returns error if size is outside of specified boundary
 #[inline]
-pub fn is_inside_boundary<S, L>(size: S, limit: L) -> Result<(), OutOfBounds>
+pub(crate) fn is_inside_boundary<S, L>(size: S, limit: L) -> Result<(), OutOfBounds>
 where
     S: Into<usize>,
     L: Into<usize>,
@@ -154,7 +154,7 @@ where
 
 /// Returns error if index is not at a valid utf-8 char boundary
 #[inline]
-pub fn is_char_boundary<S: ArrayLength<u8>>(s: &ArrayString<S>, idx: u8) -> Result<(), Utf8> {
+pub(crate) fn is_char_boundary<S: ArrayLength<u8>>(s: &ArrayString<S>, idx: u8) -> Result<(), Utf8> {
     trace!("Is char boundary: {} at {}", s.as_str(), idx);
     if s.as_str().is_char_boundary(idx.into()) {
         return Ok(());
