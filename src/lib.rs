@@ -105,7 +105,7 @@
 #![doc(test(attr(deny(warnings))))]
 
 extern crate generic_array;
-extern crate typenum;
+pub extern crate typenum;
 
 #[cfg(feature = "logs")]
 #[macro_use]
@@ -143,9 +143,26 @@ pub mod utils;
 
 /// Most used traits and data-strucutres
 pub mod prelude {
-    pub use error::{OutOfBounds, Utf16, Utf8};
-    pub use utils::setup_logger;
+    pub use crate::array::ArrayString;
+    pub use crate::error::{OutOfBounds, Utf16, Utf8};
+    #[doc(hidden)]
+    pub use crate::utils::setup_logger;
+
+    pub use crate::{SmallString, CacheString, MaxString, InlinableString};
 }
 
 //#[cfg(feature = "ffi")]
 //pub mod ffi;
+
+use crate::array::ArrayString;
+use typenum::{U21, U63, U255, U127};
+
+/// String with the same `mem::size_of` of `String`
+pub type SmallString = ArrayString<U21>;
+/// String that occupies 64 bytes in memory (full cache line)
+pub type CacheString = ArrayString<U63>;
+/// Biggest string that is inlined by the compiler (you should not depend on this, since the size can change, this is not stable)
+#[doc(hidden)]
+pub type InlinableString = ArrayString<U127>;
+/// Maximum array string (255 bytes of string), bigger than that endsup slower
+pub type MaxString = ArrayString<U255>;

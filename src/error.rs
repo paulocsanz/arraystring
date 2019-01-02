@@ -1,7 +1,7 @@
 //! Contains all of this crate errors
 
-use core::fmt::{self, Display, Formatter};
-use core::{char::DecodeUtf16Error, str::EncodeUtf16, str::Utf8Error};
+use crate::core::fmt::{self, Display, Formatter};
+use crate::core::{char::DecodeUtf16Error, str::EncodeUtf16, str::Utf8Error};
 
 /// Every error possible when using the [`ArrayString`]
 ///

@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 keywords = ["string", "array", "stack", "inline", "no_std"]
 categories = ["data-structures"]
+edition = "2018"
 
 [lib]
 name = "arraystring"
@@ -15,18 +16,6 @@ crate_type = ["lib", "cdylib", "staticlib"]
 
 [dev-dependencies]
 criterion = "0.2"
-
-[[bench]]
-name = "string_benchmark"
-harness = false
-
-[[bench]]
-name = "all_benchmark"
-harness = false
-
-[[bench]]
-name = "full_benchmark"
-harness = false
 
 [dependencies]
 typenum = "1.10"

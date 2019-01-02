@@ -1,9 +1,9 @@
 //! Misc functions to improve readability
 
-use array::ArrayString;
-use core::ptr::copy;
+use crate::array::ArrayString;
+use crate::core::ptr::copy;
 use generic_array::ArrayLength;
-use prelude::*;
+use crate::prelude::*;
 use typenum::Unsigned;
 
 /// Setup `env_logger`
@@ -184,7 +184,7 @@ mod tests {
     extern crate env_logger;
 
     use super::*;
-    use core::str::from_utf8;
+    use crate::core::str::from_utf8;
 
     #[cfg(all(feature = "logs", feature = "std"))]
     fn setup_logger() {
@@ -208,7 +208,7 @@ mod tests {
         setup_logger();
         let mut ls = CacheString::try_from_str("abcdefg").unwrap();
         unsafe { shift_right_unchecked(&mut ls, 0, 4) };
-        ls.1 += 4;
+        ls.size += 4;
         assert_eq!(ls.as_str(), "abcdabcdefg");
     }
 
@@ -217,7 +217,7 @@ mod tests {
         setup_logger();
         let mut ls = CacheString::try_from_str("abcdefg").unwrap();
         unsafe { shift_left_unchecked(&mut ls, 1, 0) };
-        ls.1 -= 1;
+        ls.size -= 1;
         assert_eq!(ls.as_str(), "bcdefg");
     }
 
@@ -233,19 +233,18 @@ mod tests {
 
     #[test]
     fn encode_char_utf8() {
-        use traits::Buffer;
         setup_logger();
         let mut string = CacheString::default();
         unsafe { encode_char_utf8_unchecked(&mut string, 'a', 0) };
         assert_eq!(
-            from_utf8(unsafe { &string.array.as_mut_slice()[..1] }).unwrap(),
+            from_utf8(&string.array.as_mut_slice()[..1]).unwrap(),
             "a"
         );
 
         let mut string = CacheString::try_from_str("a").unwrap();
         unsafe { encode_char_utf8_unchecked(&mut string, '🤔', 1) };
         assert_eq!(
-            from_utf8(unsafe { &string.array.as_mut_slice()[..5] }).unwrap(),
+            from_utf8(&string.array.as_mut_slice()[..5]).unwrap(),
             "a🤔"
         );
     }
