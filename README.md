@@ -1,10 +1,12 @@
 # ArrayString
 
-A stack based strings with a maximum (customizable) size.
+Generic-array based string
 
-**Never panics (branches that panic are impossible, so removed at compile time, except for the `Index` traits, since it is supposed to**
+Since rust doesn't have constant generics yet `typenum` is used to allow for generic arrays (through `generic-array` crate)
 
-**Never allocates memory on the heap**
+Can't outgrow capacity (defined at compile time), always occupies `capacity` `+ 1` bytes of memory
+
+*Doesn't allocate memory on the heap*
 
 ## Why
 
@@ -12,44 +14,40 @@ Data is generally bounded, you don't want a phone number with 30 characters, nor
 
 Why pay the cost of heap allocations of strings with unlimited capacity if you have limited boundaries?
 
-Array based strings always occupy the full space in memory, so they may use more size than dynamic strings.
+Array based strings always occupy the full space in memory, so they may use more memory (in the stack) than dynamic strings.
 
-Array based strings are generally faster to create, clone and append than heap based strings (custom allocators and thread-locals may help with heap based ones).
+Stack based strings are generally faster to create, clone and append to than heap based strings (custom allocators and thread-locals may help with heap based ones).
 
-There are other stack based strings out there, they generally can grow (heap allocate), but the stack based size is defined by the library implementor, we go through a different route (fully stack based with customizable maximum size - per type)
+But that becomes less true as you increase the array size, 255 bytes is the maximum we accept (bigger will just wrap) and it's probably already slower than heap based strings of that size (like in `std::string::String`)
 
-ArrayStrings types are created through a macro with customizable maximum size (implementing the appropriate traits)
-
-```rust
-// Always occupies 21 bytes of memory (in the stack)
-//
-// String's current (2018) implementation always uses 24 bytes + up to 20 bytes (actual username)
-//   - Assuming 64 bit usize
-//
-// Remember that UTF-8 characters can use up to 4 bytes
-impl_string(struct Username(20));
-```
+There are other stack based strings out there, they generally can have "unlimited" capacity (heap allocate), but the stack based size is defined by the library implementor, we go through a different route by implementing a string based in a generic array.
 
 **TODO: bench against other implementations**
 
 ## Features
 
-**default:** `std`
+ **default:** `std`
 
-- `std` enabled by default, enables `std` compatibility (remove it to be `#[no_std]` compatible)
-- `serde-traits` enables serde traits integration (`Serialize`/`Deserialize`)
-- `diesel-traits` enables diesel traits integration (opperates like `String`)
-- `logs` enables internal logging (you probably don't need it)
+ - `std` enabled by default, enables `std` compatibility (remove it to be `#[no_std]` compatible)
+ - `serde-traits` enables serde traits integration (`Serialize`/`Deserialize`)
 
-## Examples
+     Opperates like `String`, but truncates it if it's bigger than capacity
+
+ - `diesel-traits` enables diesel traits integration (`Insertable`/`Queryable`)
+
+     Opperates like `String`, but truncates it if it's bigger than capacity
+
+ - `logs` enables internal logging
+
+     You will probably only need this if you are debugging this library
+
+ ## Examples
 
 ```rust
-extern crate arraystring;
-#[macro_use]
-use arraystring::{Error, prelude::*};
+use arraystring::{Error, ArrayString, typenum::U5, typenum::U20};
 
-impl_string!(pub struct Username(20));
-impl_string!(pub struct Role(5));
+type Username = ArrayString<U20>;
+type Role = ArrayString<U5>;
 
 #[derive(Debug)]
 pub struct User {
@@ -59,10 +57,12 @@ pub struct User {
 
 fn main() -> Result<(), Error> {
     let user = User {
-        username: Username::from_str("user")?,
-        role: Role::from_str("admin")?
+        username: Username::try_from_str("user")?,
+        role: Role::try_from_str("admin")?
     };
     println!("{:?}", user);
+
+    Ok(())
 }
 ```
 

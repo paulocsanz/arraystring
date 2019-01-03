@@ -1,8 +1,10 @@
-//! Stack based string with customized max-size
+//! Generic-array based string
 //!
-//! A stack based strings with a maximum (customizable) size.
+//! Since rust doesn't have constant generics yet [`typenum`] is used to allow for generic arrays (through `generic-array` crate)
 //!
-//! **Never panics (all panic branches are impossible and therefore removed at compile time)**
+//! Can't outgrow capacity (defined at compile time), always occupies [`capacity`] `+ 1` bytes of memory
+//!
+//! *Doesn't allocate memory on the heap*
 //!
 //! ## Why
 //!
@@ -10,13 +12,16 @@
 //!
 //! Why pay the cost of heap allocations of strings with unlimited capacity if you have limited boundaries?
 //!
-//! Array based strings always occupy the full space in memory, so they may use more size than dynamic strings.
+//! Array based strings always occupy the full space in memory, so they may use more memory (in the stack) than dynamic strings.
 //!
-//! Array based strings are generally faster to create, clone and append than heap based strings (custom allocators and thread-locals may help with heap based ones).
+//! Stack based strings are generally faster to create, clone and append to than heap based strings (custom allocators and thread-locals may help with heap based ones).
 //!
-//! There are other stack based strings out there, they generally can grow (heap allocate), but the stack based size is defined by the library implementor, we go through a different route (fully stack based with customizable maximum size - per type)
+//! But that becomes less true as you increase the array size, 255 bytes is the maximum we accept (bigger will just wrap) and it's probably already slower than heap based strings of that size (like in `std::string::String`)
 //!
-//! ArrayStrings types are created through a macro with customizable maximum size (implementing the appropriate traits)
+//! There are other stack based strings out there, they generally can have "unlimited" capacity (heap allocate), but the stack based size is defined by the library implementor, we go through a different route by implementing a string based in a generic array.
+//!
+//! [`typenum`]: ../typenum/index.html
+//! [`capacity`]: ./struct.ArrayString.html#method.capacity
 //!
 //! ## Features
 //!
@@ -24,18 +29,24 @@
 //!
 //! - `std` enabled by default, enables `std` compatibility (remove it to be `#[no_std]` compatible)
 //! - `serde-traits` enables serde traits integration (`Serialize`/`Deserialize`)
-//! - `diesel-traits` enables diesel traits integration (opperates like `String`)
-//! - `logs` enables internal logging (you probably don't need it)
+//!
+//!     Opperates like `String`, but truncates it if it's bigger than capacity
+//!
+//! - `diesel-traits` enables diesel traits integration (`Insertable`/`Queryable`)
+//!
+//!     Opperates like `String`, but truncates it if it's bigger than capacity
+//!
+//! - `logs` enables internal logging
+//!
+//!     You will probably only need this if you are debugging this library
 //!
 //! ## Examples
 //!
 //! ```rust
-//! #[macro_use]
-//! extern crate arraystring;
-//! use arraystring::{error::Error, prelude::*, typenum};
+//! use arraystring::{Error, ArrayString, typenum::U5, typenum::U20};
 //!
-//! type Username = ArrayString<typenum::U20>;
-//! type Role = ArrayString<typenum::U5>;
+//! type Username = ArrayString<U20>;
+//! type Role = ArrayString<U5>;
 //!
 //! #[derive(Debug)]
 //! pub struct User {
@@ -107,35 +118,59 @@ mod mock {
 #[cfg(feature = "std")]
 extern crate std as core;
 
-pub mod array;
+#[cfg(all(feature = "diesel-traits", test))]
+#[macro_use]
+extern crate diesel;
+
+mod array;
+pub mod drain;
+pub mod error;
+mod implementations;
 #[cfg(any(feature = "serde-traits", feature = "diesel-traits"))]
 mod integration;
-pub mod drain;
-mod implementations;
-mod utils;
-pub mod error;
+#[doc(hidden)]
+pub mod utils;
 
 /// Most used traits and data-strucutres
 pub mod prelude {
-    pub use crate::drain::Drain;
     pub use crate::array::ArrayString;
+    pub use crate::drain::Drain;
     pub use crate::error::{OutOfBounds, Utf16, Utf8};
     #[doc(hidden)]
     pub use crate::utils::setup_logger;
-    pub use crate::{SmallString, CacheString, MaxString, InlinableString};
+    #[doc(hidden)]
+    pub use crate::InlinableString;
+    pub use crate::{CacheString, MaxString, SmallString};
 
     pub(crate) use generic_array::ArrayLength;
 }
 
-use crate::array::ArrayString;
-use typenum::{U21, U63, U255, U127};
+pub use crate::array::ArrayString;
+pub use crate::error::Error;
 
-/// String with the same `mem::size_of` of `String`
+use core::ops::Deref;
+#[cfg(feature = "serde-traits")]
+use serde::{Deserialize, Serialize};
+use typenum::{U127, U21, U255, U63};
+
+/// String with the same `mem::size_of` of a `String` in a 64 bits architecture
 pub type SmallString = ArrayString<U21>;
-/// String that occupies 64 bytes in memory (full cache line)
-pub type CacheString = ArrayString<U63>;
+/// Newtype string that occupies 64 bytes in memory and is 64 bytes aligned (full cache line)
+#[repr(align(64))]
+#[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde-traits", derive(Deserialize, Serialize))]
+pub struct CacheString(pub ArrayString<U63>);
+
+impl Deref for CacheString {
+    type Target = ArrayString<U63>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// Biggest string that is inlined by the compiler (you should not depend on this, since the size can change, this is not stable)
 #[doc(hidden)]
 pub type InlinableString = ArrayString<U127>;
-/// Maximum array string (255 bytes of string), bigger than that endsup slower
+/// Biggest array based string (255 bytes of string)
 pub type MaxString = ArrayString<U255>;

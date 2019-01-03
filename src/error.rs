@@ -1,19 +1,20 @@
 //! Contains all of this crate errors
 
-use crate::core::fmt::{self, Display, Formatter};
-use crate::core::{char::DecodeUtf16Error, str::EncodeUtf16, str::Utf8Error};
-#[cfg(feature = "logs")] use log::trace;
+use core::fmt::{self, Display, Formatter};
+use core::{char::DecodeUtf16Error, str::EncodeUtf16, str::Utf8Error};
+#[cfg(feature = "logs")]
+use log::trace;
 
 /// Every error possible when using the [`ArrayString`]
 ///
-/// [`ArrayString`]: ./traits/trait.ArrayString.html
+/// [`ArrayString`]: ../struct.ArrayString.html
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum Error {
-    /// Conversion from byte slice to UTF-8 failed (invalid data or invalid index)
+    /// Conversion between available byte slice and UTF-8 failed (invalid data or invalid utf-8 character index)
     Utf8,
-    /// Conversion from `u16` slice to string failed
+    /// Conversion between available `u16` slice and string failed
     Utf16,
-    /// Out of bounds access
+    /// Out of boundaries access
     OutOfBounds,
 }
 
@@ -117,7 +118,9 @@ impl<'a> From<EncodeUtf16<'a>> for Utf16 {
     }
 }
 
-/// Error caused by out of bounds access to `LimitedString`
+/// Error caused by out of bounds access to [`ArrayString`]
+///
+/// [`ArrayString`]: ../struct.ArrayString.html
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Default)]
 pub struct OutOfBounds;
 

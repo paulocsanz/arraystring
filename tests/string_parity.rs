@@ -24,18 +24,18 @@ static STRINGS: [&'static str; 8] = [
 
 #[test]
 fn try_from_str() {
-    assert(String::from, InlinableString::try_from_str);
+    assert(String::from, MaxString::try_from_str);
 }
 
 #[test]
 fn from_str_truncate() {
-    assert(String::from, InlinableString::from_str_truncate);
+    assert(String::from, MaxString::from_str_truncate);
 }
 
 #[test]
 fn from_str_unchecked() {
     assert(String::from, |s| unsafe {
-        InlinableString::from_str_unchecked(s)
+        MaxString::from_str_unchecked(s)
     });
 }
 
@@ -43,7 +43,7 @@ fn from_str_unchecked() {
 fn try_from_chars() {
     assert(
         |s| String::from_iter(s.chars()),
-        |s| InlinableString::try_from_chars(s.chars()),
+        |s| MaxString::try_from_chars(s.chars()),
     );
 }
 
@@ -51,7 +51,7 @@ fn try_from_chars() {
 fn from_chars() {
     assert(
         |s| String::from_iter(s.chars()),
-        |s| InlinableString::from_chars(s.chars()),
+        |s| MaxString::from_chars(s.chars()),
     );
 }
 
@@ -59,7 +59,7 @@ fn from_chars() {
 fn from_chars_unchecked() {
     assert(
         |s| String::from_iter(s.chars()),
-        |s| unsafe { InlinableString::from_chars_unchecked(s.chars()) },
+        |s| unsafe { MaxString::from_chars_unchecked(s.chars()) },
     );
 }
 
@@ -67,7 +67,7 @@ fn from_chars_unchecked() {
 fn try_from_iter() {
     assert(
         |s| String::from_iter(vec![s]),
-        |s| InlinableString::try_from_iterator(vec![s]),
+        |s| MaxString::try_from_iterator(vec![s]),
     );
 }
 
@@ -75,7 +75,7 @@ fn try_from_iter() {
 fn from_iter() {
     assert(
         |s| String::from_iter(vec![s]),
-        |s| InlinableString::from_iterator(vec![s]),
+        |s| MaxString::from_iterator(vec![s]),
     );
 }
 
@@ -83,7 +83,7 @@ fn from_iter() {
 fn from_iter_unchecked() {
     assert(
         |s| String::from_iter(vec![s]),
-        |s| unsafe { InlinableString::from_iterator_unchecked(vec![s]) },
+        |s| unsafe { MaxString::from_iterator_unchecked(vec![s]) },
     );
 }
 
@@ -91,7 +91,7 @@ fn from_iter_unchecked() {
 fn try_from_utf8() {
     assert(
         |s| String::from_utf8(s.as_bytes().to_vec()),
-        |s| InlinableString::try_from_utf8(s.as_bytes()),
+        |s| MaxString::try_from_utf8(s.as_bytes()),
     );
 }
 
@@ -99,7 +99,7 @@ fn try_from_utf8() {
 fn from_utf8() {
     assert(
         |s| String::from_utf8(s.as_bytes().to_vec()),
-        |s| InlinableString::from_utf8(s.as_bytes()),
+        |s| MaxString::from_utf8(s.as_bytes()),
     );
 }
 
@@ -119,7 +119,7 @@ fn try_from_utf8_invalid() {
     unsafe {
         assert(
             |s| String::from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut()).to_vec()),
-            |s| InlinableString::try_from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut())),
+            |s| MaxString::try_from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut())),
         );
     }
 }
@@ -129,7 +129,7 @@ fn from_utf8_invalid() {
     unsafe {
         assert(
             |s| String::from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut()).to_vec()),
-            |s| InlinableString::from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut())),
+            |s| MaxString::from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut())),
         );
     }
 }
@@ -139,7 +139,7 @@ fn try_from_utf16() {
     let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
     assert(
         |s| String::from_utf16(&utf16(s)),
-        |s| InlinableString::try_from_utf16(&utf16(s)),
+        |s| MaxString::try_from_utf16(&utf16(s)),
     );
 }
 
@@ -148,7 +148,7 @@ fn from_utf16() {
     let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
     assert(
         |s| String::from_utf16(&utf16(s)),
-        |s| InlinableString::from_utf16(&utf16(s)),
+        |s| MaxString::from_utf16(&utf16(s)),
     );
 }
 
@@ -157,7 +157,7 @@ fn from_utf16_lossy() {
     let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
     assert(
         |s| String::from_utf16(&utf16(s)),
-        |s| InlinableString::from_utf16(&utf16(s)),
+        |s| MaxString::from_utf16(&utf16(s)),
     );
 }
 
@@ -179,7 +179,7 @@ fn try_from_utf16_invalid() {
     let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
     assert(
         |s| String::from_utf16(invalidate_utf16(&mut utf16(s))),
-        |s| InlinableString::try_from_utf16(invalidate_utf16(&mut utf16(s))),
+        |s| MaxString::try_from_utf16(invalidate_utf16(&mut utf16(s))),
     );
 }
 
@@ -188,7 +188,7 @@ fn from_utf16_invalid() {
     let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
     assert(
         |s| String::from_utf16(invalidate_utf16(&mut utf16(s))),
-        |s| InlinableString::from_utf16(invalidate_utf16(&mut utf16(s))),
+        |s| MaxString::from_utf16(invalidate_utf16(&mut utf16(s))),
     );
 }
 
@@ -197,7 +197,7 @@ fn from_utf16_lossy_invalid() {
     let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
     assert(
         |s| String::from_utf16(invalidate_utf16(&mut utf16(s))),
-        |s| InlinableString::from_utf16(invalidate_utf16(&mut utf16(s))),
+        |s| MaxString::from_utf16(invalidate_utf16(&mut utf16(s))),
     );
 }
 
@@ -206,7 +206,7 @@ fn from_utf8_unchecked() {
     unsafe {
         assert(
             |s| String::from_utf8_unchecked(s.as_bytes().to_vec()),
-            |s| InlinableString::from_utf8_unchecked(s.as_bytes()),
+            |s| MaxString::from_utf8_unchecked(s.as_bytes()),
         );
     }
 }
@@ -220,7 +220,7 @@ fn try_push_str() {
             st
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             ms.try_push_str(s).map(|()| ms)
         },
     );
@@ -235,7 +235,7 @@ fn push_str() {
             st
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             ms.push_str(s);
             ms
         },
@@ -246,7 +246,7 @@ fn push_str() {
 fn add_str() {
     assert(
         |s| String::from(s) + s,
-        |s| InlinableString::try_from_str(s).unwrap() + s,
+        |s| MaxString::try_from_str(s).unwrap() + s,
     );
 }
 
@@ -259,7 +259,7 @@ fn push_str_unchecked() {
             st
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             unsafe { ms.push_str_unchecked(s) };
             ms
         },
@@ -275,7 +275,7 @@ fn push() {
             s
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             ms.try_push('🤔').map(|()| ms)
         },
     );
@@ -290,7 +290,7 @@ fn push_unchecked() {
             s
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             unsafe { ms.push_unchecked('🤔') };
             ms
         },
@@ -308,7 +308,7 @@ fn truncate() {
             })
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             ms.truncate(2).map(|()| ms)
         },
     );
@@ -323,7 +323,7 @@ fn pop() {
             (s, old)
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             let old = ms.pop();
             (ms, old)
         },
@@ -335,7 +335,7 @@ fn trim() {
     assert(
         |s| String::from(s).trim().to_owned(),
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             ms.trim();
             ms
         },
@@ -353,7 +353,7 @@ fn remove() {
             })
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             ms.remove(2).map(|r| (r, ms))
         },
     );
@@ -368,7 +368,7 @@ fn retain() {
             s
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             ms.retain(|c| c == 'a');
             ms
         },
@@ -386,7 +386,7 @@ fn try_insert() {
             })
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             ms.try_insert(2, 'a').map(|()| ms)
         },
     );
@@ -403,7 +403,7 @@ fn insert_unchecked() {
             })
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             is_inside_boundary(2u8, ms.len())
                 .map_err(Error::from)
                 .and_then(|()| Ok(is_char_boundary(&ms, 2)?))
@@ -424,7 +424,7 @@ fn try_insert_str() {
             })
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             ms.try_insert_str(2, s).map(|()| ms)
         },
     );
@@ -441,7 +441,7 @@ fn insert_str() {
             })
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             let res = ms.insert_str(2, s);
             res.map(|()| (ms, ()))
         },
@@ -459,7 +459,7 @@ fn insert_str_unchecked() {
             })
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             is_inside_boundary(2u8, ms.len())
                 .map_err(Error::from)
                 .and_then(|()| Ok(is_char_boundary(&ms, 2)?))
@@ -478,7 +478,7 @@ fn clear() {
             st
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             ms.clear();
             ms
         },
@@ -496,7 +496,7 @@ fn split_off() {
             })
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             ms.split_off(2).map(|s| (ms, s))
         },
     );
@@ -513,7 +513,7 @@ fn drain() {
             })
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             let drained = ms.drain(..2).map(|d| d.collect::<String>());
             drained.map(|d| (ms, d))
         },
@@ -531,7 +531,7 @@ fn replace_range() {
             })
         },
         |s| {
-            let mut ms = InlinableString::try_from_str(s).unwrap();
+            let mut ms = MaxString::try_from_str(s).unwrap();
             ms.replace_range(..2, s).map(|()| (ms, ()))
         },
     );
@@ -545,7 +545,7 @@ fn len() {
             st.len().to_string()
         },
         |s| {
-            let ms = InlinableString::try_from_str(s).unwrap();
+            let ms = MaxString::try_from_str(s).unwrap();
             ms.len().to_string()
         },
     );
@@ -559,7 +559,7 @@ fn is_empty() {
             st.is_empty().to_string()
         },
         |s| {
-            let ms = InlinableString::try_from_str(s).unwrap();
+            let ms = MaxString::try_from_str(s).unwrap();
             ms.is_empty().to_string()
         },
     );
@@ -567,7 +567,7 @@ fn is_empty() {
 
 #[test]
 fn new() {
-    assert_eq!(String::new().as_str(), InlinableString::new().as_str());
+    assert_eq!(String::new().as_str(), MaxString::new().as_str());
 }
 
 // Internal hackery to make the function `assert` possible
@@ -582,7 +582,7 @@ impl Normalize<Result<String, ()>> for () {
     }
 }
 
-impl Normalize<Result<String, ()>> for InlinableString {
+impl Normalize<Result<String, ()>> for MaxString {
     fn normalize(&self) -> Result<String, ()> {
         Ok(self.as_str().to_owned())
     }

@@ -1,11 +1,11 @@
 //! Misc functions to improve readability
 
-use crate::array::ArrayString;
-use crate::core::ptr::copy;
+use crate::{array::ArrayString, prelude::*};
+use core::ptr::copy;
 use generic_array::ArrayLength;
-use crate::prelude::*;
+#[cfg(feature = "logs")]
+use log::{debug, trace};
 use typenum::Unsigned;
-#[cfg(feature = "logs")] use log::{trace, debug};
 
 /// Setup `env_logger`
 #[cfg(all(feature = "logs", feature = "std"))]
@@ -98,13 +98,13 @@ pub(crate) unsafe fn encode_char_utf8_unchecked<S: ArrayLength<u8>>(
 /// Copies part of slice to another part (`mem::copy`, basically `memmove`)
 #[inline]
 unsafe fn shift_unchecked(s: &mut [u8], from: usize, to: usize, len: usize) {
-    debug_assert!(to.saturating_add(len) <= s.len() && from.saturating_add(len) <= s.len());
     debug!(
         "Shift {:?}, {} to {}",
-        &s.get_unchecked(from..from.saturating_add(len)),
+        &s.get(from..from.saturating_add(len)),
         from,
         to
     );
+    debug_assert!(to.saturating_add(len) <= s.len() && from.saturating_add(len) <= s.len());
     let (f, t) = (s.as_ptr().add(from), s.as_mut_ptr().add(to));
     copy(f, t, len);
 }
@@ -114,7 +114,7 @@ unsafe fn shift_unchecked(s: &mut [u8], from: usize, to: usize, len: usize) {
 ///
 /// It's UB if `to + (s.len() - from)` is out of [`<S as Unsigned>::to_u8()`]
 ///
-/// [`<S as Unsigned>::to_u8()`]: ../traits/trait.ArrayString.html#CAPACITY
+/// [`<S as Unsigned>::to_u8()`]: ../struct.ArrayString.html#CAPACITY
 #[inline]
 pub(crate) unsafe fn shift_right_unchecked<S: ArrayLength<u8>>(
     s: &mut ArrayString<S>,
@@ -142,7 +142,7 @@ pub(crate) unsafe fn shift_left_unchecked<S: ArrayLength<u8>>(
 
 /// Returns error if size is outside of specified boundary
 #[inline]
-pub(crate) fn is_inside_boundary<S, L>(size: S, limit: L) -> Result<(), OutOfBounds>
+pub fn is_inside_boundary<S, L>(size: S, limit: L) -> Result<(), OutOfBounds>
 where
     S: Into<usize>,
     L: Into<usize>,
@@ -154,7 +154,7 @@ where
 
 /// Returns error if index is not at a valid utf-8 char boundary
 #[inline]
-pub(crate) fn is_char_boundary<S: ArrayLength<u8>>(s: &ArrayString<S>, idx: u8) -> Result<(), Utf8> {
+pub fn is_char_boundary<S: ArrayLength<u8>>(s: &ArrayString<S>, idx: u8) -> Result<(), Utf8> {
     trace!("Is char boundary: {} at {}", s.as_str(), idx);
     if s.as_str().is_char_boundary(idx.into()) {
         return Ok(());
@@ -185,7 +185,7 @@ mod tests {
     extern crate env_logger;
 
     use super::*;
-    use crate::core::str::from_utf8;
+    use core::str::from_utf8;
 
     #[cfg(all(feature = "logs", feature = "std"))]
     fn setup_logger() {
@@ -207,7 +207,7 @@ mod tests {
     #[test]
     fn shift_right() {
         setup_logger();
-        let mut ls = CacheString::try_from_str("abcdefg").unwrap();
+        let mut ls = SmallString::try_from_str("abcdefg").unwrap();
         unsafe { shift_right_unchecked(&mut ls, 0, 4) };
         ls.size += 4;
         assert_eq!(ls.as_str(), "abcdabcdefg");
@@ -216,7 +216,7 @@ mod tests {
     #[test]
     fn shift_left() {
         setup_logger();
-        let mut ls = CacheString::try_from_str("abcdefg").unwrap();
+        let mut ls = SmallString::try_from_str("abcdefg").unwrap();
         unsafe { shift_left_unchecked(&mut ls, 1, 0) };
         ls.size -= 1;
         assert_eq!(ls.as_str(), "bcdefg");
@@ -225,7 +225,7 @@ mod tests {
     #[test]
     fn shift_nop() {
         setup_logger();
-        let mut ls = CacheString::try_from_str("abcdefg").unwrap();
+        let mut ls = SmallString::try_from_str("abcdefg").unwrap();
         unsafe { shift_right_unchecked(&mut ls, 0, 0) };
         assert_eq!(ls.as_str(), "abcdefg");
         unsafe { shift_left_unchecked(&mut ls, 0, 0) };
@@ -235,14 +235,11 @@ mod tests {
     #[test]
     fn encode_char_utf8() {
         setup_logger();
-        let mut string = CacheString::default();
+        let mut string = SmallString::default();
         unsafe { encode_char_utf8_unchecked(&mut string, 'a', 0) };
-        assert_eq!(
-            from_utf8(&string.array.as_mut_slice()[..1]).unwrap(),
-            "a"
-        );
+        assert_eq!(from_utf8(&string.array.as_mut_slice()[..1]).unwrap(), "a");
 
-        let mut string = CacheString::try_from_str("a").unwrap();
+        let mut string = SmallString::try_from_str("a").unwrap();
         unsafe { encode_char_utf8_unchecked(&mut string, '🤔', 1) };
         assert_eq!(
             from_utf8(&string.array.as_mut_slice()[..5]).unwrap(),

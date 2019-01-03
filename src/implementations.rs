@@ -1,10 +1,59 @@
-use core::ops::{
-    Add, Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo,
-    RangeToInclusive,
-};
 use crate::prelude::*;
+use core::fmt::{self, Debug, Display, Formatter, Write};
+use core::ops::{Add, Deref, DerefMut, Index, IndexMut};
+use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+use core::{borrow::Borrow, cmp::Ordering, hash::Hash, hash::Hasher, str, str::FromStr};
 
-impl<SIZE: ArrayLength<u8>> core::str::FromStr for ArrayString<SIZE> {
+impl<SIZE> Default for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
+    fn default() -> Self {
+        Self {
+            array: Default::default(),
+            size: Default::default(),
+        }
+    }
+}
+
+impl<SIZE: ArrayLength<u8> + Copy> Copy for ArrayString<SIZE> where SIZE::ArrayType: Copy {}
+
+impl<SIZE> AsRef<str> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
+    #[inline]
+    fn as_ref(&self) -> &str {
+        unsafe { str::from_utf8_unchecked(self.as_ref()) }
+    }
+}
+
+impl<SIZE> AsMut<str> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
+    #[inline]
+    fn as_mut(&mut self) -> &mut str {
+        let len = self.size as usize;
+        let slice = unsafe { self.array.as_mut_slice().get_unchecked_mut(..len) };
+        unsafe { str::from_utf8_unchecked_mut(slice) }
+    }
+}
+
+impl<SIZE> AsRef<[u8]> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        unsafe { self.array.as_slice().get_unchecked(..self.size.into()) }
+    }
+}
+
+impl<SIZE> FromStr for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     type Err = OutOfBounds;
 
     #[inline]
@@ -13,9 +62,12 @@ impl<SIZE: ArrayLength<u8>> core::str::FromStr for ArrayString<SIZE> {
     }
 }
 
-impl<SIZE: ArrayLength<u8>> core::fmt::Debug for ArrayString<SIZE> {
+impl<SIZE> Debug for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_struct("ArrayString")
             .field("array", &self.as_str())
             .field("size", &self.size)
@@ -23,28 +75,40 @@ impl<SIZE: ArrayLength<u8>> core::fmt::Debug for ArrayString<SIZE> {
     }
 }
 
-impl<'a, 'b, SIZE: ArrayLength<u8>> PartialEq<str> for ArrayString<SIZE> {
+impl<'a, 'b, SIZE> PartialEq<str> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
     fn eq(&self, other: &str) -> bool {
         self.as_str().eq(other)
     }
 }
 
-impl<SIZE: ArrayLength<u8>> core::borrow::Borrow<str> for ArrayString<SIZE> {
+impl<SIZE> Borrow<str> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
     fn borrow(&self) -> &str {
         self.as_str()
     }
 }
 
-impl<SIZE: ArrayLength<u8>> core::hash::Hash for ArrayString<SIZE> {
+impl<SIZE> Hash for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
-    fn hash<H: core::hash::Hasher>(&self, hasher: &mut H) {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
         self.as_str().hash(hasher);
     }
 }
 
-impl<SIZE: ArrayLength<u8>> PartialEq for ArrayString<SIZE> {
+impl<SIZE> PartialEq for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_str().eq(other.as_str())
@@ -52,21 +116,30 @@ impl<SIZE: ArrayLength<u8>> PartialEq for ArrayString<SIZE> {
 }
 impl<SIZE: ArrayLength<u8>> Eq for ArrayString<SIZE> {}
 
-impl<SIZE: ArrayLength<u8>> Ord for ArrayString<SIZE> {
+impl<SIZE> Ord for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         self.as_str().cmp(other.as_str())
     }
 }
 
-impl<SIZE: ArrayLength<u8>> PartialOrd for ArrayString<SIZE> {
+impl<SIZE> PartialOrd for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<'a, SIZE: ArrayLength<u8>> Add<&'a str> for ArrayString<SIZE> {
+impl<'a, SIZE> Add<&'a str> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     type Output = Self;
 
     #[inline]
@@ -78,21 +151,30 @@ impl<'a, SIZE: ArrayLength<u8>> Add<&'a str> for ArrayString<SIZE> {
     }
 }
 
-impl<SIZE: ArrayLength<u8>> core::fmt::Write for ArrayString<SIZE> {
+impl<SIZE> Write for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
-    fn write_str(&mut self, slice: &str) -> core::fmt::Result {
-        self.try_push_str(slice).map_err(|_| core::fmt::Error)
+    fn write_str(&mut self, slice: &str) -> fmt::Result {
+        self.try_push_str(slice).map_err(|_| fmt::Error)
     }
 }
 
-impl<SIZE: ArrayLength<u8>> core::fmt::Display for ArrayString<SIZE> {
+impl<SIZE> Display for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }
 
-impl<SIZE: ArrayLength<u8>> Deref for ArrayString<SIZE> {
+impl<SIZE> Deref for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     type Target = str;
 
     #[inline]
@@ -101,14 +183,20 @@ impl<SIZE: ArrayLength<u8>> Deref for ArrayString<SIZE> {
     }
 }
 
-impl<SIZE: ArrayLength<u8>> DerefMut for ArrayString<SIZE> {
+impl<SIZE> DerefMut for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut()
     }
 }
 
-impl<SIZE: ArrayLength<u8>> IndexMut<RangeFrom<u8>> for ArrayString<SIZE> {
+impl<SIZE> IndexMut<RangeFrom<u8>> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
     fn index_mut(&mut self, index: RangeFrom<u8>) -> &mut str {
         let start = index.start as usize;
@@ -117,7 +205,10 @@ impl<SIZE: ArrayLength<u8>> IndexMut<RangeFrom<u8>> for ArrayString<SIZE> {
     }
 }
 
-impl<SIZE: ArrayLength<u8>> IndexMut<RangeTo<u8>> for ArrayString<SIZE> {
+impl<SIZE> IndexMut<RangeTo<u8>> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
     fn index_mut(&mut self, index: RangeTo<u8>) -> &mut str {
         let end = index.end as usize;
@@ -125,14 +216,20 @@ impl<SIZE: ArrayLength<u8>> IndexMut<RangeTo<u8>> for ArrayString<SIZE> {
     }
 }
 
-impl<SIZE: ArrayLength<u8>> IndexMut<RangeFull> for ArrayString<SIZE> {
+impl<SIZE> IndexMut<RangeFull> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
     fn index_mut(&mut self, index: RangeFull) -> &mut str {
         self.as_mut_str().index_mut(index)
     }
 }
 
-impl<SIZE: ArrayLength<u8>> IndexMut<Range<u8>> for ArrayString<SIZE> {
+impl<SIZE> IndexMut<Range<u8>> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
     fn index_mut(&mut self, index: Range<u8>) -> &mut str {
         let (start, end) = (index.start as usize, index.end as usize);
@@ -141,7 +238,10 @@ impl<SIZE: ArrayLength<u8>> IndexMut<Range<u8>> for ArrayString<SIZE> {
     }
 }
 
-impl<SIZE: ArrayLength<u8>> IndexMut<RangeToInclusive<u8>> for ArrayString<SIZE> {
+impl<SIZE> IndexMut<RangeToInclusive<u8>> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
     fn index_mut(&mut self, index: RangeToInclusive<u8>) -> &mut str {
         let end = index.end as usize;
@@ -150,7 +250,10 @@ impl<SIZE: ArrayLength<u8>> IndexMut<RangeToInclusive<u8>> for ArrayString<SIZE>
     }
 }
 
-impl<SIZE: ArrayLength<u8>> IndexMut<RangeInclusive<u8>> for ArrayString<SIZE> {
+impl<SIZE> IndexMut<RangeInclusive<u8>> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     #[inline]
     fn index_mut(&mut self, index: RangeInclusive<u8>) -> &mut str {
         let (start, end) = (*index.start() as usize, *index.end() as usize);
@@ -159,7 +262,10 @@ impl<SIZE: ArrayLength<u8>> IndexMut<RangeInclusive<u8>> for ArrayString<SIZE> {
     }
 }
 
-impl<SIZE: ArrayLength<u8>> Index<RangeFrom<u8>> for ArrayString<SIZE> {
+impl<SIZE> Index<RangeFrom<u8>> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     type Output = str;
 
     #[inline]
@@ -169,7 +275,10 @@ impl<SIZE: ArrayLength<u8>> Index<RangeFrom<u8>> for ArrayString<SIZE> {
     }
 }
 
-impl<SIZE: ArrayLength<u8>> Index<RangeTo<u8>> for ArrayString<SIZE> {
+impl<SIZE> Index<RangeTo<u8>> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     type Output = str;
 
     #[inline]
@@ -179,7 +288,10 @@ impl<SIZE: ArrayLength<u8>> Index<RangeTo<u8>> for ArrayString<SIZE> {
     }
 }
 
-impl<SIZE: ArrayLength<u8>> Index<RangeFull> for ArrayString<SIZE> {
+impl<SIZE> Index<RangeFull> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     type Output = str;
 
     #[inline]
@@ -188,7 +300,10 @@ impl<SIZE: ArrayLength<u8>> Index<RangeFull> for ArrayString<SIZE> {
     }
 }
 
-impl<SIZE: ArrayLength<u8>> Index<Range<u8>> for ArrayString<SIZE> {
+impl<SIZE> Index<Range<u8>> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     type Output = str;
 
     #[inline]
@@ -198,7 +313,10 @@ impl<SIZE: ArrayLength<u8>> Index<Range<u8>> for ArrayString<SIZE> {
     }
 }
 
-impl<SIZE: ArrayLength<u8>> Index<RangeToInclusive<u8>> for ArrayString<SIZE> {
+impl<SIZE> Index<RangeToInclusive<u8>> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     type Output = str;
 
     #[inline]
@@ -208,7 +326,10 @@ impl<SIZE: ArrayLength<u8>> Index<RangeToInclusive<u8>> for ArrayString<SIZE> {
     }
 }
 
-impl<SIZE: ArrayLength<u8>> Index<RangeInclusive<u8>> for ArrayString<SIZE> {
+impl<SIZE> Index<RangeInclusive<u8>> for ArrayString<SIZE>
+where
+    SIZE: ArrayLength<u8>,
+{
     type Output = str;
 
     #[inline]
@@ -218,4 +339,3 @@ impl<SIZE: ArrayLength<u8>> Index<RangeInclusive<u8>> for ArrayString<SIZE> {
         self.as_str().index(range)
     }
 }
-
