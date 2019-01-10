@@ -5,24 +5,7 @@ use core::ptr::copy;
 use generic_array::ArrayLength;
 #[cfg(feature = "logs")]
 use log::{debug, trace};
-use typenum::Unsigned;
-
-/// Setup `env_logger`
-#[cfg(all(feature = "logs", feature = "std"))]
-#[cfg_attr(docs_rs_workaround, doc(cfg(all(feature = "logs", feature = "std"))))]
-#[inline]
-pub fn setup_logger() {
-    use std::sync::Once;
-    /// Ensures logger is initialized only once
-    static INITIALIZE: Once = Once::new();
-    INITIALIZE.call_once(::env_logger::init);
-}
-
-/// Mocks `setup_logger`
-#[cfg(any(not(feature = "logs"), not(feature = "std")))]
-#[inline]
-#[doc(hidden)]
-pub fn setup_logger() {}
+use generic_array::typenum::Unsigned;
 
 /// Marks branch as impossible, UB if taken in prod, panics in debug
 ///
@@ -187,16 +170,6 @@ mod tests {
     use super::*;
     use core::str::from_utf8;
 
-    #[cfg(all(feature = "logs", feature = "std"))]
-    fn setup_logger() {
-        use std::sync::Once;
-        static INITIALIZE: Once = Once::new();
-        INITIALIZE.call_once(env_logger::init);
-    }
-
-    #[cfg(not(feature = "logs"))]
-    fn setup_logger() {}
-
     #[test]
     fn truncate() {
         assert_eq!(truncate_str("i", 10), "i");
@@ -206,7 +179,7 @@ mod tests {
 
     #[test]
     fn shift_right() {
-        setup_logger();
+        let _ = env_logger::try_init();
         let mut ls = SmallString::try_from_str("abcdefg").unwrap();
         unsafe { shift_right_unchecked(&mut ls, 0, 4) };
         ls.size += 4;
@@ -215,7 +188,7 @@ mod tests {
 
     #[test]
     fn shift_left() {
-        setup_logger();
+        let _ = env_logger::try_init();
         let mut ls = SmallString::try_from_str("abcdefg").unwrap();
         unsafe { shift_left_unchecked(&mut ls, 1, 0) };
         ls.size -= 1;
@@ -224,7 +197,7 @@ mod tests {
 
     #[test]
     fn shift_nop() {
-        setup_logger();
+        let _ = env_logger::try_init();
         let mut ls = SmallString::try_from_str("abcdefg").unwrap();
         unsafe { shift_right_unchecked(&mut ls, 0, 0) };
         assert_eq!(ls.as_str(), "abcdefg");
@@ -234,7 +207,7 @@ mod tests {
 
     #[test]
     fn encode_char_utf8() {
-        setup_logger();
+        let _ = env_logger::try_init();
         let mut string = SmallString::default();
         unsafe { encode_char_utf8_unchecked(&mut string, 'a', 0) };
         assert_eq!(from_utf8(&string.array.as_mut_slice()[..1]).unwrap(), "a");

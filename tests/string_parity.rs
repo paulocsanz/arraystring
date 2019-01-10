@@ -648,7 +648,7 @@ where
     F: Fn(&'static str) -> T + RefUnwindSafe,
     G: Fn(&'static str) -> U + RefUnwindSafe,
 {
-    setup_logger();
+    let _ = env_logger::try_init();
     for string in STRINGS.into_iter() {
         let f = f(string).normalize();
         let g = g(string).normalize();

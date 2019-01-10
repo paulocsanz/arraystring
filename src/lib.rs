@@ -65,7 +65,8 @@
 //!
 //! MIT and Apache-2.0
 
-#![doc(html_root_url = "https://docs.rs/arraystring/0.1.0/arraystring")]
+#![doc(html_root_url = "https://docs.rs/arraystring/0.2.0/arraystring")]
+#![cfg_attr(docs_rs_workaround, feature(doc_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(
     missing_docs,
@@ -97,7 +98,7 @@
 )]
 #![doc(test(attr(deny(warnings))))]
 
-pub use typenum;
+pub use generic_array::typenum;
 
 /// Remove logging macros when they are disabled (at compile time)
 #[macro_use]
@@ -135,12 +136,9 @@ pub mod prelude {
     pub use crate::array::ArrayString;
     pub use crate::drain::Drain;
     pub use crate::error::{OutOfBounds, Utf16, Utf8};
-    #[doc(hidden)]
-    pub use crate::utils::setup_logger;
-    #[doc(hidden)]
-    pub use crate::InlinableString;
     pub use crate::{SmallString, MaxString, CacheString};
 
+    pub use generic_array::typenum;
     pub(crate) use generic_array::ArrayLength;
 }
 
@@ -152,17 +150,13 @@ use core::ops::*;
 use core::{str::FromStr, borrow::Borrow};
 #[cfg(feature = "serde-traits")]
 use serde::{Deserialize, Serialize};
-use typenum::{U127, U21, U255, U63, Unsigned};
+use generic_array::typenum::{U21, U255, U63, Unsigned};
 #[cfg(feature = "logs")]
 use log::trace;
 use crate::prelude::*;
 
 /// String with the same `mem::size_of` of a `String` in a 64 bits architecture
 pub type SmallString = ArrayString<U21>;
-
-/// Biggest string that is inlined by the compiler (you should not depend on this, since the size can change, this is not stable)
-#[doc(hidden)]
-pub type InlinableString = ArrayString<U127>;
 
 /// Biggest array based string (255 bytes of string)
 pub type MaxString = ArrayString<U255>;
@@ -194,7 +188,7 @@ impl CacheString {
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = CacheString::new();
     /// assert!(string.is_empty());
     /// ```
@@ -210,7 +204,7 @@ impl CacheString {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = CacheString::try_from_str("My String")?;
     /// assert_eq!(string.as_str(), "My String");
     ///
@@ -235,7 +229,7 @@ impl CacheString {
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = CacheString::from_str_truncate("My String");
     /// # assert_eq!(string.as_str(), "My String");
     /// println!("{}", string);
@@ -312,7 +306,7 @@ impl CacheString {
     /// ```rust
     /// # use arraystring::prelude::*;
     /// # fn main() -> Result<(), OutOfBounds> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = CacheString::from_iterator(&["My String", " Other String"][..]);
     /// assert_eq!(string.as_str(), "My String Other String");
     ///
@@ -370,7 +364,7 @@ impl CacheString {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = CacheString::try_from_chars("My String".chars())?;
     /// assert_eq!(string.as_str(), "My String");
     ///
@@ -393,7 +387,7 @@ impl CacheString {
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = CacheString::from_chars("My String".chars());
     /// assert_eq!(string.as_str(), "My String");
     ///
@@ -445,7 +439,7 @@ impl CacheString {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = CacheString::try_from_utf8("My String")?;
     /// assert_eq!(string.as_str(), "My String");
     ///
@@ -473,7 +467,7 @@ impl CacheString {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = CacheString::from_utf8("My String")?;
     /// assert_eq!(string.as_str(), "My String");
     ///
@@ -528,7 +522,7 @@ impl CacheString {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
     /// let string = CacheString::try_from_utf16(music)?;
     /// assert_eq!(string.as_str(), "𝄞music");
@@ -557,7 +551,7 @@ impl CacheString {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
     /// let string = CacheString::from_utf16(music)?;
     /// assert_eq!(string.as_str(), "𝄞music");
@@ -586,7 +580,7 @@ impl CacheString {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
     /// let string = CacheString::from_utf16_lossy(music);
     /// assert_eq!(string.as_str(), "𝄞music");
@@ -614,7 +608,7 @@ impl CacheString {
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// assert_eq!(CacheString::capacity(), 63);
     /// ```
     #[inline]

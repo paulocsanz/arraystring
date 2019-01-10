@@ -175,7 +175,7 @@ mod tests {
 
     #[cfg(feature = "serde-traits")]
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    struct DeriveSerde(pub ArrayString<typenum::U8>);
+    struct DeriveSerde(pub ArrayString<generic_array::typenum::U8>);
 
     #[cfg(feature = "serde-traits")]
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -212,12 +212,12 @@ mod tests {
     #[cfg(feature = "serde-traits")]
     fn json() {
         let string =
-            serde_json::to_string(&ArrayString::<typenum::U8>::try_from_str("abcdefg").unwrap())
+            serde_json::to_string(&ArrayString::<generic_array::typenum::U8>::try_from_str("abcdefg").unwrap())
                 .unwrap();
-        let s: ArrayString<typenum::U8> = serde_json::from_str(&string).unwrap();
+        let s: ArrayString<generic_array::typenum::U8> = serde_json::from_str(&string).unwrap();
         assert_eq!(
             s,
-            ArrayString::<typenum::U8>::try_from_str("abcdefg").unwrap()
+            ArrayString::<generic_array::typenum::U8>::try_from_str("abcdefg").unwrap()
         );
     }
 
@@ -238,7 +238,7 @@ mod tests {
     #[derive(Queryable, Insertable, Clone, Debug)]
     #[table_name = "derives"]
     struct DeriveDiesel {
-        pub name: ArrayString<typenum::U32>,
+        pub name: ArrayString<generic_array::typenum::U32>,
     }
 
     #[cfg(feature = "diesel-traits")]

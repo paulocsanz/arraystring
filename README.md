@@ -8,6 +8,8 @@ Can't outgrow capacity (defined at compile time), always occupies `capacity` `+ 
 
 *Doesn't allocate memory on the heap and never panics (all panic branches are stripped at compile time)*
 
+* [Documentation](https://docs.rs/arraystring/0.2.0/arraystring)
+
 ## Why
 
 Data is generally bounded, you don't want a phone number with 30 characters, nor a username with 100. You probably don't even support it in your database.

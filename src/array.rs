@@ -9,8 +9,7 @@ use core::{cmp::min, ops::*, ptr::copy_nonoverlapping};
 #[cfg(feature = "logs")]
 use log::{debug, trace};
 
-use generic_array::{ArrayLength, GenericArray};
-use typenum::Unsigned;
+use generic_array::{ArrayLength, GenericArray, typenum::Unsigned};
 
 /// String based on a generic array (size defined at compile time through [`typenum`])
 ///
@@ -31,7 +30,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = SmallString::new();
     /// assert!(string.is_empty());
     /// ```
@@ -47,7 +46,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = SmallString::try_from_str("My String")?;
     /// assert_eq!(string.as_str(), "My String");
     ///
@@ -74,7 +73,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = SmallString::from_str_truncate("My String");
     /// # assert_eq!(string.as_str(), "My String");
     /// println!("{}", string);
@@ -160,7 +159,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::prelude::*;
     /// # fn main() -> Result<(), OutOfBounds> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = MaxString::from_iterator(&["My String", " Other String"][..]);
     /// assert_eq!(string.as_str(), "My String Other String");
     ///
@@ -231,7 +230,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = SmallString::try_from_chars("My String".chars())?;
     /// assert_eq!(string.as_str(), "My String");
     ///
@@ -259,7 +258,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = SmallString::from_chars("My String".chars());
     /// assert_eq!(string.as_str(), "My String");
     ///
@@ -323,7 +322,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = SmallString::try_from_utf8("My String")?;
     /// assert_eq!(string.as_str(), "My String");
     ///
@@ -352,7 +351,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let string = SmallString::from_utf8("My String")?;
     /// assert_eq!(string.as_str(), "My String");
     ///
@@ -410,7 +409,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
     /// let string = SmallString::try_from_utf16(music)?;
     /// assert_eq!(string.as_str(), "𝄞music");
@@ -444,7 +443,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
     /// let string = SmallString::from_utf16(music)?;
     /// assert_eq!(string.as_str(), "𝄞music");
@@ -480,7 +479,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
     /// let string = SmallString::from_utf16_lossy(music);
     /// assert_eq!(string.as_str(), "𝄞music");
@@ -514,7 +513,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let s = SmallString::try_from_str("My String")?;
     /// assert_eq!(s.as_str(), "My String");
     /// # Ok(())
@@ -531,7 +530,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("My String")?;
     /// assert_eq!(s.as_mut_str(), "My String");
     /// # Ok(())
@@ -548,7 +547,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let s = SmallString::try_from_str("My String")?;
     /// assert_eq!(s.as_bytes(), "My String".as_bytes());
     /// # Ok(())
@@ -581,7 +580,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// assert_eq!(ArrayString::<typenum::U32>::capacity(), 32);
     /// ```
     #[inline]
@@ -596,7 +595,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = MaxString::try_from_str("My String")?;
     /// s.try_push_str(" My other String")?;
     /// assert_eq!(s.as_str(), "My String My other String");
@@ -626,7 +625,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = MaxString::try_from_str("My String")?;
     /// s.push_str(" My other String");
     /// assert_eq!(s.as_str(), "My String My other String");
@@ -689,7 +688,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("My String")?;
     /// s.try_push('!')?;
     /// assert_eq!(s.as_str(), "My String!");
@@ -744,7 +743,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("My String")?;
     /// s.truncate(5)?;
     /// assert_eq!(s.as_str(), "My St");
@@ -771,7 +770,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("A🤔")?;
     /// assert_eq!(s.pop(), Some('🤔'));
     /// assert_eq!(s.pop(), Some('A'));
@@ -793,7 +792,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::prelude::*;
     /// # fn main() -> Result<(), OutOfBounds> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut string = MaxString::try_from_str("   to be trimmed     ")?;
     /// string.trim();
     /// assert_eq!(string.as_str(), "to be trimmed");
@@ -840,7 +839,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("ABCD🤔")?;
     /// assert_eq!(s.remove("ABCD🤔".len() as u8), Err(Error::OutOfBounds));
     /// assert_eq!(s.remove(10), Err(Error::OutOfBounds));
@@ -870,7 +869,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("ABCD🤔")?;
     /// s.retain(|c| c != '🤔');
     /// assert_eq!(s.as_str(), "ABCD");
@@ -895,7 +894,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("ABCD🤔")?;
     /// s.try_insert(1, 'A')?;
     /// s.try_insert(2, 'B')?;
@@ -971,7 +970,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("ABCD🤔")?;
     /// s.try_insert_str(1, "AB")?;
     /// s.try_insert_str(1, "BC")?;
@@ -1010,7 +1009,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("ABCD🤔")?;
     /// s.insert_str(1, "AB")?;
     /// s.insert_str(1, "BC")?;
@@ -1091,7 +1090,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("ABCD")?;
     /// assert_eq!(s.len(), 4);
     /// s.try_push('🤔')?;
@@ -1111,7 +1110,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("ABCD")?;
     /// assert!(!s.is_empty());
     /// s.clear();
@@ -1135,7 +1134,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("AB🤔CD")?;
     /// assert_eq!(s.split_off(6)?.as_str(), "CD");
     /// assert_eq!(s.as_str(), "AB🤔");
@@ -1160,7 +1159,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("ABCD")?;
     /// assert!(!s.is_empty());
     /// s.clear();
@@ -1181,7 +1180,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("ABCD🤔")?;
     /// assert_eq!(s.drain(..3)?.collect::<Vec<_>>(), vec!['A', 'B', 'C']);
     /// assert_eq!(s.as_str(), "D🤔");
@@ -1230,7 +1229,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// # arraystring::utils::setup_logger();
+    /// # let _ = env_logger::try_init();
     /// let mut s = SmallString::try_from_str("ABCD🤔")?;
     /// s.replace_range(2..4, "EFGHI")?;
     /// assert_eq!(s.as_str(), "ABEFGHI🤔");
