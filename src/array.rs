@@ -674,11 +674,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
         S: AsRef<str>,
     {
         let (s, len) = (string.as_ref(), string.as_ref().len());
-        debug!(
-            "Push str unchecked: {} ({})",
-            s,
-            self.len().saturating_add(len as u8)
-        );
+        debug!("Push str unchecked: {} ({})", s, self.len() + len as u8);
         debug_assert!(len.saturating_add(self.len().into()) <= Self::capacity() as usize);
 
         let dest = self.as_mut_bytes().as_mut_ptr().add(self.len().into());
@@ -960,7 +956,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
         );
         shift_right_unchecked(self, idx, idx.saturating_add(clen));
         encode_char_utf8_unchecked(self, ch, idx);
-        self.size = self.size.saturating_add(ch.len_utf8() as u8);
+        self.size = self.size.saturating_add(clen);
     }
 
     /// Inserts string slice at specified index, returning error if total length is bigger than [`capacity`].

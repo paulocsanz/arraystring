@@ -5,7 +5,7 @@ use core::{char::DecodeUtf16Error, str::EncodeUtf16, str::Utf8Error};
 #[cfg(feature = "logs")]
 use log::trace;
 
-/// Every error possible when using the [`ArrayString`]
+/// Every error possible when using [`ArrayString`]
 ///
 /// [`ArrayString`]: ../struct.ArrayString.html
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
