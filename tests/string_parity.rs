@@ -1,5 +1,3 @@
-extern crate arraystring;
-
 use arraystring::{error::Error, prelude::*, utils::is_char_boundary, utils::is_inside_boundary};
 use std::panic::{catch_unwind, AssertUnwindSafe, RefUnwindSafe};
 use std::{fmt::Debug, iter::FromIterator};

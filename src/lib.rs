@@ -113,7 +113,7 @@ mod mock {
 }
 
 #[cfg(feature = "std")]
-extern crate std as core;
+use std as core;
 
 /*
 #[cfg(all(feature = "diesel-traits", test))]
@@ -144,9 +144,9 @@ pub use crate::arraystring::ArrayString;
 pub use crate::error::Error;
 
 use crate::prelude::*;
-use core::fmt::{self, Display, Formatter, Write, Debug};
-use core::ops::*;
-use core::{borrow::Borrow, str::FromStr, hash::Hash, hash::Hasher, cmp::Ordering};
+use crate::core::fmt::{self, Display, Formatter, Write, Debug};
+use crate::core::ops::*;
+use crate::core::{borrow::Borrow, str::FromStr, hash::Hash, hash::Hasher, cmp::Ordering};
 #[cfg(feature = "logs")]
 use log::trace;
 use typenum::{Unsigned, U21, U255, U63};

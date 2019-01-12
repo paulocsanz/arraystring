@@ -182,9 +182,6 @@ impl Truncate for u32 {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "logs")]
-    extern crate env_logger;
-
     use super::*;
     use core::str::from_utf8;
 
