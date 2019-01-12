@@ -121,39 +121,35 @@ extern crate std as core;
 extern crate diesel;
 */
 
-mod array;
+mod arraystring;
 pub mod drain;
 pub mod error;
 mod implementations;
 //#[cfg(any(feature = "serde-traits", feature = "diesel-traits"))]
+mod generic;
 #[cfg(feature = "serde-traits")]
 mod integration;
 #[doc(hidden)]
 pub mod utils;
-mod generic;
 
 /// Most used traits and data-strucutres
 pub mod prelude {
-    pub use crate::array::ArrayString;
+    pub use crate::arraystring::ArrayString;
     pub use crate::drain::Drain;
     pub use crate::error::{OutOfBounds, Utf16, Utf8};
-    pub use crate::{CacheString, MaxString, SmallString, generic::Length};
-
-    pub use typenum;
+    pub use crate::{generic::Length, CacheString, MaxString, SmallString};
 }
 
-pub use crate::array::ArrayString;
+pub use crate::arraystring::ArrayString;
 pub use crate::error::Error;
 
 use crate::prelude::*;
-use core::fmt::{self, Display, Formatter, Write};
+use core::fmt::{self, Display, Formatter, Write, Debug};
 use core::ops::*;
-use core::{borrow::Borrow, str::FromStr};
-use typenum::{Unsigned, U21, U255, U63};
+use core::{borrow::Borrow, str::FromStr, hash::Hash, hash::Hasher, cmp::Ordering};
 #[cfg(feature = "logs")]
 use log::trace;
-#[cfg(feature = "serde-traits")]
-use serde::{Deserialize, Serialize};
+use typenum::{Unsigned, U21, U255, U63};
 
 /// String with the same `mem::size_of` of a `String` in a 64 bits architecture
 pub type SmallString = ArrayString<U21>;
@@ -165,23 +161,8 @@ pub type MaxString = ArrayString<U255>;
 ///
 /// 63 bytes of string
 #[repr(align(64))]
-#[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serde-traits", derive(Deserialize, Serialize))]
+#[derive(Copy, Clone, Default)]
 pub struct CacheString(pub ArrayString<U63>);
-
-impl Deref for CacheString {
-    type Target = ArrayString<U63>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for CacheString {
-    fn deref_mut(&mut self) -> &mut ArrayString<U63> {
-        &mut self.0
-    }
-}
 
 impl CacheString {
     /// Creates new empty `CacheString`.
@@ -614,6 +595,61 @@ impl CacheString {
     #[inline]
     pub fn capacity() -> u8 {
         <U63 as Unsigned>::to_u8()
+    }
+}
+
+
+impl Debug for CacheString {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_tuple("CacheString")
+            .field(&self.0)
+            .finish()
+    }
+}
+
+impl Hash for CacheString {
+    #[inline]
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        self.0.hash(hasher);
+    }
+}
+
+impl PartialEq for CacheString {
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq(&other.0)
+    }
+}
+impl Eq for CacheString {}
+
+impl Ord for CacheString {
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+impl PartialOrd for CacheString {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Deref for CacheString {
+    type Target = ArrayString<U63>;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for CacheString {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut ArrayString<U63> {
+        &mut self.0
     }
 }
 

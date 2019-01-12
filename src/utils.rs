@@ -1,10 +1,14 @@
 //! Misc functions to improve readability
 
-use crate::{array::ArrayString, prelude::*, generic::Slice};
+use crate::{generic::Slice, prelude::*};
 use core::ptr::copy;
-use typenum::Unsigned;
 #[cfg(feature = "logs")]
 use log::{debug, trace};
+use typenum::Unsigned;
+
+pub(crate) trait Truncate: Sized {
+    fn into_u8_lossy(self) -> u8;
+}
 
 /// Marks branch as impossible, UB if taken in prod, panics in debug
 ///
@@ -36,16 +40,23 @@ pub(crate) unsafe fn encode_char_utf8_unchecked<S: Length>(
     ch: char,
     index: u8,
 ) {
-    trace!("Encode char: {} to {}", ch, index);
-
     // UTF-8 ranges and tags for encoding characters
+    ///
     const TAG_CONT: u8 = 0b1000_0000;
+    ///
     const TAG_TWO_B: u8 = 0b1100_0000;
+    ///
     const TAG_THREE_B: u8 = 0b1110_0000;
+    ///
     const TAG_FOUR_B: u8 = 0b1111_0000;
+    ///
     const MAX_ONE_B: u32 = 0x80;
+    ///
     const MAX_TWO_B: u32 = 0x800;
+    ///
     const MAX_THREE_B: u32 = 0x10000;
+
+    trace!("Encode char: {} to {}", ch, index);
 
     debug_assert!(ch.len_utf8().saturating_add(index.into()) <= <S as Unsigned>::to_u8() as usize);
     debug_assert!(
@@ -58,22 +69,22 @@ pub(crate) unsafe fn encode_char_utf8_unchecked<S: Length>(
 
     if code < MAX_ONE_B {
         debug_assert!(!dst.is_empty());
-        *dst.get_unchecked_mut(0) = code as u8;
+        *dst.get_unchecked_mut(0) = code.into_u8_lossy();
     } else if code < MAX_TWO_B {
         debug_assert!(dst.len() >= 2);
-        *dst.get_unchecked_mut(0) = (code >> 6 & 0x1F) as u8 | TAG_TWO_B;
-        *dst.get_unchecked_mut(1) = (code & 0x3F) as u8 | TAG_CONT;
+        *dst.get_unchecked_mut(0) = (code >> 6 & 0x1F).into_u8_lossy() | TAG_TWO_B;
+        *dst.get_unchecked_mut(1) = (code & 0x3F).into_u8_lossy() | TAG_CONT;
     } else if code < MAX_THREE_B {
         debug_assert!(dst.len() >= 3);
-        *dst.get_unchecked_mut(0) = (code >> 12 & 0x0F) as u8 | TAG_THREE_B;
-        *dst.get_unchecked_mut(1) = (code >> 6 & 0x3F) as u8 | TAG_CONT;
-        *dst.get_unchecked_mut(2) = (code & 0x3F) as u8 | TAG_CONT;
+        *dst.get_unchecked_mut(0) = (code >> 12 & 0x0F).into_u8_lossy() | TAG_THREE_B;
+        *dst.get_unchecked_mut(1) = (code >> 6 & 0x3F).into_u8_lossy() | TAG_CONT;
+        *dst.get_unchecked_mut(2) = (code & 0x3F).into_u8_lossy() | TAG_CONT;
     } else {
         debug_assert!(dst.len() >= 4);
-        *dst.get_unchecked_mut(0) = (code >> 18 & 0x07) as u8 | TAG_FOUR_B;
-        *dst.get_unchecked_mut(1) = (code >> 12 & 0x3F) as u8 | TAG_CONT;
-        *dst.get_unchecked_mut(2) = (code >> 6 & 0x3F) as u8 | TAG_CONT;
-        *dst.get_unchecked_mut(3) = (code & 0x3F) as u8 | TAG_CONT;
+        *dst.get_unchecked_mut(0) = (code >> 18 & 0x07).into_u8_lossy() | TAG_FOUR_B;
+        *dst.get_unchecked_mut(1) = (code >> 12 & 0x3F).into_u8_lossy() | TAG_CONT;
+        *dst.get_unchecked_mut(2) = (code >> 6 & 0x3F).into_u8_lossy() | TAG_CONT;
+        *dst.get_unchecked_mut(3) = (code & 0x3F).into_u8_lossy() | TAG_CONT;
     }
 }
 
@@ -98,11 +109,7 @@ unsafe fn shift_unchecked(s: &mut [u8], from: usize, to: usize, len: usize) {
 ///
 /// [`<S as Unsigned>::to_u8()`]: ../struct.ArrayString.html#CAPACITY
 #[inline]
-pub(crate) unsafe fn shift_right_unchecked<S: Length>(
-    s: &mut ArrayString<S>,
-    from: u8,
-    to: u8,
-) {
+pub(crate) unsafe fn shift_right_unchecked<S: Length>(s: &mut ArrayString<S>, from: u8, to: u8) {
     let (f, t, l) = (from as usize, to as usize, s.len().saturating_sub(from));
     debug_assert!(f <= t && t.saturating_add(l.into()) <= <S as Unsigned>::to_u8() as usize);
     debug_assert!(s.as_str().is_char_boundary(f));
@@ -111,11 +118,7 @@ pub(crate) unsafe fn shift_right_unchecked<S: Length>(
 
 /// Shifts string left
 #[inline]
-pub(crate) unsafe fn shift_left_unchecked<S: Length>(
-    s: &mut ArrayString<S>,
-    from: u8,
-    to: u8,
-) {
+pub(crate) unsafe fn shift_left_unchecked<S: Length>(s: &mut ArrayString<S>, from: u8, to: u8) {
     debug_assert!(to <= from && from <= s.len());
     let (f, t, l) = (from as usize, to as usize, s.len().saturating_sub(to));
     debug_assert!(s.as_str().is_char_boundary(f));
@@ -158,6 +161,22 @@ pub(crate) fn truncate_str(slice: &str, size: u8) -> &str {
         unsafe { slice.get_unchecked(..index) }
     } else {
         slice
+    }
+}
+
+impl Truncate for usize {
+    #[allow(clippy::cast_possible_truncation)]
+    #[inline]
+    fn into_u8_lossy(self) -> u8 {
+        self as u8
+    }
+}
+
+impl Truncate for u32 {
+    #[allow(clippy::cast_possible_truncation)]
+    #[inline]
+    fn into_u8_lossy(self) -> u8 {
+        self as u8
     }
 }
 

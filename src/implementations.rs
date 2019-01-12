@@ -1,15 +1,17 @@
+//! Trait implementations for `ArrayString` (that aren't for integration)
+
 use crate::{generic::Slice, prelude::*};
 use core::fmt::{self, Debug, Display, Formatter, Write};
 use core::ops::{Add, Deref, DerefMut, Index, IndexMut};
 use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
-use core::{
-    borrow::Borrow, borrow::BorrowMut, cmp::Ordering, hash::Hash, hash::Hasher, str, str::FromStr,
-};
+use core::str::{self, FromStr};
+use core::{borrow::Borrow, borrow::BorrowMut, cmp::Ordering, hash::Hash, hash::Hasher};
 
 impl<SIZE> Default for ArrayString<SIZE>
 where
     SIZE: Length,
 {
+    #[inline]
     fn default() -> Self {
         Self {
             array: SIZE::zeroed(),

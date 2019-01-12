@@ -1,16 +1,16 @@
-//! ArrayString methods implementation
+//! `ArrayString` definition and Api implementation
 
 use crate::utils::{encode_char_utf8_unchecked, is_char_boundary, is_inside_boundary, never};
-use crate::utils::{shift_left_unchecked, shift_right_unchecked, truncate_str};
-use crate::{error::Error, prelude::*, generic::Slice};
+use crate::utils::{shift_left_unchecked, shift_right_unchecked, truncate_str, Truncate};
+use crate::{error::Error, generic::Slice, prelude::*};
 use core::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use core::str::{from_utf8, from_utf8_unchecked};
 use core::{cmp::min, ops::*, ptr::copy_nonoverlapping};
 #[cfg(feature = "logs")]
 use log::{debug, trace};
 
-use typenum::Unsigned;
 use crate::generic::Length;
+use typenum::Unsigned;
 
 /// String based on a generic array (size defined at compile time through [`typenum`])
 ///
@@ -22,7 +22,9 @@ use crate::generic::Length;
 /// [`capacity`]: ./struct.ArrayString.html#method.capacity
 #[derive(Clone)]
 pub struct ArrayString<SIZE: Length> {
+    /// Array type corresponding to specified `SIZE`
     pub(crate) array: SIZE::Array,
+    /// Current string size
     pub(crate) size: u8,
 }
 
@@ -674,12 +676,16 @@ impl<SIZE: Length> ArrayString<SIZE> {
         S: AsRef<str>,
     {
         let (s, len) = (string.as_ref(), string.as_ref().len());
-        debug!("Push str unchecked: {} ({})", s, self.len() + len as u8);
+        debug!(
+            "Push str unchecked: {} ({})",
+            s,
+            self.len().saturating_add(len.into_u8_lossy())
+        );
         debug_assert!(len.saturating_add(self.len().into()) <= Self::capacity() as usize);
 
         let dest = self.as_mut_bytes().as_mut_ptr().add(self.len().into());
         copy_nonoverlapping(s.as_ptr(), dest, len);
-        self.size = self.size.saturating_add(len as u8);
+        self.size = self.size.saturating_add(len.into_u8_lossy());
     }
 
     /// Inserts character to the end of the `ArrayString` erroring if total size if bigger than [`capacity`].
@@ -733,7 +739,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
     /// ```
     #[inline]
     pub unsafe fn push_unchecked(&mut self, ch: char) {
-        let (len, chlen) = (self.len(), ch.len_utf8() as u8);
+        let (len, chlen) = (self.len(), ch.len_utf8().into_u8_lossy());
         debug!("Push unchecked (len: {}): {} (len: {})", len, ch, chlen);
         encode_char_utf8_unchecked(self, ch, len);
         self.size = self.size.saturating_add(chlen);
@@ -783,7 +789,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
     pub fn pop(&mut self) -> Option<char> {
         debug!("Pop");
         self.as_str().chars().last().map(|ch| {
-            self.size = self.size.saturating_sub(ch.len_utf8() as u8);
+            self.size = self.size.saturating_sub(ch.len_utf8().into_u8_lossy());
             ch
         })
     }
@@ -811,7 +817,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
             debug_assert!(index < s.len());
             unsafe { s.get_unchecked(index) == &b' ' }
         };
-        let (mut start, mut end, mut leave) = (0u8, self.len(), 0u8);
+        let (mut start, mut end, mut leave) = (0_u8, self.len(), 0_u8);
         while start < end && leave < 2 {
             leave = 0;
 
@@ -860,8 +866,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
         debug_assert!(idx < self.len() && self.as_str().is_char_boundary(idx.into()));
         let ch = unsafe { self.as_str().get_unchecked(idx.into()..).chars().next() };
         let ch = ch.unwrap_or_else(|| unsafe { never("Missing char") });
-        unsafe { shift_left_unchecked(self, idx.saturating_add(ch.len_utf8() as u8), idx) };
-        self.size = self.size.saturating_sub(ch.len_utf8() as u8);
+        unsafe { shift_left_unchecked(self, idx.saturating_add(ch.len_utf8().into_u8_lossy()), idx) };
+        self.size = self.size.saturating_sub(ch.len_utf8().into_u8_lossy());
         Ok(ch)
     }
 
@@ -947,7 +953,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
     /// ```
     #[inline]
     pub unsafe fn insert_unchecked(&mut self, idx: u8, ch: char) {
-        let clen = ch.len_utf8() as u8;
+        let clen = ch.len_utf8().into_u8_lossy();
         debug!(
             "Insert unchecked: {} ({}) at {}",
             ch,
@@ -1068,16 +1074,16 @@ impl<SIZE: Length> ArrayString<SIZE> {
     where
         S: AsRef<str>,
     {
-        let (s, slen) = (string.as_ref(), string.as_ref().len() as u8);
-        let (ptr, len) = (s.as_ptr(), self.len());
+        let (s, slen) = (string.as_ref(), string.as_ref().len().into_u8_lossy());
+        let ptr = s.as_ptr();
         trace!(
             "Insert str unchecked: {} ({}) at {}",
             s,
-            len.saturating_add(slen),
+            self.len().saturating_add(slen),
             idx
         );
-        debug_assert!(len.saturating_add(slen) <= Self::capacity());
-        debug_assert!(idx <= len);
+        debug_assert!(self.len().saturating_add(slen) <= Self::capacity());
+        debug_assert!(idx <= self.len());
         debug_assert!(self.as_str().is_char_boundary(idx.into()));
 
         shift_right_unchecked(self, idx, idx.saturating_add(slen));
@@ -1260,7 +1266,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
             Bound::Unbounded => self.len(),
         };
 
-        let len = replace_with.len() as u8;
+        let len = replace_with.len().into_u8_lossy();
         debug!(
             "Replace range (len: {}) ({}..{}) with (len: {}) {}",
             self.len(),

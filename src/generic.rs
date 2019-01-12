@@ -1,3 +1,5 @@
+//! Implements actual generic array abstraction for all supported types from `typenum` (1 to 255)
+
 use typenum::*;
 macro_rules! impl_generic_array {
     ($($type: ty),*) => {
@@ -28,7 +30,9 @@ macro_rules! impl_generic_array {
     }
 }
 
+/// Private module to hide access to sealed trait
 mod private {
+    /// Trait impossible to be implemented outside of this crate, seals other traits
     pub trait Sealed {}
 }
 

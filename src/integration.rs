@@ -1,3 +1,5 @@
+//! Integrates `ArrayString` with other crates' traits
+
 use crate::prelude::*;
 /*
 #[cfg(feature = "diesel-traits")]
@@ -161,6 +163,24 @@ where
 }
 */
 
+#[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
+#[cfg(feature = "serde-traits")]
+impl Serialize for CacheString {
+    #[inline]
+    fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        self.0.serialize(ser)
+    }
+}
+
+#[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
+#[cfg(feature = "serde-traits")]
+impl<'a> Deserialize<'a> for CacheString {
+    #[inline]
+    fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
+        Ok(CacheString(ArrayString::deserialize(des)?))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     /*
@@ -209,10 +229,9 @@ mod tests {
     #[test]
     #[cfg(feature = "serde-traits")]
     fn json() {
-        let string = serde_json::to_string(
-            &ArrayString::<typenum::U8>::try_from_str("abcdefg").unwrap(),
-        )
-        .unwrap();
+        let string =
+            serde_json::to_string(&ArrayString::<typenum::U8>::try_from_str("abcdefg").unwrap())
+                .unwrap();
         let s: ArrayString<typenum::U8> = serde_json::from_str(&string).unwrap();
         assert_eq!(
             s,
