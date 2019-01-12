@@ -1,6 +1,4 @@
 use crate::prelude::*;
-use generic_array::ArrayLength;
-
 /*
 #[cfg(feature = "diesel-traits")]
 use core::io::Write;
@@ -25,7 +23,7 @@ use core::marker::PhantomData;
 #[cfg(feature = "serde-traits")]
 impl<SIZE> Serialize for ArrayString<SIZE>
 where
-    SIZE: ArrayLength<u8>,
+    SIZE: Length,
 {
     #[inline]
     fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
@@ -37,14 +35,14 @@ where
 #[cfg(feature = "serde-traits")]
 impl<'a, SIZE> Deserialize<'a> for ArrayString<SIZE>
 where
-    SIZE: ArrayLength<u8>,
+    SIZE: Length,
 {
     #[inline]
     fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
         /// Abstracts deserializer visitor
-        struct InnerVisitor<'a, SIZE: ArrayLength<u8>>(pub PhantomData<(&'a (), SIZE)>);
+        struct InnerVisitor<'a, SIZE: Length>(pub PhantomData<(&'a (), SIZE)>);
 
-        impl<'a, SIZE: ArrayLength<u8>> Visitor<'a> for InnerVisitor<'a, SIZE> {
+        impl<'a, SIZE: Length> Visitor<'a> for InnerVisitor<'a, SIZE> {
             type Value = ArrayString<SIZE>;
 
             #[inline]
@@ -65,7 +63,7 @@ where
 /*
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
 #[cfg(feature = "diesel-traits")]
-impl<SIZE: ArrayLength<u8>> Expression for ArrayString<SIZE> {
+impl<SIZE: Length>> Expression for ArrayString<SIZE> {
     type SqlType = VarChar;
 }
 
@@ -73,7 +71,7 @@ impl<SIZE: ArrayLength<u8>> Expression for ArrayString<SIZE> {
 #[cfg(feature = "diesel-traits")]
 impl<SIZE, ST, DB> FromSql<ST, DB> for ArrayString<SIZE>
 where
-    SIZE: ArrayLength<u8>,
+    SIZE: Length,
     DB: Backend,
     *const str: FromSql<ST, DB>,
 {
@@ -90,7 +88,7 @@ where
 #[cfg(feature = "diesel-traits")]
 impl<SIZE, ST, DB> FromSqlRow<ST, DB> for ArrayString<SIZE>
 where
-    SIZE: ArrayLength<u8>,
+    SIZE: Length,
     DB: Backend,
     *const str: FromSql<ST, DB>,
 {
@@ -106,7 +104,7 @@ where
 #[cfg(feature = "diesel-traits")]
 impl<SIZE, ST, DB> Queryable<ST, DB> for ArrayString<SIZE>
 where
-    SIZE: ArrayLength<u8>,
+    SIZE: Length,
     DB: Backend,
     *const str: FromSql<ST, DB>,
 {
@@ -122,7 +120,7 @@ where
 #[cfg(feature = "diesel-traits")]
 impl<SIZE, DB> ToSql<VarChar, DB> for ArrayString<SIZE>
 where
-    SIZE: ArrayLength<u8>,
+    SIZE: Length,
     DB: Backend,
 {
     #[inline]
@@ -175,7 +173,7 @@ mod tests {
 
     #[cfg(feature = "serde-traits")]
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
-    struct DeriveSerde(pub ArrayString<generic_array::typenum::U8>);
+    struct DeriveSerde(pub ArrayString<typenum::U8>);
 
     #[cfg(feature = "serde-traits")]
     #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -211,13 +209,14 @@ mod tests {
     #[test]
     #[cfg(feature = "serde-traits")]
     fn json() {
-        let string =
-            serde_json::to_string(&ArrayString::<generic_array::typenum::U8>::try_from_str("abcdefg").unwrap())
-                .unwrap();
-        let s: ArrayString<generic_array::typenum::U8> = serde_json::from_str(&string).unwrap();
+        let string = serde_json::to_string(
+            &ArrayString::<typenum::U8>::try_from_str("abcdefg").unwrap(),
+        )
+        .unwrap();
+        let s: ArrayString<typenum::U8> = serde_json::from_str(&string).unwrap();
         assert_eq!(
             s,
-            ArrayString::<generic_array::typenum::U8>::try_from_str("abcdefg").unwrap()
+            ArrayString::<typenum::U8>::try_from_str("abcdefg").unwrap()
         );
     }
 
@@ -238,7 +237,7 @@ mod tests {
     #[derive(Queryable, Insertable, Clone, Debug)]
     #[table_name = "derives"]
     struct DeriveDiesel {
-        pub name: ArrayString<generic_array::typenum::U32>,
+        pub name: ArrayString<typenum::U32>,
     }
 
     #[cfg(feature = "diesel-traits")]

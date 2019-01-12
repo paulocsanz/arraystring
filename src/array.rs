@@ -2,14 +2,15 @@
 
 use crate::utils::{encode_char_utf8_unchecked, is_char_boundary, is_inside_boundary, never};
 use crate::utils::{shift_left_unchecked, shift_right_unchecked, truncate_str};
-use crate::{error::Error, prelude::*};
+use crate::{error::Error, prelude::*, generic::Slice};
 use core::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use core::str::{from_utf8, from_utf8_unchecked};
 use core::{cmp::min, ops::*, ptr::copy_nonoverlapping};
 #[cfg(feature = "logs")]
 use log::{debug, trace};
 
-use generic_array::{ArrayLength, GenericArray, typenum::Unsigned};
+use typenum::Unsigned;
+use crate::generic::Length;
 
 /// String based on a generic array (size defined at compile time through [`typenum`])
 ///
@@ -20,12 +21,12 @@ use generic_array::{ArrayLength, GenericArray, typenum::Unsigned};
 /// [`typenum`]: ../typenum/index.html
 /// [`capacity`]: ./struct.ArrayString.html#method.capacity
 #[derive(Clone)]
-pub struct ArrayString<SIZE: ArrayLength<u8>> {
-    pub(crate) array: GenericArray<u8, SIZE>,
+pub struct ArrayString<SIZE: Length> {
+    pub(crate) array: SIZE::Array,
     pub(crate) size: u8,
 }
 
-impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
+impl<SIZE: Length> ArrayString<SIZE> {
     /// Creates new empty string.
     ///
     /// ```rust
@@ -573,7 +574,7 @@ impl<SIZE: ArrayLength<u8>> ArrayString<SIZE> {
     pub unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
         trace!("As mut str: {}", self.as_str());
         let len = self.len();
-        self.array.get_unchecked_mut(..len.into())
+        self.array.as_mut_slice().get_unchecked_mut(..len.into())
     }
 
     /// Returns maximum string capacity, defined at compile time, it will never change

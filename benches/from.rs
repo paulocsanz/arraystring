@@ -1,5 +1,5 @@
 use arraystring::prelude::*;
-use criterion::{Criterion, criterion_main, criterion_group};
+use criterion::{criterion_group, criterion_main, Criterion};
 
 fn small_from_unchecked_benchmark(c: &mut Criterion) {
     let string = "0123456789";

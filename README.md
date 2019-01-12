@@ -6,7 +6,7 @@ Since rust doesn't have constant generics yet `typenum` is used to allow for gen
 
 Can't outgrow capacity (defined at compile time), always occupies `capacity` `+ 1` bytes of memory
 
-*Doesn't allocate memory on the heap and never panics (all panic branches are stripped at compile time)*
+*Doesn't allocate memory on the heap and never panics (all panic branches are stripped at compile time - except Index/IndexMut traits, since they are supposed to)*
 
 * [Documentation](https://docs.rs/arraystring/0.2.0/arraystring)
 

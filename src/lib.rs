@@ -98,7 +98,7 @@
 )]
 #![doc(test(attr(deny(warnings))))]
 
-pub use generic_array::typenum;
+pub use typenum;
 
 /// Remove logging macros when they are disabled (at compile time)
 #[macro_use]
@@ -130,30 +130,30 @@ mod implementations;
 mod integration;
 #[doc(hidden)]
 pub mod utils;
+mod generic;
 
 /// Most used traits and data-strucutres
 pub mod prelude {
     pub use crate::array::ArrayString;
     pub use crate::drain::Drain;
     pub use crate::error::{OutOfBounds, Utf16, Utf8};
-    pub use crate::{SmallString, MaxString, CacheString};
+    pub use crate::{CacheString, MaxString, SmallString, generic::Length};
 
-    pub use generic_array::typenum;
-    pub(crate) use generic_array::ArrayLength;
+    pub use typenum;
 }
 
 pub use crate::array::ArrayString;
 pub use crate::error::Error;
 
+use crate::prelude::*;
 use core::fmt::{self, Display, Formatter, Write};
 use core::ops::*;
-use core::{str::FromStr, borrow::Borrow};
-#[cfg(feature = "serde-traits")]
-use serde::{Deserialize, Serialize};
-use generic_array::typenum::{U21, U255, U63, Unsigned};
+use core::{borrow::Borrow, str::FromStr};
+use typenum::{Unsigned, U21, U255, U63};
 #[cfg(feature = "logs")]
 use log::trace;
-use crate::prelude::*;
+#[cfg(feature = "serde-traits")]
+use serde::{Deserialize, Serialize};
 
 /// String with the same `mem::size_of` of a `String` in a 64 bits architecture
 pub type SmallString = ArrayString<U21>;

@@ -1,11 +1,10 @@
 //! Misc functions to improve readability
 
-use crate::{array::ArrayString, prelude::*};
+use crate::{array::ArrayString, prelude::*, generic::Slice};
 use core::ptr::copy;
-use generic_array::ArrayLength;
+use typenum::Unsigned;
 #[cfg(feature = "logs")]
 use log::{debug, trace};
-use generic_array::typenum::Unsigned;
 
 /// Marks branch as impossible, UB if taken in prod, panics in debug
 ///
@@ -32,7 +31,7 @@ pub(crate) unsafe fn never(s: &str) -> ! {
 /// - It's UB if index is outside of buffer's boundaries (buffer needs at most 4 bytes)
 /// - It's UB if index is inside a character (like a index 3 for "a🤔")
 #[inline]
-pub(crate) unsafe fn encode_char_utf8_unchecked<S: ArrayLength<u8>>(
+pub(crate) unsafe fn encode_char_utf8_unchecked<S: Length>(
     s: &mut ArrayString<S>,
     ch: char,
     index: u8,
@@ -99,7 +98,7 @@ unsafe fn shift_unchecked(s: &mut [u8], from: usize, to: usize, len: usize) {
 ///
 /// [`<S as Unsigned>::to_u8()`]: ../struct.ArrayString.html#CAPACITY
 #[inline]
-pub(crate) unsafe fn shift_right_unchecked<S: ArrayLength<u8>>(
+pub(crate) unsafe fn shift_right_unchecked<S: Length>(
     s: &mut ArrayString<S>,
     from: u8,
     to: u8,
@@ -112,7 +111,7 @@ pub(crate) unsafe fn shift_right_unchecked<S: ArrayLength<u8>>(
 
 /// Shifts string left
 #[inline]
-pub(crate) unsafe fn shift_left_unchecked<S: ArrayLength<u8>>(
+pub(crate) unsafe fn shift_left_unchecked<S: Length>(
     s: &mut ArrayString<S>,
     from: u8,
     to: u8,
@@ -137,7 +136,7 @@ where
 
 /// Returns error if index is not at a valid utf-8 char boundary
 #[inline]
-pub fn is_char_boundary<S: ArrayLength<u8>>(s: &ArrayString<S>, idx: u8) -> Result<(), Utf8> {
+pub fn is_char_boundary<S: Length>(s: &ArrayString<S>, idx: u8) -> Result<(), Utf8> {
     trace!("Is char boundary: {} at {}", s.as_str(), idx);
     if s.as_str().is_char_boundary(idx.into()) {
         return Ok(());
