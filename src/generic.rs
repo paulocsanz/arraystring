@@ -6,6 +6,7 @@ macro_rules! impl_generic_array {
             impl Length for $type {
                 type Array = [u8; Self::USIZE];
 
+                #[inline]
                 fn zeroed() -> Self::Array {
                     [0; Self::USIZE]
                 }
@@ -13,10 +14,12 @@ macro_rules! impl_generic_array {
 
             impl private::Sealed for [u8; <$type as Unsigned>::USIZE] {}
             impl Slice for [u8; <$type as Unsigned>::USIZE] {
+                #[inline]
                 fn as_slice(&self) -> &[u8] {
                     self
                 }
 
+                #[inline]
                 fn as_mut_slice(&mut self) -> &mut [u8] {
                     self
                 }
