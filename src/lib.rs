@@ -115,19 +115,19 @@ mod mock {
 #[cfg(feature = "std")]
 use std as core;
 
-/*
+#[cfg(not(feature = "std"))]
+pub(crate) use core;
+
 #[cfg(all(feature = "diesel-traits", test))]
 #[macro_use]
 extern crate diesel;
-*/
 
 mod arraystring;
 pub mod drain;
 pub mod error;
 mod implementations;
-//#[cfg(any(feature = "serde-traits", feature = "diesel-traits"))]
 mod generic;
-#[cfg(feature = "serde-traits")]
+#[cfg(any(feature = "serde-traits", feature = "diesel-traits"))]
 mod integration;
 #[doc(hidden)]
 pub mod utils;

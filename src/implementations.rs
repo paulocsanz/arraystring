@@ -1,11 +1,11 @@
 //! Trait implementations for `ArrayString` (that aren't for integration)
 
 use crate::{generic::Slice, prelude::*};
-use core::fmt::{self, Debug, Display, Formatter, Write};
-use core::ops::{Add, Deref, DerefMut, Index, IndexMut};
-use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
-use core::str::{self, FromStr};
-use core::{borrow::Borrow, borrow::BorrowMut, cmp::Ordering, hash::Hash, hash::Hasher};
+use crate::core::fmt::{self, Debug, Display, Formatter, Write};
+use crate::core::ops::{Add, Deref, DerefMut, Index, IndexMut};
+use crate::core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+use crate::core::str::{self, FromStr};
+use crate::core::{borrow::Borrow, borrow::BorrowMut, cmp::Ordering, hash::Hash, hash::Hasher};
 
 impl<SIZE> Default for ArrayString<SIZE>
 where

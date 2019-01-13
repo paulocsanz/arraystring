@@ -3,8 +3,8 @@
 //! [`ArrayString`]: ../struct.ArrayString.html
 
 use crate::{utils::Truncate, prelude::*};
-use core::fmt::{self, Debug, Formatter};
-use core::{cmp::Ordering, hash::Hash, hash::Hasher, iter::FusedIterator};
+use crate::core::fmt::{self, Debug, Formatter};
+use crate::core::{cmp::Ordering, hash::Hash, hash::Hasher, iter::FusedIterator};
 
 /// A draining iterator for [`ArrayString`].
 ///

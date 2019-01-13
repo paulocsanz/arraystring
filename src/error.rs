@@ -89,7 +89,7 @@ impl<'a> From<EncodeUtf16<'a>> for Error {
 }
 
 /// Error caused by invalid UTF-8 data
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, PartialEq, Eq)]
 pub struct Utf8;
 
 impl Debug for Utf8 {
@@ -125,7 +125,7 @@ impl From<Utf8> for Error {
 }
 
 /// Error caused by invalid UTF-16 data
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, PartialEq, Eq)]
 pub struct Utf16;
 
 impl Debug for Utf16 {
@@ -170,7 +170,7 @@ impl<'a> From<EncodeUtf16<'a>> for Utf16 {
 /// Error caused by out of bounds access to [`ArrayString`]
 ///
 /// [`ArrayString`]: ../struct.ArrayString.html
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, PartialEq, Eq)]
 pub struct OutOfBounds;
 
 impl Debug for OutOfBounds {

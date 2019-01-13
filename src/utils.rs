@@ -1,7 +1,7 @@
 //! Misc functions to improve readability
 
 use crate::{generic::Slice, prelude::*};
-use core::ptr::copy;
+use crate::core::ptr::copy;
 #[cfg(feature = "logs")]
 use log::{debug, trace};
 use typenum::Unsigned;
@@ -20,7 +20,7 @@ pub(crate) unsafe fn never(s: &str) -> ! {
     panic!("{}", s);
 
     #[cfg(not(debug_assertions))]
-    ::core::hint::unreachable_unchecked()
+    crate::core::hint::unreachable_unchecked()
 }
 
 /// Encodes `char` into `ArrayString` at specified position, heavily unsafe
