@@ -1,8 +1,8 @@
 [package]
 name = "arraystring"
-version = "0.2.3"
+version = "0.2.4"
 repository = "https://github.com/paulocsanz/arraystring"
-description = "String based on generic-array"
+description = "String based on generic array"
 authors = ["Paulo Cabral Sanz <paulosanz@poli.ufrj.br>"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"

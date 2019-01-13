@@ -1,5 +1,3 @@
-//! Generic-array based string
-//!
 //! String based on generic array
 //!
 //! Since rust doesn't have constant generics yet [`typenum`] is used to allow for generic arrays ([`U1`] to [`U255`])
@@ -99,7 +97,7 @@
 //!
 //! `MIT` and `Apache-2.0`
 
-#![doc(html_root_url = "https://docs.rs/arraystring/0.2.3/arraystring")]
+#![doc(html_root_url = "https://docs.rs/arraystring/0.2.4/arraystring")]
 #![cfg_attr(docs_rs_workaround, feature(doc_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(
