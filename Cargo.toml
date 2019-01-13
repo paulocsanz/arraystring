@@ -1,12 +1,12 @@
 [package]
 name = "arraystring"
-version = "0.2.2"
+version = "0.2.3"
 repository = "https://github.com/paulocsanz/arraystring"
 description = "String based on generic-array"
 authors = ["Paulo Cabral Sanz <paulosanz@poli.ufrj.br>"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-keywords = ["string", "array", "stack", "inline", "no_std"]
+keywords = ["string", "generic", "array", "stack", "no_std"]
 categories = ["data-structures"]
 edition = "2018"
 
@@ -40,4 +40,4 @@ diesel-traits = ["diesel"]
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--cfg", "docs_rs_workaraound"]
-features = ["logs", "serde-traits", "std"]
+features = ["logs", "serde-traits", "std", "diesel-traits"]

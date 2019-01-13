@@ -99,7 +99,7 @@
 //!
 //! `MIT` and `Apache-2.0`
 
-#![doc(html_root_url = "https://docs.rs/arraystring/0.2.2/arraystring")]
+#![doc(html_root_url = "https://docs.rs/arraystring/0.2.3/arraystring")]
 #![cfg_attr(docs_rs_workaround, feature(doc_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(

@@ -10,7 +10,7 @@ Can't outgrow initial capacity (defined at compile time), always occupies `capac
 
 *Doesn't allocate memory on the heap and never panics in release (all panic branches are stripped at compile time - except `Index`/`IndexMut` traits, since they are supposed to)*
 
-* [Documentation](https://docs.rs/arraystring/0.2.2/arraystring)
+* [Documentation](https://docs.rs/arraystring/0.2.3/arraystring)
 
 ## Why
 
