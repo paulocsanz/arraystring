@@ -1,6 +1,6 @@
 [package]
 name = "arraystring"
-version = "0.2.1"
+version = "0.2.2"
 repository = "https://github.com/paulocsanz/arraystring"
 description = "String based on generic-array"
 authors = ["Paulo Cabral Sanz <paulosanz@poli.ufrj.br>"]
@@ -15,11 +15,7 @@ name = "arraystring"
 crate_type = ["lib"]
 
 [[bench]]
-name = "from"
-harness = false
-
-[[bench]]
-name = "clone"
+name = "string"
 harness = false
 
 [dev-dependencies]

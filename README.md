@@ -10,7 +10,7 @@ Can't outgrow initial capacity (defined at compile time), always occupies `capac
 
 *Doesn't allocate memory on the heap and never panics in release (all panic branches are stripped at compile time - except `Index`/`IndexMut` traits, since they are supposed to)*
 
-* [Documentation](https://docs.rs/arraystring/0.2.1/arraystring)
+* [Documentation](https://docs.rs/arraystring/0.2.2/arraystring)
 
 ## Why
 
@@ -25,8 +25,6 @@ But that becomes less true as you increase the array size, `CacheString` occuppi
 There are other stack based strings out there, they generally can have "unlimited" capacity (heap allocate), but the stack based size is defined by the library implementor, we go through a different route by implementing a string based in a generic array.
 
 Array based strings always occupies the full space in memory, so they may use more memory (in the stack) than dynamic strings.
-
-**TODO: bench against other implementations**
 
 ## Features
 
@@ -68,6 +66,30 @@ fn main() -> Result<(), Error> {
 
     Ok(())
 }
+```
+
+ ## Benchmarks
+
+*This benchmarks ran while I streamed video and used my computer (with* **non-disclosed specs**) *as usual, so don't take the actual times too serious, just focus on the comparison*
+
+```my_custom_benchmark
+string                     clone                 25.850 ns
+string                     from                  25.815 ns
+---------------------------------------------------------
+small-string  (21 bytes)   clone                  4.556 ns
+small-string  (21 bytes)   try_from_str          15.749 ns
+small-string  (21 bytes)   from_str_truncate     10.991 ns
+small-string  (21 bytes)   from_str_unchecked    11.195 ns
+---------------------------------------------------------
+cache-string  (63 bytes)   clone                 10.345 ns
+cache-string  (63 bytes)   try_from_str          24.959 ns
+cache-string  (63 bytes)   from_str_truncate     17.485 ns
+cache-string  (63 bytes)   from_str_unchecked    16.684 ns
+---------------------------------------------------------
+max-string   (255 bytes)   clone                145.750 ns
+max-string   (255 bytes)   try_from_str         157.890 ns
+max-string   (255 bytes)   from_str_truncate    193.870 ns
+max-string   (255 bytes)   from_str_unchecked   163.740 ns
 ```
 
 ## Licenses

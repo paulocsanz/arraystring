@@ -71,11 +71,35 @@
 //! }
 //! ```
 //!
+//!  ## Benchmarks
+//!
+//! *This benchmarks ran while I streamed video and used my computer (with* **non-disclosed specs**) *as usual, so don't take the actual times too serious, just focus on the comparison*
+//!
+//! ```my_custom_benchmark
+//! string                     clone                 25.850 ns
+//! string                     from                  25.815 ns
+//! ---------------------------------------------------------
+//! small-string  (21 bytes)   clone                  4.556 ns
+//! small-string  (21 bytes)   try_from_str          15.749 ns
+//! small-string  (21 bytes)   from_str_truncate     10.991 ns
+//! small-string  (21 bytes)   from_str_unchecked    11.195 ns
+//! ---------------------------------------------------------
+//! cache-string  (63 bytes)   clone                 10.345 ns
+//! cache-string  (63 bytes)   try_from_str          24.959 ns
+//! cache-string  (63 bytes)   from_str_truncate     17.485 ns
+//! cache-string  (63 bytes)   from_str_unchecked    16.684 ns
+//! ---------------------------------------------------------
+//! max-string   (255 bytes)   clone                145.750 ns
+//! max-string   (255 bytes)   try_from_str         157.890 ns
+//! max-string   (255 bytes)   from_str_truncate    193.870 ns
+//! max-string   (255 bytes)   from_str_unchecked   163.740 ns
+//! ```
+//!
 //! ## Licenses
 //!
-//! [`MIT`] and [`Apache-2.0`]
+//! `MIT` and `Apache-2.0`
 
-#![doc(html_root_url = "https://docs.rs/arraystring/0.2.1/arraystring")]
+#![doc(html_root_url = "https://docs.rs/arraystring/0.2.2/arraystring")]
 #![cfg_attr(docs_rs_workaround, feature(doc_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(
