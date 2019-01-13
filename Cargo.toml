@@ -1,6 +1,6 @@
 [package]
 name = "arraystring"
-version = "0.2.0"
+version = "0.2.1"
 repository = "https://github.com/paulocsanz/arraystring"
 description = "String based on generic-array"
 authors = ["Paulo Cabral Sanz <paulosanz@poli.ufrj.br>"]

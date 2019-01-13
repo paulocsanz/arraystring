@@ -1,6 +1,6 @@
 //! Contains all of this crate errors
 
-use core::fmt::{self, Display, Debug, Formatter};
+use core::fmt::{self, Debug, Display, Formatter};
 use core::{char::DecodeUtf16Error, hash::Hash, hash::Hasher, str::EncodeUtf16, str::Utf8Error};
 #[cfg(feature = "logs")]
 use log::trace;
@@ -24,7 +24,7 @@ impl PartialEq for Error {
         use self::Error::*;
         match (self, other) {
             (Utf8, Utf8) | (Utf16, Utf16) | (OutOfBounds, OutOfBounds) => true,
-            _ => false
+            _ => false,
         }
     }
 }

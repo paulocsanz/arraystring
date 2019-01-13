@@ -1,11 +1,11 @@
 //! Trait implementations for `ArrayString` (that aren't for integration)
 
 use crate::{generic::Slice, prelude::*};
-use crate::core::fmt::{self, Debug, Display, Formatter, Write};
-use crate::core::ops::{Add, Deref, DerefMut, Index, IndexMut};
-use crate::core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
-use crate::core::str::{self, FromStr};
-use crate::core::{borrow::Borrow, borrow::BorrowMut, cmp::Ordering, hash::Hash, hash::Hasher};
+use core::fmt::{self, Debug, Display, Formatter, Write};
+use core::ops::{Add, Deref, DerefMut, Index, IndexMut};
+use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+use core::str::{self, FromStr};
+use core::{borrow::Borrow, borrow::BorrowMut, cmp::Ordering, hash::Hash, hash::Hasher};
 
 impl<SIZE> Default for ArrayString<SIZE>
 where
@@ -158,8 +158,7 @@ where
 
     #[inline]
     fn add(self, other: &str) -> Self::Output {
-        let mut out = Self::default();
-        unsafe { out.push_str_unchecked(self.as_str()) };
+        let mut out = unsafe { Self::from_str_unchecked(self) };
         out.push_str(other);
         out
     }
@@ -214,8 +213,7 @@ where
     #[inline]
     fn index_mut(&mut self, index: RangeFrom<u8>) -> &mut str {
         let start = index.start as usize;
-        let start = RangeFrom { start };
-        self.as_mut_str().index_mut(start)
+        self.as_mut_str().index_mut(RangeFrom { start })
     }
 }
 

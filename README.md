@@ -1,14 +1,16 @@
 # ArrayString
 
-Generic-array based string
+String based on generic array
 
-Since rust doesn't have constant generics yet `typenum` is used to allow for generic arrays (through `generic-array` crate)
+Since rust doesn't have constant generics yet `typenum` is used to allow for generic arrays (U1 to U255)
 
-Can't outgrow capacity (defined at compile time), always occupies `capacity` `+ 1` bytes of memory
+*If you need bigger than `U255` open an issue explaining your use-case and we may implement*
 
-*Doesn't allocate memory on the heap and never panics (all panic branches are stripped at compile time - except Index/IndexMut traits, since they are supposed to)*
+Can't outgrow initial capacity (defined at compile time), always occupies `capacity` `+ 1` bytes of memory
 
-* [Documentation](https://docs.rs/arraystring/0.2.0/arraystring)
+*Doesn't allocate memory on the heap and never panics in release (all panic branches are stripped at compile time - except `Index`/`IndexMut` traits, since they are supposed to)*
+
+* [Documentation](https://docs.rs/arraystring/0.2.1/arraystring)
 
 ## Why
 
@@ -30,14 +32,14 @@ Array based strings always occupies the full space in memory, so they may use mo
 
  **default:** `std`
 
- - `std` enabled by default, enables `std` compatibility (remove it to be `#[no_std]` compatible)
+ - `std` enabled by default, enables `std` compatibility - `impl Error` trait for errors (remove it to be `#[no_std]` compatible)
  - `serde-traits` enables serde traits integration (`Serialize`/`Deserialize`)
 
      Opperates like `String`, but truncates it if it's bigger than capacity
 
-<!-- - `diesel-traits` enables diesel traits integration (`Insertable`/`Queryable`)
+ - `diesel-traits` enables diesel traits integration (`Insertable`/`Queryable`)
 
-     Opperates like `String`, but truncates it if it's bigger than capacity-->
+     Opperates like `String`, but truncates it if it's bigger than capacity
 
  - `logs` enables internal logging
 

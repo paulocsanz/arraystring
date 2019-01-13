@@ -624,14 +624,14 @@ impl<K: PartialEq, L: PartialEq, M: Normalize<K>, N: Normalize<L>> Normalize<Res
     }
 }
 
-impl<
-        J: PartialEq,
-        K: PartialEq,
-        L: PartialEq,
-        M: Normalize<J>,
-        N: Normalize<K>,
-        O: Normalize<L>,
-    > Normalize<Result<(J, K, L), ()>> for (M, N, O)
+impl<J, K, L, M, N, O> Normalize<Result<(J, K, L), ()>> for (M, N, O)
+where
+    J: PartialEq,
+    K: PartialEq,
+    L: PartialEq,
+    M: Normalize<J>,
+    N: Normalize<K>,
+    O: Normalize<L>,
 {
     fn normalize(&self) -> Result<(J, K, L), ()> {
         Ok((self.0.normalize(), self.1.normalize(), self.2.normalize()))

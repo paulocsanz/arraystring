@@ -2,9 +2,9 @@
 //!
 //! [`ArrayString`]: ../struct.ArrayString.html
 
-use crate::{utils::Truncate, prelude::*};
-use crate::core::fmt::{self, Debug, Formatter};
-use crate::core::{cmp::Ordering, hash::Hash, hash::Hasher, iter::FusedIterator};
+use crate::{prelude::*, utils::IntoLossy};
+use core::fmt::{self, Debug, Formatter};
+use core::{cmp::Ordering, hash::Hash, hash::Hasher, iter::FusedIterator};
 
 /// A draining iterator for [`ArrayString`].
 ///
@@ -89,7 +89,7 @@ impl<S: Length> Iterator for Drain<S> {
             .get(self.1.into()..)
             .and_then(|s| s.chars().next())
             .map(|c| {
-                self.1 = self.1.saturating_add(c.len_utf8().into_u8_lossy());
+                self.1 = self.1.saturating_add(c.len_utf8().into_lossy());
                 c
             })
     }

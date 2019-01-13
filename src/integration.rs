@@ -2,10 +2,12 @@
 
 use crate::prelude::*;
 #[cfg(all(feature = "diesel-traits", feature = "std"))]
-use crate::core::io::Write;
+use std::io::Write;
 
 #[cfg(feature = "diesel-traits")]
-use diesel::{backend::Backend, sql_types::*, row::Row, expression::*, prelude::*, query_builder::*};
+use diesel::{
+    backend::Backend, expression::*, prelude::*, query_builder::*, row::Row, sql_types::*,
+};
 
 #[cfg(feature = "diesel-traits")]
 use diesel::deserialize::{self, FromSql, FromSqlRow, Queryable};
@@ -17,7 +19,7 @@ use diesel::serialize::{self, Output, ToSql};
 use serde::{de, de::Deserializer, de::Visitor, ser::Serializer, Deserialize, Serialize};
 
 #[cfg(feature = "serde-traits")]
-use crate::core::marker::PhantomData;
+use core::marker::PhantomData;
 
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
 #[cfg(feature = "serde-traits")]
@@ -78,13 +80,13 @@ impl<SIZE: Length> NonAggregate for ArrayString<SIZE> {}
 
 impl<SIZE, DB> QueryFragment<DB> for ArrayString<SIZE>
 where
-	SIZE: Length,
+    SIZE: Length,
     DB: Backend + HasSqlType<VarChar>,
 {
-	fn walk_ast(&self, mut pass: AstPass<DB>) -> QueryResult<()> {
-		pass.push_bind_param::<Varchar, _>(&self.as_str())?;
-		Ok(())
-	}
+    fn walk_ast(&self, mut pass: AstPass<DB>) -> QueryResult<()> {
+        pass.push_bind_param::<Varchar, _>(&self.as_str())?;
+        Ok(())
+    }
 }
 
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
@@ -99,7 +101,7 @@ where
     fn from_sql(bytes: Option<&DB::RawValue>) -> deserialize::Result<Self> {
         let ptr: *const str = FromSql::<ST, DB>::from_sql(bytes)?;
         // We know that the pointer impl will never return null
-		Ok(Self::from_str_truncate(unsafe { &*ptr }))
+        Ok(Self::from_str_truncate(unsafe { &*ptr }))
     }
 }
 
@@ -115,7 +117,7 @@ where
 
     #[inline]
     fn build_from_row<T: Row<DB>>(row: &mut T) -> deserialize::Result<Self> {
-		FromSql::<ST, DB>::from_sql(row.take())
+        FromSql::<ST, DB>::from_sql(row.take())
     }
 }
 
@@ -135,7 +137,10 @@ where
     }
 }
 
-#[cfg_attr(docs_rs_workaround, doc(cfg(all(feature = "diesel-traits", feature = "std"))))]
+#[cfg_attr(
+    docs_rs_workaround,
+    doc(cfg(all(feature = "diesel-traits", feature = "std")))
+)]
 #[cfg(all(feature = "diesel-traits", feature = "std"))]
 impl<SIZE, DB> ToSql<VarChar, DB> for ArrayString<SIZE>
 where
@@ -144,7 +149,7 @@ where
 {
     #[inline]
     fn to_sql<W: Write>(&self, out: &mut Output<W, DB>) -> serialize::Result {
-		ToSql::<VarChar, DB>::to_sql(self.as_str(), out)
+        ToSql::<VarChar, DB>::to_sql(self.as_str(), out)
     }
 }
 
@@ -170,9 +175,9 @@ impl<DB> QueryFragment<DB> for CacheString
 where
     DB: Backend + HasSqlType<VarChar>,
 {
-	fn walk_ast(&self, pass: AstPass<DB>) -> QueryResult<()> {
-		self.0.walk_ast(pass)
-	}
+    fn walk_ast(&self, pass: AstPass<DB>) -> QueryResult<()> {
+        self.0.walk_ast(pass)
+    }
 }
 
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
@@ -184,7 +189,7 @@ where
 {
     #[inline]
     fn from_sql(bytes: Option<&DB::RawValue>) -> deserialize::Result<Self> {
-		Ok(CacheString(FromSql::from_sql(bytes)?))
+        Ok(CacheString(FromSql::from_sql(bytes)?))
     }
 }
 
@@ -199,7 +204,7 @@ where
 
     #[inline]
     fn build_from_row<T: Row<DB>>(row: &mut T) -> deserialize::Result<Self> {
-		Ok(CacheString(FromSqlRow::build_from_row(row)?))
+        Ok(CacheString(FromSqlRow::build_from_row(row)?))
     }
 }
 
@@ -214,11 +219,14 @@ where
 
     #[inline]
     fn build(row: Self::Row) -> Self {
-		row
+        row
     }
 }
 
-#[cfg_attr(docs_rs_workaround, doc(cfg(all(feature = "diesel-traits", feature = "std"))))]
+#[cfg_attr(
+    docs_rs_workaround,
+    doc(cfg(all(feature = "diesel-traits", feature = "std")))
+)]
 #[cfg(all(feature = "diesel-traits", feature = "std"))]
 impl<DB> ToSql<VarChar, DB> for CacheString
 where
@@ -226,7 +234,7 @@ where
 {
     #[inline]
     fn to_sql<W: Write>(&self, out: &mut Output<W, DB>) -> serialize::Result {
-		ToSql::to_sql(&self.0, out)
+        ToSql::to_sql(&self.0, out)
     }
 }
 
@@ -305,7 +313,7 @@ mod tests {
     }
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
-    use diesel::{insert_into, update, debug_query, pg, mysql, sqlite};
+    use diesel::{debug_query, insert_into, mysql, pg, sqlite, update};
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
     #[macro_use]
@@ -337,7 +345,7 @@ mod tests {
     }
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
-	#[test]
+    #[test]
     fn diesel_derive_query_compare_insert() {
         let array = DeriveDiesel {
             name: ArrayString::try_from_str("Name1").unwrap(),
@@ -345,65 +353,129 @@ mod tests {
         let cache = Derive2Diesel {
             name: CacheString(ArrayString::try_from_str("Name1").unwrap()),
         };
-        let string = Derive3Diesel {
-            name: "Name1",
-        };
+        let string = Derive3Diesel { name: "Name1" };
 
         let insert_array = insert_into(derives::table).values(&array);
         let insert_cache = insert_into(derives::table).values(&cache);
         let insert_string = insert_into(derives::table).values(&string);
-        assert_eq!(debug_query::<pg::Pg, _>(&insert_array).to_string(), debug_query::<pg::Pg, _>(&insert_string).to_string());
-        assert_eq!(debug_query::<pg::Pg, _>(&insert_cache).to_string(), debug_query::<pg::Pg, _>(&insert_string).to_string());
-        assert_eq!(debug_query::<mysql::Mysql, _>(&insert_array).to_string(), debug_query::<mysql::Mysql, _>(&insert_string).to_string());
-        assert_eq!(debug_query::<mysql::Mysql, _>(&insert_cache).to_string(), debug_query::<mysql::Mysql, _>(&insert_string).to_string());
-        assert_eq!(debug_query::<sqlite::Sqlite, _>(&insert_array).to_string(), debug_query::<sqlite::Sqlite, _>(&insert_string).to_string());
-        assert_eq!(debug_query::<sqlite::Sqlite, _>(&insert_cache).to_string(), debug_query::<sqlite::Sqlite, _>(&insert_string).to_string());
-	}
+        assert_eq!(
+            debug_query::<pg::Pg, _>(&insert_array).to_string(),
+            debug_query::<pg::Pg, _>(&insert_string).to_string()
+        );
+        assert_eq!(
+            debug_query::<pg::Pg, _>(&insert_cache).to_string(),
+            debug_query::<pg::Pg, _>(&insert_string).to_string()
+        );
+        assert_eq!(
+            debug_query::<mysql::Mysql, _>(&insert_array).to_string(),
+            debug_query::<mysql::Mysql, _>(&insert_string).to_string()
+        );
+        assert_eq!(
+            debug_query::<mysql::Mysql, _>(&insert_cache).to_string(),
+            debug_query::<mysql::Mysql, _>(&insert_string).to_string()
+        );
+        assert_eq!(
+            debug_query::<sqlite::Sqlite, _>(&insert_array).to_string(),
+            debug_query::<sqlite::Sqlite, _>(&insert_string).to_string()
+        );
+        assert_eq!(
+            debug_query::<sqlite::Sqlite, _>(&insert_cache).to_string(),
+            debug_query::<sqlite::Sqlite, _>(&insert_string).to_string()
+        );
+    }
 
-	#[test]
-	fn diesel_derive_query_compare_update() {
+    #[test]
+    fn diesel_derive_query_compare_update() {
         let array = DeriveDiesel {
             name: ArrayString::try_from_str("Name1").unwrap(),
         };
         let cache = Derive2Diesel {
             name: CacheString(ArrayString::try_from_str("Name1").unwrap()),
         };
-        let string = Derive3Diesel {
-            name: "Name1",
-        };
+        let string = Derive3Diesel { name: "Name1" };
         let update_array = update(derives::table).set(derives::name.eq(&array.name));
         let update_cache = update(derives::table).set(derives::name.eq(&cache.name));
         let update_string = update(derives::table).set(derives::name.eq(&string.name));
-        assert_eq!(debug_query::<pg::Pg, _>(&update_array).to_string(), debug_query::<pg::Pg, _>(&update_string).to_string());
-        assert_eq!(debug_query::<pg::Pg, _>(&update_cache).to_string(), debug_query::<pg::Pg, _>(&update_string).to_string());
-        assert_eq!(debug_query::<mysql::Mysql, _>(&update_array).to_string(), debug_query::<mysql::Mysql, _>(&update_string).to_string());
-        assert_eq!(debug_query::<mysql::Mysql, _>(&update_cache).to_string(), debug_query::<mysql::Mysql, _>(&update_string).to_string());
-        assert_eq!(debug_query::<sqlite::Sqlite, _>(&update_array).to_string(), debug_query::<sqlite::Sqlite, _>(&update_string).to_string());
-        assert_eq!(debug_query::<sqlite::Sqlite, _>(&update_cache).to_string(), debug_query::<sqlite::Sqlite, _>(&update_string).to_string());
-	}
+        assert_eq!(
+            debug_query::<pg::Pg, _>(&update_array).to_string(),
+            debug_query::<pg::Pg, _>(&update_string).to_string()
+        );
+        assert_eq!(
+            debug_query::<pg::Pg, _>(&update_cache).to_string(),
+            debug_query::<pg::Pg, _>(&update_string).to_string()
+        );
+        assert_eq!(
+            debug_query::<mysql::Mysql, _>(&update_array).to_string(),
+            debug_query::<mysql::Mysql, _>(&update_string).to_string()
+        );
+        assert_eq!(
+            debug_query::<mysql::Mysql, _>(&update_cache).to_string(),
+            debug_query::<mysql::Mysql, _>(&update_string).to_string()
+        );
+        assert_eq!(
+            debug_query::<sqlite::Sqlite, _>(&update_array).to_string(),
+            debug_query::<sqlite::Sqlite, _>(&update_string).to_string()
+        );
+        assert_eq!(
+            debug_query::<sqlite::Sqlite, _>(&update_cache).to_string(),
+            debug_query::<sqlite::Sqlite, _>(&update_string).to_string()
+        );
+    }
 
-	#[test]
-	#[ignore]
-	#[cfg(feature = "std")]
-	fn diesel_select_query_compiles() {
-		let conn = pg::PgConnection::establish("").unwrap();
-		let select_array: Vec<DeriveDiesel> = derives::table.select(derives::all_columns).load(&conn).unwrap();
-		let select_cache: Vec<Derive2Diesel> = derives::table.select(derives::all_columns).load(&conn).unwrap();
-		assert_eq!(select_cache.into_iter().map(|d| d.name.to_string()).collect::<Vec<_>>(), select_array.into_iter().map(|d| d.name.to_string()).collect::<Vec<_>>());
-		let _: std::time::SystemTime = derives::table.select(dsl::now).first(&conn).unwrap();
-		let _: std::time::SystemTime = derives::table.select(dsl::now).first(&conn).unwrap();
+    #[test]
+    #[ignore]
+    #[cfg(feature = "std")]
+    fn diesel_select_query_compiles() {
+        let conn = pg::PgConnection::establish("").unwrap();
+        let select_array: Vec<DeriveDiesel> = derives::table
+            .select(derives::all_columns)
+            .load(&conn)
+            .unwrap();
+        let select_cache: Vec<Derive2Diesel> = derives::table
+            .select(derives::all_columns)
+            .load(&conn)
+            .unwrap();
+        assert_eq!(
+            select_cache
+                .into_iter()
+                .map(|d| d.name.to_string())
+                .collect::<Vec<_>>(),
+            select_array
+                .into_iter()
+                .map(|d| d.name.to_string())
+                .collect::<Vec<_>>()
+        );
+        let _: std::time::SystemTime = derives::table.select(dsl::now).first(&conn).unwrap();
+        let _: std::time::SystemTime = derives::table.select(dsl::now).first(&conn).unwrap();
 
-		let conn = mysql::MysqlConnection::establish("").unwrap();
-		let select_array: Vec<DeriveDiesel> = derives::table.select(derives::all_columns).load(&conn).unwrap();
-		let select_cache: Vec<Derive2Diesel> = derives::table.select(derives::all_columns).load(&conn).unwrap();
-		assert_eq!(select_array.into_iter().map(|d| d.name.to_string()).collect::<Vec<_>>(), select_cache.into_iter().map(|d| d.name.to_string()).collect::<Vec<_>>());
+        let conn = mysql::MysqlConnection::establish("").unwrap();
+        let select_array: Vec<DeriveDiesel> = derives::table
+            .select(derives::all_columns)
+            .load(&conn)
+            .unwrap();
+        let select_cache: Vec<Derive2Diesel> = derives::table
+            .select(derives::all_columns)
+            .load(&conn)
+            .unwrap();
+        assert_eq!(
+            select_array
+                .into_iter()
+                .map(|d| d.name.to_string())
+                .collect::<Vec<_>>(),
+            select_cache
+                .into_iter()
+                .map(|d| d.name.to_string())
+                .collect::<Vec<_>>()
+        );
     }
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
-	#[test]
+    #[test]
     fn diesel_derive_query_sqlite() {
         let conn = diesel::sqlite::SqliteConnection::establish(":memory:").unwrap();
-		let _ = diesel::sql_query("CREATE TABLE derives (name VARCHAR(32));").execute(&conn).unwrap();
+        let _ = diesel::sql_query("CREATE TABLE derives (name VARCHAR(32));")
+            .execute(&conn)
+            .unwrap();
         let string = DeriveDiesel {
             name: ArrayString::try_from_str("Name1").unwrap(),
         };
@@ -418,10 +490,12 @@ mod tests {
     }
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
-	#[test]
+    #[test]
     fn diesel_derive2_query_sqlite() {
         let conn = diesel::sqlite::SqliteConnection::establish(":memory:").unwrap();
-		let _ = diesel::sql_query("CREATE TABLE derives (name VARCHAR(32));").execute(&conn).unwrap();
+        let _ = diesel::sql_query("CREATE TABLE derives (name VARCHAR(32));")
+            .execute(&conn)
+            .unwrap();
         let string = Derive2Diesel {
             name: CacheString(ArrayString::try_from_str("Name1").unwrap()),
         };

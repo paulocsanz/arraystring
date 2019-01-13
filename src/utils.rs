@@ -1,13 +1,13 @@
 //! Misc functions to improve readability
 
 use crate::{generic::Slice, prelude::*};
-use crate::core::ptr::copy;
+use core::ptr::copy;
 #[cfg(feature = "logs")]
 use log::{debug, trace};
 use typenum::Unsigned;
 
-pub(crate) trait Truncate: Sized {
-    fn into_u8_lossy(self) -> u8;
+pub(crate) trait IntoLossy<T>: Sized {
+    fn into_lossy(self) -> T;
 }
 
 /// Marks branch as impossible, UB if taken in prod, panics in debug
@@ -20,7 +20,7 @@ pub(crate) unsafe fn never(s: &str) -> ! {
     panic!("{}", s);
 
     #[cfg(not(debug_assertions))]
-    crate::core::hint::unreachable_unchecked()
+    core::hint::unreachable_unchecked()
 }
 
 /// Encodes `char` into `ArrayString` at specified position, heavily unsafe
@@ -41,62 +41,53 @@ pub(crate) unsafe fn encode_char_utf8_unchecked<S: Length>(
     index: u8,
 ) {
     // UTF-8 ranges and tags for encoding characters
-    ///
+    #[allow(clippy::missing_docs_in_private_items)]
     const TAG_CONT: u8 = 0b1000_0000;
-    ///
+    #[allow(clippy::missing_docs_in_private_items)]
     const TAG_TWO_B: u8 = 0b1100_0000;
-    ///
+    #[allow(clippy::missing_docs_in_private_items)]
     const TAG_THREE_B: u8 = 0b1110_0000;
-    ///
+    #[allow(clippy::missing_docs_in_private_items)]
     const TAG_FOUR_B: u8 = 0b1111_0000;
-    ///
+    #[allow(clippy::missing_docs_in_private_items)]
     const MAX_ONE_B: u32 = 0x80;
-    ///
+    #[allow(clippy::missing_docs_in_private_items)]
     const MAX_TWO_B: u32 = 0x800;
-    ///
+    #[allow(clippy::missing_docs_in_private_items)]
     const MAX_THREE_B: u32 = 0x10000;
 
     trace!("Encode char: {} to {}", ch, index);
 
     debug_assert!(ch.len_utf8().saturating_add(index.into()) <= <S as Unsigned>::to_u8() as usize);
-    debug_assert!(
-        ch.len_utf8().saturating_add(s.len().into()) <= <S as Unsigned>::to_u8() as usize
-    );
-    let (dst, code) = (
-        s.array.as_mut_slice().get_unchecked_mut(index.into()..),
-        ch as u32,
-    );
+    debug_assert!(ch.len_utf8().saturating_add(s.len().into()) <= S::to_u8() as usize);
+    let dst = s.array.as_mut_slice().get_unchecked_mut(index.into()..);
+    let code = ch as u32;
 
     if code < MAX_ONE_B {
         debug_assert!(!dst.is_empty());
-        *dst.get_unchecked_mut(0) = code.into_u8_lossy();
+        *dst.get_unchecked_mut(0) = code.into_lossy();
     } else if code < MAX_TWO_B {
         debug_assert!(dst.len() >= 2);
-        *dst.get_unchecked_mut(0) = (code >> 6 & 0x1F).into_u8_lossy() | TAG_TWO_B;
-        *dst.get_unchecked_mut(1) = (code & 0x3F).into_u8_lossy() | TAG_CONT;
+        *dst.get_unchecked_mut(0) = (code >> 6 & 0x1F).into_lossy() | TAG_TWO_B;
+        *dst.get_unchecked_mut(1) = (code & 0x3F).into_lossy() | TAG_CONT;
     } else if code < MAX_THREE_B {
         debug_assert!(dst.len() >= 3);
-        *dst.get_unchecked_mut(0) = (code >> 12 & 0x0F).into_u8_lossy() | TAG_THREE_B;
-        *dst.get_unchecked_mut(1) = (code >> 6 & 0x3F).into_u8_lossy() | TAG_CONT;
-        *dst.get_unchecked_mut(2) = (code & 0x3F).into_u8_lossy() | TAG_CONT;
+        *dst.get_unchecked_mut(0) = (code >> 12 & 0x0F).into_lossy() | TAG_THREE_B;
+        *dst.get_unchecked_mut(1) = (code >> 6 & 0x3F).into_lossy() | TAG_CONT;
+        *dst.get_unchecked_mut(2) = (code & 0x3F).into_lossy() | TAG_CONT;
     } else {
         debug_assert!(dst.len() >= 4);
-        *dst.get_unchecked_mut(0) = (code >> 18 & 0x07).into_u8_lossy() | TAG_FOUR_B;
-        *dst.get_unchecked_mut(1) = (code >> 12 & 0x3F).into_u8_lossy() | TAG_CONT;
-        *dst.get_unchecked_mut(2) = (code >> 6 & 0x3F).into_u8_lossy() | TAG_CONT;
-        *dst.get_unchecked_mut(3) = (code & 0x3F).into_u8_lossy() | TAG_CONT;
+        *dst.get_unchecked_mut(0) = (code >> 18 & 0x07).into_lossy() | TAG_FOUR_B;
+        *dst.get_unchecked_mut(1) = (code >> 12 & 0x3F).into_lossy() | TAG_CONT;
+        *dst.get_unchecked_mut(2) = (code >> 6 & 0x3F).into_lossy() | TAG_CONT;
+        *dst.get_unchecked_mut(3) = (code & 0x3F).into_lossy() | TAG_CONT;
     }
 }
 
 /// Copies part of slice to another part (`mem::copy`, basically `memmove`)
 #[inline]
 unsafe fn shift_unchecked(s: &mut [u8], from: usize, to: usize, len: usize) {
-    debug!(
-        "Shift {:?}, {} to {}",
-        &s.get(from..from.saturating_add(len)),
-        from,
-        to
-    );
+    debug!("Shift {:?}, {}..{}", &s[from..][..len], from, to);
     debug_assert!(to.saturating_add(len) <= s.len() && from.saturating_add(len) <= s.len());
     let (f, t) = (s.as_ptr().add(from), s.as_mut_ptr().add(to));
     copy(f, t, len);
@@ -164,18 +155,18 @@ pub(crate) fn truncate_str(slice: &str, size: u8) -> &str {
     }
 }
 
-impl Truncate for usize {
+impl IntoLossy<u8> for usize {
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn into_u8_lossy(self) -> u8 {
+    fn into_lossy(self) -> u8 {
         self as u8
     }
 }
 
-impl Truncate for u32 {
+impl IntoLossy<u8> for u32 {
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
-    fn into_u8_lossy(self) -> u8 {
+    fn into_lossy(self) -> u8 {
         self as u8
     }
 }

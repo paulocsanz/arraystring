@@ -1,10 +1,14 @@
 //! Generic-array based string
 //!
-//! Since rust doesn't have constant generics yet [`typenum`] is used to allow for generic arrays (through `generic-array` crate)
+//! String based on generic array
 //!
-//! Can't outgrow capacity (defined at compile time), always occupies [`capacity`] `+ 1` bytes of memory
+//! Since rust doesn't have constant generics yet [`typenum`] is used to allow for generic arrays ([`U1`] to [`U255`])
 //!
-//! *Doesn't allocate memory on the heap and never panics (all panic branches are stripped at compile time)*
+//! *If you need bigger than [`U255`] open an issue explaining your use-case and we may implement*
+//!
+//! Can't outgrow initial capacity (defined at compile time), always occupies [`capacity`] `+ 1` bytes of memory
+//!
+//! *Doesn't allocate memory on the heap and never panics in release (all panic branches are stripped at compile time - except `Index`/`IndexMut` traits, since they are supposed to)*
 //!
 //! ## Why
 //!
@@ -22,15 +26,21 @@
 //!
 //! [`typenum`]: ../typenum/index.html
 //! [`capacity`]: ./struct.ArrayString.html#method.capacity
+//! [`U1`]: ../typenum/type.U1.html
+//! [`U255`]: ../typenum/type.U255.html
 //!
 //! ## Features
 //!
 //! **default:** `std`
 //!
-//! - `std` enabled by default, enables `std` compatibility (remove it to be `#[no_std]` compatible)
+//! - `std` enabled by default, enables `std` compatibility - `impl Error` trait for errors (remove it to be `#[no_std]` compatible)
 //! - `serde-traits` enables serde traits integration (`Serialize`/`Deserialize`)
 //!
 //!     Opperates like `String`, but truncates it if it's bigger than capacity
+//!
+//!  - `diesel-traits` enables diesel traits integration (`Insertable`/`Queryable`)
+//!
+//!      Opperates like `String`, but truncates it if it's bigger than capacity
 //!
 //! - `logs` enables internal logging
 //!
@@ -63,9 +73,9 @@
 //!
 //! ## Licenses
 //!
-//! MIT and Apache-2.0
+//! [`MIT`] and [`Apache-2.0`]
 
-#![doc(html_root_url = "https://docs.rs/arraystring/0.2.0/arraystring")]
+#![doc(html_root_url = "https://docs.rs/arraystring/0.2.1/arraystring")]
 #![cfg_attr(docs_rs_workaround, feature(doc_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(
@@ -112,12 +122,6 @@ mod mock {
     macro_rules! error(($($x:tt)*) => ());
 }
 
-#[cfg(feature = "std")]
-use std as core;
-
-#[cfg(not(feature = "std"))]
-pub(crate) use core;
-
 #[cfg(all(feature = "diesel-traits", test))]
 #[macro_use]
 extern crate diesel;
@@ -125,8 +129,8 @@ extern crate diesel;
 mod arraystring;
 pub mod drain;
 pub mod error;
-mod implementations;
 mod generic;
+mod implementations;
 #[cfg(any(feature = "serde-traits", feature = "diesel-traits"))]
 mod integration;
 #[doc(hidden)]
@@ -144,9 +148,9 @@ pub use crate::arraystring::ArrayString;
 pub use crate::error::Error;
 
 use crate::prelude::*;
-use crate::core::fmt::{self, Display, Formatter, Write, Debug};
-use crate::core::ops::*;
-use crate::core::{borrow::Borrow, str::FromStr, hash::Hash, hash::Hasher, cmp::Ordering};
+use core::fmt::{self, Debug, Display, Formatter, Write};
+use core::{borrow::Borrow, borrow::BorrowMut, ops::*};
+use core::{cmp::Ordering, hash::Hash, hash::Hasher, str::FromStr};
 #[cfg(feature = "logs")]
 use log::trace;
 use typenum::{Unsigned, U21, U255, U63};
@@ -598,13 +602,10 @@ impl CacheString {
     }
 }
 
-
 impl Debug for CacheString {
     #[inline]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_tuple("CacheString")
-            .field(&self.0)
-            .finish()
+        f.debug_tuple("CacheString").field(&self.0).finish()
     }
 }
 
@@ -701,6 +702,12 @@ impl Borrow<str> for CacheString {
     #[inline]
     fn borrow(&self) -> &str {
         self.0.borrow()
+    }
+}
+impl BorrowMut<str> for CacheString {
+    #[inline]
+    fn borrow_mut(&mut self) -> &mut str {
+        self.0.borrow_mut()
     }
 }
 

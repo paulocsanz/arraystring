@@ -1,7 +1,7 @@
 //! `ArrayString` definition and Api implementation
 
 use crate::utils::{encode_char_utf8_unchecked, is_char_boundary, is_inside_boundary, never};
-use crate::utils::{shift_left_unchecked, shift_right_unchecked, truncate_str, Truncate};
+use crate::utils::{shift_left_unchecked, shift_right_unchecked, truncate_str, IntoLossy};
 use crate::{error::Error, generic::Slice, prelude::*};
 use core::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use core::str::{from_utf8, from_utf8_unchecked};
@@ -10,7 +10,6 @@ use core::{cmp::min, ops::*, ptr::copy_nonoverlapping};
 use log::{debug, trace};
 
 use crate::generic::Length;
-use typenum::Unsigned;
 
 /// String based on a generic array (size defined at compile time through [`typenum`])
 ///
@@ -588,7 +587,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
     /// ```
     #[inline]
     pub fn capacity() -> u8 {
-        <SIZE as Unsigned>::to_u8()
+        SIZE::to_u8()
     }
 
     /// Pushes string slice to the end of the `ArrayString` if total size is lower or equal to [`capacity`], otherwise returns an error.
@@ -613,10 +612,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
         S: AsRef<str>,
     {
         trace!("Push str");
-        is_inside_boundary(
-            string.as_ref().len().saturating_add(self.len().into()),
-            Self::capacity(),
-        )?;
+        let new_end = string.as_ref().len().saturating_add(self.len().into());
+        is_inside_boundary(new_end, Self::capacity())?;
         unsafe { self.push_str_unchecked(string) };
         Ok(())
     }
@@ -676,16 +673,12 @@ impl<SIZE: Length> ArrayString<SIZE> {
         S: AsRef<str>,
     {
         let (s, len) = (string.as_ref(), string.as_ref().len());
-        debug!(
-            "Push str unchecked: {} ({})",
-            s,
-            self.len().saturating_add(len.into_u8_lossy())
-        );
+        debug!("Push str unchecked: {} ({} + {})", s, self.len(), len);
         debug_assert!(len.saturating_add(self.len().into()) <= Self::capacity() as usize);
 
         let dest = self.as_mut_bytes().as_mut_ptr().add(self.len().into());
         copy_nonoverlapping(s.as_ptr(), dest, len);
-        self.size = self.size.saturating_add(len.into_u8_lossy());
+        self.size = self.size.saturating_add(len.into_lossy());
     }
 
     /// Inserts character to the end of the `ArrayString` erroring if total size if bigger than [`capacity`].
@@ -708,10 +701,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
     #[inline]
     pub fn try_push(&mut self, character: char) -> Result<(), OutOfBounds> {
         trace!("Push: {}", character);
-        is_inside_boundary(
-            character.len_utf8().saturating_add(self.len().into()),
-            Self::capacity(),
-        )?;
+        let new_end = character.len_utf8().saturating_add(self.len().into());
+        is_inside_boundary(new_end, Self::capacity())?;
         unsafe { self.push_unchecked(character) };
         Ok(())
     }
@@ -739,7 +730,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
     /// ```
     #[inline]
     pub unsafe fn push_unchecked(&mut self, ch: char) {
-        let (len, chlen) = (self.len(), ch.len_utf8().into_u8_lossy());
+        let (len, chlen) = (self.len(), ch.len_utf8().into_lossy());
         debug!("Push unchecked (len: {}): {} (len: {})", len, ch, chlen);
         encode_char_utf8_unchecked(self, ch, len);
         self.size = self.size.saturating_add(chlen);
@@ -789,7 +780,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
     pub fn pop(&mut self) -> Option<char> {
         debug!("Pop");
         self.as_str().chars().last().map(|ch| {
-            self.size = self.size.saturating_sub(ch.len_utf8().into_u8_lossy());
+            self.size = self.size.saturating_sub(ch.len_utf8().into_lossy());
             ch
         })
     }
@@ -866,8 +857,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
         debug_assert!(idx < self.len() && self.as_str().is_char_boundary(idx.into()));
         let ch = unsafe { self.as_str().get_unchecked(idx.into()..).chars().next() };
         let ch = ch.unwrap_or_else(|| unsafe { never("Missing char") });
-        unsafe { shift_left_unchecked(self, idx.saturating_add(ch.len_utf8().into_u8_lossy()), idx) };
-        self.size = self.size.saturating_sub(ch.len_utf8().into_u8_lossy());
+        unsafe { shift_left_unchecked(self, idx.saturating_add(ch.len_utf8().into_lossy()), idx) };
+        self.size = self.size.saturating_sub(ch.len_utf8().into_lossy());
         Ok(ch)
     }
 
@@ -918,10 +909,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
     pub fn try_insert(&mut self, idx: u8, ch: char) -> Result<(), Error> {
         trace!("Insert {} to {}", ch, idx);
         is_inside_boundary(idx, self.len())?;
-        is_inside_boundary(
-            ch.len_utf8().saturating_add(self.len().into()),
-            Self::capacity(),
-        )?;
+        let new_end = ch.len_utf8().saturating_add(self.len().into());
+        is_inside_boundary(new_end, Self::capacity())?;
         is_char_boundary(self, idx)?;
         unsafe { self.insert_unchecked(idx, ch) };
         Ok(())
@@ -953,13 +942,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
     /// ```
     #[inline]
     pub unsafe fn insert_unchecked(&mut self, idx: u8, ch: char) {
-        let clen = ch.len_utf8().into_u8_lossy();
-        debug!(
-            "Insert unchecked: {} ({}) at {}",
-            ch,
-            self.len().saturating_add(clen),
-            idx
-        );
+        let clen = ch.len_utf8().into_lossy();
+        debug!("Insert uncheck ({}+{}) {} at {}", self.len(), clen, ch, idx);
         shift_right_unchecked(self, idx, idx.saturating_add(clen));
         encode_char_utf8_unchecked(self, ch, idx);
         self.size = self.size.saturating_add(clen);
@@ -996,10 +980,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
     {
         trace!("Try insert str");
         is_inside_boundary(idx, self.len())?;
-        is_inside_boundary(
-            s.as_ref().len().saturating_add(self.len().into()),
-            Self::capacity(),
-        )?;
+        let new_end = s.as_ref().len().saturating_add(self.len().into());
+        is_inside_boundary(new_end, Self::capacity())?;
         is_char_boundary(self, idx)?;
         unsafe { self.insert_str_unchecked(idx, s.as_ref()) };
         Ok(())
@@ -1074,14 +1056,9 @@ impl<SIZE: Length> ArrayString<SIZE> {
     where
         S: AsRef<str>,
     {
-        let (s, slen) = (string.as_ref(), string.as_ref().len().into_u8_lossy());
+        let (s, slen) = (string.as_ref(), string.as_ref().len().into_lossy());
         let ptr = s.as_ptr();
-        trace!(
-            "Insert str unchecked: {} ({}) at {}",
-            s,
-            self.len().saturating_add(slen),
-            idx
-        );
+        trace!("InsertStr uncheck {}+{} {} at {}", self.len(), slen, s, idx);
         debug_assert!(self.len().saturating_add(slen) <= Self::capacity());
         debug_assert!(idx <= self.len());
         debug_assert!(self.as_str().is_char_boundary(idx.into()));
@@ -1266,7 +1243,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
             Bound::Unbounded => self.len(),
         };
 
-        let len = replace_with.len().into_u8_lossy();
+        let len = replace_with.len().into_lossy();
         debug!(
             "Replace range (len: {}) ({}..{}) with (len: {}) {}",
             self.len(),
@@ -1278,12 +1255,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
 
         is_inside_boundary(start, end)?;
         is_inside_boundary(end, self.len())?;
-        is_inside_boundary(
-            (end as usize)
-                .saturating_sub(start.into())
-                .saturating_add(len.into()),
-            Self::capacity(),
-        )?;
+        let replaced = (end as usize).saturating_sub(start.into());
+        is_inside_boundary(replaced.saturating_add(len.into()), Self::capacity())?;
         is_char_boundary(self, start)?;
         is_char_boundary(self, end)?;
 
@@ -1298,9 +1271,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
             unsafe { shift_left_unchecked(self, end, start.saturating_add(len)) };
         }
 
-        self.size = self
-            .size
-            .saturating_add(len.saturating_sub(end).saturating_add(start));
+        let grow = len.saturating_sub(replaced.into_lossy());
+        self.size = self.size.saturating_add(grow);
         let ptr = replace_with.as_ptr();
         let dest = unsafe { self.as_mut_bytes().as_mut_ptr().add(start.into()) };
         unsafe { copy_nonoverlapping(ptr, dest, len.into()) };
