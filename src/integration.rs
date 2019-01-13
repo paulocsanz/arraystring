@@ -5,7 +5,7 @@ use crate::prelude::*;
 use crate::core::io::Write;
 
 #[cfg(feature = "diesel-traits")]
-use diesel::{backend::Backend, sql_types::VarChar, Expression, row::Row};
+use diesel::{backend::Backend, sql_types::*, row::Row, expression::*, prelude::*, query_builder::*};
 
 #[cfg(feature = "diesel-traits")]
 use diesel::deserialize::{self, FromSql, FromSqlRow, Queryable};
@@ -68,6 +68,27 @@ impl<SIZE: Length> Expression for ArrayString<SIZE> {
 
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
 #[cfg(feature = "diesel-traits")]
+impl<SIZE: Length, QS> SelectableExpression<QS> for ArrayString<SIZE> {}
+#[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
+#[cfg(feature = "diesel-traits")]
+impl<SIZE: Length, QS> AppearsOnTable<QS> for ArrayString<SIZE> {}
+#[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
+#[cfg(feature = "diesel-traits")]
+impl<SIZE: Length> NonAggregate for ArrayString<SIZE> {}
+
+impl<SIZE, DB> QueryFragment<DB> for ArrayString<SIZE>
+where
+	SIZE: Length,
+    DB: Backend + HasSqlType<VarChar>,
+{
+	fn walk_ast(&self, mut pass: AstPass<DB>) -> QueryResult<()> {
+		pass.push_bind_param::<Varchar, _>(&self.as_str())?;
+		Ok(())
+	}
+}
+
+#[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
+#[cfg(feature = "diesel-traits")]
 impl<SIZE, ST, DB> FromSql<ST, DB> for ArrayString<SIZE>
 where
     SIZE: Length,
@@ -76,10 +97,9 @@ where
 {
     #[inline]
     fn from_sql(bytes: Option<&DB::RawValue>) -> deserialize::Result<Self> {
-        let ptr = <*const str as FromSql<ST, DB>>::from_sql(bytes)?;
+        let ptr: *const str = FromSql::<ST, DB>::from_sql(bytes)?;
         // We know that the pointer impl will never return null
-        let string = unsafe { &*ptr };
-        Ok(Self::from_str_truncate(string))
+		Ok(Self::from_str_truncate(unsafe { &*ptr }))
     }
 }
 
@@ -95,7 +115,7 @@ where
 
     #[inline]
     fn build_from_row<T: Row<DB>>(row: &mut T) -> deserialize::Result<Self> {
-        <Self as FromSql<ST, DB>>::from_sql(row.take())
+		FromSql::<ST, DB>::from_sql(row.take())
     }
 }
 
@@ -124,7 +144,7 @@ where
 {
     #[inline]
     fn to_sql<W: Write>(&self, out: &mut Output<W, DB>) -> serialize::Result {
-        <str as ToSql<VarChar, DB>>::to_sql(self.as_str(), out)
+		ToSql::<VarChar, DB>::to_sql(self.as_str(), out)
     }
 }
 
@@ -136,6 +156,27 @@ impl Expression for CacheString {
 
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
 #[cfg(feature = "diesel-traits")]
+impl<QS> SelectableExpression<QS> for CacheString {}
+#[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
+#[cfg(feature = "diesel-traits")]
+impl<QS> AppearsOnTable<QS> for CacheString {}
+#[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
+#[cfg(feature = "diesel-traits")]
+impl NonAggregate for CacheString {}
+
+#[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
+#[cfg(feature = "diesel-traits")]
+impl<DB> QueryFragment<DB> for CacheString
+where
+    DB: Backend + HasSqlType<VarChar>,
+{
+	fn walk_ast(&self, pass: AstPass<DB>) -> QueryResult<()> {
+		self.0.walk_ast(pass)
+	}
+}
+
+#[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
+#[cfg(feature = "diesel-traits")]
 impl<ST, DB> FromSql<ST, DB> for CacheString
 where
     DB: Backend,
@@ -143,7 +184,37 @@ where
 {
     #[inline]
     fn from_sql(bytes: Option<&DB::RawValue>) -> deserialize::Result<Self> {
-        ArrayString::from_sql(bytes).map(|a| CacheString(a))
+		Ok(CacheString(FromSql::from_sql(bytes)?))
+    }
+}
+
+#[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
+#[cfg(feature = "diesel-traits")]
+impl<ST, DB> FromSqlRow<ST, DB> for CacheString
+where
+    DB: Backend,
+    *const str: FromSql<ST, DB>,
+{
+    const FIELDS_NEEDED: usize = 1;
+
+    #[inline]
+    fn build_from_row<T: Row<DB>>(row: &mut T) -> deserialize::Result<Self> {
+		Ok(CacheString(FromSqlRow::build_from_row(row)?))
+    }
+}
+
+#[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
+#[cfg(feature = "diesel-traits")]
+impl<ST, DB> Queryable<ST, DB> for CacheString
+where
+    DB: Backend,
+    *const str: FromSql<ST, DB>,
+{
+    type Row = Self;
+
+    #[inline]
+    fn build(row: Self::Row) -> Self {
+		row
     }
 }
 
@@ -155,7 +226,7 @@ where
 {
     #[inline]
     fn to_sql<W: Write>(&self, out: &mut Output<W, DB>) -> serialize::Result {
-        self.0.to_sql(out)
+		ToSql::to_sql(&self.0, out)
     }
 }
 
@@ -195,7 +266,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "serde-traits")]
-    fn derive_json() {
+    fn serde_derive_json() {
         let string =
             serde_json::to_string(&DeriveSerde(ArrayString::try_from_str("abcdefg").unwrap()))
                 .unwrap();
@@ -208,7 +279,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "serde-traits")]
-    fn derive2_json() {
+    fn serde_derive2_json() {
         let string = serde_json::to_string(&Derive2Serde(CacheString(
             ArrayString::try_from_str("abcdefg").unwrap(),
         )))
@@ -222,7 +293,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "serde-traits")]
-    fn json() {
+    fn serde_json() {
         let string =
             serde_json::to_string(&ArrayString::<typenum::U8>::try_from_str("abcdefg").unwrap())
                 .unwrap();
@@ -234,13 +305,12 @@ mod tests {
     }
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
-    use diesel::{insert_into, prelude::*, update, debug_query, pg, mysql, sqlite};
+    use diesel::{insert_into, update, debug_query, pg, mysql, sqlite};
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
     #[macro_use]
     table! {
-        derives (id) {
-            id -> Int4,
+        derives (name) {
             name -> VarChar,
         }
     }
@@ -267,7 +337,8 @@ mod tests {
     }
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
-    fn derive_query_compare() {
+	#[test]
+    fn diesel_derive_query_compare_insert() {
         let array = DeriveDiesel {
             name: ArrayString::try_from_str("Name1").unwrap(),
         };
@@ -279,7 +350,7 @@ mod tests {
         };
 
         let insert_array = insert_into(derives::table).values(&array);
-        let insert_cache = insert_into(derives::table).values(&array);
+        let insert_cache = insert_into(derives::table).values(&cache);
         let insert_string = insert_into(derives::table).values(&string);
         assert_eq!(debug_query::<pg::Pg, _>(&insert_array).to_string(), debug_query::<pg::Pg, _>(&insert_string).to_string());
         assert_eq!(debug_query::<pg::Pg, _>(&insert_cache).to_string(), debug_query::<pg::Pg, _>(&insert_string).to_string());
@@ -287,9 +358,21 @@ mod tests {
         assert_eq!(debug_query::<mysql::Mysql, _>(&insert_cache).to_string(), debug_query::<mysql::Mysql, _>(&insert_string).to_string());
         assert_eq!(debug_query::<sqlite::Sqlite, _>(&insert_array).to_string(), debug_query::<sqlite::Sqlite, _>(&insert_string).to_string());
         assert_eq!(debug_query::<sqlite::Sqlite, _>(&insert_cache).to_string(), debug_query::<sqlite::Sqlite, _>(&insert_string).to_string());
+	}
 
+	#[test]
+	fn diesel_derive_query_compare_update() {
+        let array = DeriveDiesel {
+            name: ArrayString::try_from_str("Name1").unwrap(),
+        };
+        let cache = Derive2Diesel {
+            name: CacheString(ArrayString::try_from_str("Name1").unwrap()),
+        };
+        let string = Derive3Diesel {
+            name: "Name1",
+        };
         let update_array = update(derives::table).set(derives::name.eq(&array.name));
-        let update_cache = update(derives::table).set(derives::name.eq(&array.name));
+        let update_cache = update(derives::table).set(derives::name.eq(&cache.name));
         let update_string = update(derives::table).set(derives::name.eq(&string.name));
         assert_eq!(debug_query::<pg::Pg, _>(&update_array).to_string(), debug_query::<pg::Pg, _>(&update_string).to_string());
         assert_eq!(debug_query::<pg::Pg, _>(&update_cache).to_string(), debug_query::<pg::Pg, _>(&update_string).to_string());
@@ -297,11 +380,30 @@ mod tests {
         assert_eq!(debug_query::<mysql::Mysql, _>(&update_cache).to_string(), debug_query::<mysql::Mysql, _>(&update_string).to_string());
         assert_eq!(debug_query::<sqlite::Sqlite, _>(&update_array).to_string(), debug_query::<sqlite::Sqlite, _>(&update_string).to_string());
         assert_eq!(debug_query::<sqlite::Sqlite, _>(&update_cache).to_string(), debug_query::<sqlite::Sqlite, _>(&update_string).to_string());
+	}
+
+	#[test]
+	#[ignore]
+	#[cfg(feature = "std")]
+	fn diesel_select_query_compiles() {
+		let conn = pg::PgConnection::establish("").unwrap();
+		let select_array: Vec<DeriveDiesel> = derives::table.select(derives::all_columns).load(&conn).unwrap();
+		let select_cache: Vec<Derive2Diesel> = derives::table.select(derives::all_columns).load(&conn).unwrap();
+		assert_eq!(select_cache.into_iter().map(|d| d.name.to_string()).collect::<Vec<_>>(), select_array.into_iter().map(|d| d.name.to_string()).collect::<Vec<_>>());
+		let _: std::time::SystemTime = derives::table.select(dsl::now).first(&conn).unwrap();
+		let _: std::time::SystemTime = derives::table.select(dsl::now).first(&conn).unwrap();
+
+		let conn = mysql::MysqlConnection::establish("").unwrap();
+		let select_array: Vec<DeriveDiesel> = derives::table.select(derives::all_columns).load(&conn).unwrap();
+		let select_cache: Vec<Derive2Diesel> = derives::table.select(derives::all_columns).load(&conn).unwrap();
+		assert_eq!(select_array.into_iter().map(|d| d.name.to_string()).collect::<Vec<_>>(), select_cache.into_iter().map(|d| d.name.to_string()).collect::<Vec<_>>());
     }
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
-    fn derive_query_sqlite() {
+	#[test]
+    fn diesel_derive_query_sqlite() {
         let conn = diesel::sqlite::SqliteConnection::establish(":memory:").unwrap();
+		let _ = diesel::sql_query("CREATE TABLE derives (name VARCHAR(32));").execute(&conn).unwrap();
         let string = DeriveDiesel {
             name: ArrayString::try_from_str("Name1").unwrap(),
         };
@@ -316,8 +418,10 @@ mod tests {
     }
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
-    fn derive2_query_sqlite() {
+	#[test]
+    fn diesel_derive2_query_sqlite() {
         let conn = diesel::sqlite::SqliteConnection::establish(":memory:").unwrap();
+		let _ = diesel::sql_query("CREATE TABLE derives (name VARCHAR(32));").execute(&conn).unwrap();
         let string = Derive2Diesel {
             name: CacheString(ArrayString::try_from_str("Name1").unwrap()),
         };
