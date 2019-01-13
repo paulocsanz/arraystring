@@ -1,8 +1,8 @@
 //! String based on generic array
 //!
-//! Since rust doesn't have constant generics yet [`typenum`] is used to allow for generic arrays ([`U1`] to [`U255`])
+//! Since rust doesn't have constant generics yet `typenum` is used to allow for generic arrays (`U1` to `U255`)
 //!
-//! *If you need bigger than [`U255`] open an issue explaining your use-case and we may implement*
+//! *If you need bigger than `U255` open an issue explaining your use-case and we may implement*
 //!
 //! Can't outgrow initial capacity (defined at compile time), always occupies [`capacity`] `+ 1` bytes of memory
 //!
@@ -22,10 +22,7 @@
 //!
 //! Array based strings always occupies the full space in memory, so they may use more memory (in the stack) than dynamic strings.
 //!
-//! [`typenum`]: ../typenum/index.html
 //! [`capacity`]: ./struct.ArrayString.html#method.capacity
-//! [`U1`]: ../typenum/type.U1.html
-//! [`U255`]: ../typenum/type.U255.html
 //!
 //! ## Features
 //!
@@ -97,7 +94,7 @@
 //!
 //! `MIT` and `Apache-2.0`
 
-#![doc(html_root_url = "https://docs.rs/arraystring/0.2.4/arraystring")]
+#![doc(html_root_url = "https://docs.rs/arraystring/0.2.5/arraystring")]
 #![cfg_attr(docs_rs_workaround, feature(doc_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(
@@ -439,8 +436,8 @@ impl CacheString {
 
     /// Creates new `CacheString` from byte slice, returning [`Utf8`] on invalid utf-8 data or [`OutOfBounds`] if bigger than [`capacity`]
     ///
-    /// [`Utf8`]: ../enum.Error.html#Utf8
-    /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
+    /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
+    /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
     /// [`capacity`]: ./struct.CacheString.html#method.capacity
     ///
     /// ```rust
@@ -468,7 +465,7 @@ impl CacheString {
 
     /// Creates new `CacheString` from byte slice, returning [`Utf8`] on invalid utf-8 data, truncating if bigger than [`capacity`].
     ///
-    /// [`Utf8`]: ../struct.Utf8.html
+    /// [`Utf8`]: ./error/struct.Utf8.html
     /// [`capacity`]: ./struct.CacheString.html#method.capacity
     ///
     /// ```rust
@@ -522,8 +519,8 @@ impl CacheString {
 
     /// Creates new `CacheString` from `u16` slice, returning [`Utf16`] on invalid utf-16 data or [`OutOfBounds`] if bigger than [`capacity`]
     ///
-    /// [`Utf16`]: ../enum.Error.html#Utf16
-    /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
+    /// [`Utf16`]: ./error/enum.Error.html#variant.Utf16
+    /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
     /// [`capacity`]: ./struct.CacheString.html#method.capacity
     ///
     /// ```rust
@@ -552,7 +549,7 @@ impl CacheString {
 
     /// Creates new `CacheString` from `u16` slice, returning [`Utf16`] on invalid utf-16 data, truncating if bigger than [`capacity`].
     ///
-    /// [`Utf16`]: ../struct.Utf16.html
+    /// [`Utf16`]: ./error/struct.Utf16.html
     /// [`capacity`]: ./struct.CacheString.html#method.capacity
     ///
     /// ```rust

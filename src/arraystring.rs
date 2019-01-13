@@ -11,13 +11,12 @@ use log::{debug, trace};
 
 use crate::generic::Length;
 
-/// String based on a generic array (size defined at compile time through [`typenum`])
+/// String based on a generic array (size defined at compile time through `typenum`)
 ///
 /// Can't outgrow capacity (defined at compile time), always occupies [`capacity`] `+ 1` bytes of memory
 ///
 /// *Doesn't allocate memory on the heap and never panics (all panic branches are stripped at compile time)*
 ///
-/// [`typenum`]: ../typenum/index.html
 /// [`capacity`]: ./struct.ArrayString.html#method.capacity
 #[derive(Clone)]
 pub struct ArrayString<SIZE: Length> {
@@ -317,8 +316,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
 
     /// Creates new `ArrayString` from byte slice, returning [`Utf8`] on invalid utf-8 data or [`OutOfBounds`] if bigger than [`capacity`]
     ///
-    /// [`Utf8`]: ../enum.Error.html#Utf8
-    /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
+    /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
+    /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
@@ -347,7 +346,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
 
     /// Creates new `ArrayString` from byte slice, returning [`Utf8`] on invalid utf-8 data, truncating if bigger than [`capacity`].
     ///
-    /// [`Utf8`]: ../struct.Utf8.html
+    /// [`Utf8`]: ./error/struct.Utf8.html
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
@@ -404,8 +403,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
 
     /// Creates new `ArrayString` from `u16` slice, returning [`Utf16`] on invalid utf-16 data or [`OutOfBounds`] if bigger than [`capacity`]
     ///
-    /// [`Utf16`]: ../enum.Error.html#Utf16
-    /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
+    /// [`Utf16`]: ./error/enum.Error.html#variant.Utf16
+    /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
@@ -439,7 +438,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
 
     /// Creates new `ArrayString` from `u16` slice, returning [`Utf16`] on invalid utf-16 data, truncating if bigger than [`capacity`].
     ///
-    /// [`Utf16`]: ../struct.Utf16.html
+    /// [`Utf16`]: ./error/struct.Utf16.html
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
@@ -886,8 +885,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
     /// Returns [`OutOfBounds`] if `idx` is out of bounds and [`Utf8`] if `idx` is not a char position
     ///
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
-    /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
-    /// [`Utf8`]: ../enum.Error.html#Utf8
+    /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
+    /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
     ///
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
@@ -955,8 +954,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
     /// Returns [`Utf8`] if `idx` is not a char position
     ///
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
-    /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
-    /// [`Utf8`]: ../enum.Error.html#Utf8
+    /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
+    /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
     ///
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
@@ -992,8 +991,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
     /// Returns [`OutOfBounds`] if `idx` is out of bounds and [`Utf8`] if `idx` is not a char position
     ///
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
-    /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
-    /// [`Utf8`]: ../enum.Error.html#Utf8
+    /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
+    /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
     ///
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
@@ -1112,8 +1111,8 @@ impl<SIZE: Length> ArrayString<SIZE> {
     ///
     /// Returns [`Utf8`] if `at` does not lie at a valid utf-8 char boundary and [`OutOfBounds`] if it's out of bounds
     ///
-    /// [`OutOfBounds`]: ../enum.Error.html#OutOfBounds
-    /// [`Utf8`]: ../enum.Error.html#Utf8
+    /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
+    /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
     ///
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
