@@ -2,7 +2,7 @@
 //!
 //! Since rust doesn't have constant generics yet `typenum` is used to allow for generic arrays (`U1` to `U255`)
 //!
-//! *If you need bigger than `U255` open an issue explaining your use-case and we may implement*
+//! *If you need a string bigger than `U255` open an issue explaining your use-case and we may implement*
 //!
 //! Can't outgrow initial capacity (defined at compile time), always occupies [`capacity`] `+ 1` bytes of memory
 //!
