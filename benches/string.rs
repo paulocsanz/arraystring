@@ -8,7 +8,9 @@ fn string_clone_benchmark(c: &mut Criterion) {
 
 fn string_from_benchmark(c: &mut Criterion) {
     let string = String::from("uvwxyzaabbccddeeffgg");
-    c.bench_function("string from", move |b| b.iter(|| String::from(string.as_str())));
+    c.bench_function("string from", move |b| {
+        b.iter(|| String::from(string.as_str()))
+    });
 }
 
 fn small_clone_benchmark(c: &mut Criterion) {
@@ -89,11 +91,7 @@ fn max_try_from_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(
-    string,
-    string_clone_benchmark,
-    string_from_benchmark,
-);
+criterion_group!(string, string_clone_benchmark, string_from_benchmark,);
 criterion_group!(
     small,
     small_clone_benchmark,

@@ -87,7 +87,12 @@ pub(crate) unsafe fn encode_char_utf8_unchecked<S: Length>(
 /// Copies part of slice to another part (`mem::copy`, basically `memmove`)
 #[inline]
 unsafe fn shift_unchecked(s: &mut [u8], from: usize, to: usize, len: usize) {
-    debug!("Shift {:?}, {}..{}", &s[from..][..len], from, to);
+    debug!(
+        "Shift {:?} {}-{}",
+        &s.get(from..).map(|s| s.get(..len)),
+        from,
+        to
+    );
     debug_assert!(to.saturating_add(len) <= s.len() && from.saturating_add(len) <= s.len());
     let (f, t) = (s.as_ptr().add(from), s.as_mut_ptr().add(to));
     copy(f, t, len);

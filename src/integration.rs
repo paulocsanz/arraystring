@@ -83,6 +83,7 @@ where
     SIZE: Length,
     DB: Backend + HasSqlType<VarChar>,
 {
+    #[inline]
     fn walk_ast(&self, mut pass: AstPass<DB>) -> QueryResult<()> {
         pass.push_bind_param::<Varchar, _>(&self.as_str())?;
         Ok(())
@@ -175,6 +176,7 @@ impl<DB> QueryFragment<DB> for CacheString
 where
     DB: Backend + HasSqlType<VarChar>,
 {
+    #[inline]
     fn walk_ast(&self, pass: AstPass<DB>) -> QueryResult<()> {
         self.0.walk_ast(pass)
     }
