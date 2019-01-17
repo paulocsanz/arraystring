@@ -1,6 +1,6 @@
 # ArrayString
 
-String based on generic array
+Fixed capacity stack based generic string
 
 Since rust doesn't have constant generics yet `typenum` is used to allow for generic arrays (U1 to U255)
 
