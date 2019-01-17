@@ -4,7 +4,6 @@ use crate::{generic::Slice, prelude::*};
 use core::ptr::copy;
 #[cfg(feature = "logs")]
 use log::{debug, trace};
-use typenum::Unsigned;
 
 pub(crate) trait IntoLossy<T>: Sized {
     fn into_lossy(self) -> T;
@@ -58,8 +57,8 @@ pub(crate) unsafe fn encode_char_utf8_unchecked<S: Length>(
 
     trace!("Encode char: {} to {}", ch, index);
 
-    debug_assert!(ch.len_utf8().saturating_add(index.into()) <= <S as Unsigned>::to_u8() as usize);
-    debug_assert!(ch.len_utf8().saturating_add(s.len().into()) <= S::to_u8() as usize);
+    debug_assert!(ch.len_utf8().saturating_add(index.into()) <= S::to_usize());
+    debug_assert!(ch.len_utf8().saturating_add(s.len().into()) <= S::to_usize());
     let dst = s.array.as_mut_slice().get_unchecked_mut(index.into()..);
     let code = ch as u32;
 
@@ -99,26 +98,38 @@ unsafe fn shift_unchecked(s: &mut [u8], from: usize, to: usize, len: usize) {
 }
 
 /// Shifts string right
+///
 /// # Safety
 ///
-/// It's UB if `to + (s.len() - from)` is out of [`<S as Unsigned>::to_u8()`]
+/// It's UB if `to + (s.len() - from)` is bigger than [`S::to_u8()`]
 ///
 /// [`<S as Unsigned>::to_u8()`]: ../struct.ArrayString.html#CAPACITY
 #[inline]
-pub(crate) unsafe fn shift_right_unchecked<S: Length>(s: &mut ArrayString<S>, from: u8, to: u8) {
-    let (f, t, l) = (from as usize, to as usize, s.len().saturating_sub(from));
-    debug_assert!(f <= t && t.saturating_add(l.into()) <= <S as Unsigned>::to_u8() as usize);
-    debug_assert!(s.as_str().is_char_boundary(f));
-    shift_unchecked(s.array.as_mut_slice(), f, t, l.into());
+pub(crate) unsafe fn shift_right_unchecked<S, F, T>(s: &mut ArrayString<S>, from: F, to: T)
+where
+    S: Length,
+    F: Into<usize> + Copy,
+    T: Into<usize> + Copy
+{
+    let len = (s.len() as usize).saturating_sub(from.into());
+    debug_assert!(from.into() <= to.into() && to.into().saturating_add(len) <= S::to_usize());
+    debug_assert!(s.as_str().is_char_boundary(from.into()));
+    shift_unchecked(s.array.as_mut_slice(), from.into(), to.into(), len);
 }
 
 /// Shifts string left
 #[inline]
-pub(crate) unsafe fn shift_left_unchecked<S: Length>(s: &mut ArrayString<S>, from: u8, to: u8) {
-    debug_assert!(to <= from && from <= s.len());
-    let (f, t, l) = (from as usize, to as usize, s.len().saturating_sub(to));
-    debug_assert!(s.as_str().is_char_boundary(f));
-    shift_unchecked(s.array.as_mut_slice(), f, t, l.into());
+pub(crate) unsafe fn shift_left_unchecked<S, F, T>(s: &mut ArrayString<S>, from: F, to: T)
+where
+    S: Length,
+    F: Into<usize> + Copy,
+    T: Into<usize> + Copy
+{
+    debug_assert!(to.into() <= from.into() && from.into() <= s.len().into());
+    debug_assert!(s.as_str().is_char_boundary(from.into()));
+
+    let len = (s.len() as usize).saturating_sub(to.into());
+    shift_unchecked(s.array.as_mut_slice(), from.into(), to.into(), len);
 }
 
 /// Returns error if size is outside of specified boundary

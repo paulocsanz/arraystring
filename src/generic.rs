@@ -1,6 +1,7 @@
 //! Implements actual generic array abstraction for all supported types from `typenum` (1 to 255)
 
 use typenum::*;
+
 macro_rules! impl_generic_array {
     ($($type: ty),*) => {
         $(

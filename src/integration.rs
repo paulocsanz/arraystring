@@ -1,13 +1,15 @@
 //! Integrates `ArrayString` with other crates' traits
 
 use crate::prelude::*;
+
 #[cfg(all(feature = "diesel-traits", feature = "std"))]
 use std::io::Write;
 
 #[cfg(feature = "diesel-traits")]
-use diesel::{
-    backend::Backend, expression::*, prelude::*, query_builder::*, row::Row, sql_types::*,
-};
+use diesel::{expression::*, prelude::*, query_builder::*, row::Row, sql_types::*};
+
+#[cfg(feature = "diesel-traits")]
+use diesel::backend::Backend;
 
 #[cfg(feature = "diesel-traits")]
 use diesel::deserialize::{self, FromSql, FromSqlRow, Queryable};
@@ -16,10 +18,7 @@ use diesel::deserialize::{self, FromSql, FromSqlRow, Queryable};
 use diesel::serialize::{self, Output, ToSql};
 
 #[cfg(feature = "serde-traits")]
-use serde::{de, de::Deserializer, de::Visitor, ser::Serializer, Deserialize, Serialize};
-
-#[cfg(feature = "serde-traits")]
-use core::marker::PhantomData;
+use serde::{de::Deserializer, ser::Serializer, Deserialize, Serialize};
 
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
 #[cfg(feature = "serde-traits")]
@@ -29,7 +28,7 @@ where
 {
     #[inline]
     fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
-        ser.serialize_str(self.as_str())
+        Serialize::serialize(self.as_str(), ser)
     }
 }
 
@@ -41,24 +40,7 @@ where
 {
     #[inline]
     fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
-        /// Abstracts deserializer visitor
-        struct InnerVisitor<'a, SIZE: Length>(pub PhantomData<(&'a (), SIZE)>);
-
-        impl<'a, SIZE: Length> Visitor<'a> for InnerVisitor<'a, SIZE> {
-            type Value = ArrayString<SIZE>;
-
-            #[inline]
-            fn expecting(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-                write!(f, "a string")
-            }
-
-            #[inline]
-            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
-                Ok(ArrayString::from_str_truncate(v))
-            }
-        }
-
-        des.deserialize_str(InnerVisitor(PhantomData))
+        <&str>::deserialize(des).map(Self::from_str_truncate)
     }
 }
 
@@ -254,7 +236,7 @@ impl Serialize for CacheString {
 impl<'a> Deserialize<'a> for CacheString {
     #[inline]
     fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
-        Ok(CacheString(ArrayString::deserialize(des)?))
+        Ok(CacheString(Deserialize::deserialize(des)?))
     }
 }
 

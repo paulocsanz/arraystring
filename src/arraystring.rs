@@ -827,7 +827,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
             }
         }
 
-        unsafe { shift_left_unchecked(self, start, 0) };
+        unsafe { shift_left_unchecked(self, start, 0u8) };
         self.size = end.saturating_sub(start);
     }
 
@@ -851,7 +851,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
     #[inline]
     pub fn remove(&mut self, idx: u8) -> Result<char, Error> {
         debug!("Remove: {}", idx);
-        is_inside_boundary((idx as usize).saturating_add(1), self.len())?;
+        is_inside_boundary(idx, self.len())?;
         is_char_boundary(self, idx)?;
         debug_assert!(idx < self.len() && self.as_str().is_char_boundary(idx.into()));
         let ch = unsafe { self.as_str().get_unchecked(idx.into()..).chars().next() };
