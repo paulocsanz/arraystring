@@ -4,6 +4,7 @@ use crate::{generic::Slice, prelude::*};
 use core::fmt::{self, Debug, Display, Formatter, Write};
 use core::ops::{Add, Deref, DerefMut, Index, IndexMut};
 use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+use core::iter::FromIterator;
 use core::str::{self, FromStr};
 use core::{borrow::Borrow, borrow::BorrowMut, cmp::Ordering, hash::Hash, hash::Hasher};
 
@@ -51,6 +52,16 @@ where
     #[inline]
     fn as_ref(&self) -> &[u8] {
         unsafe { self.array.as_slice().get_unchecked(..self.size.into()) }
+    }
+}
+
+impl<'a, SIZE> From<&'a str> for ArrayString<SIZE>
+where
+    SIZE: Length,
+{
+    #[inline]
+    fn from(s: &str) -> Self {
+        Self::from_str_truncate(s)
     }
 }
 
@@ -203,6 +214,51 @@ where
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut()
+    }
+}
+
+impl<SIZE> FromIterator<char> for ArrayString<SIZE>
+where
+    SIZE: Length
+{
+    fn from_iter<I: IntoIterator<Item=char>>(iter: I) -> Self {
+        Self::from_chars(iter)
+    }
+}
+
+impl<'a, SIZE> FromIterator<&'a str> for ArrayString<SIZE>
+where
+    SIZE: Length
+{
+    fn from_iter<I: IntoIterator<Item=&'a str>>(iter: I) -> Self {
+        Self::from_iterator(iter)
+    }
+}
+
+impl<SIZE> Extend<char> for ArrayString<SIZE>
+where
+    SIZE: Length
+{
+    fn extend<I: IntoIterator<Item=char>>(&mut self, iterable: I) {
+        self.push_str(Self::from_chars(iterable))
+    }
+}
+
+impl<'a, SIZE> Extend<&'a char> for ArrayString<SIZE>
+where
+    SIZE: Length
+{
+    fn extend<I: IntoIterator<Item=&'a char>>(&mut self, iter: I) {
+        self.extend(iter.into_iter().cloned());
+    }
+}
+
+impl<'a, SIZE> Extend<&'a str> for ArrayString<SIZE>
+where
+    SIZE: Length
+{
+    fn extend<I: IntoIterator<Item=&'a str>>(&mut self, iterable: I) {
+        self.push_str(Self::from_iterator(iterable))
     }
 }
 
