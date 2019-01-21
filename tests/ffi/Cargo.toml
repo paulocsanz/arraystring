@@ -1,0 +1,12 @@
+[package]
+name = "arraystring-ffi"
+version = "0.1.0"
+authors = ["Paulo Cabral Sanz <paulosanz@poli.ufrj.br>"]
+edition = "2018"
+
+[lib]
+name = "arraystring_ffi"
+crate_type = ["cdylib"]
+
+[dependencies]
+arraystring = { path = "../arraystring" }
