@@ -2,8 +2,6 @@
 //!
 //! Since rust doesn't have constant generics yet `typenum` is used to allow for generic arrays (`U1` to `U255`)
 //!
-//! *If you need a string bigger than `U255` open an issue explaining your use-case and we may implement*
-//!
 //! Can't outgrow initial capacity (defined at compile time), always occupies [`capacity`] `+ 1` bytes of memory
 //!
 //! *Doesn't allocate memory on the heap and never panics in release (all panic branches are stripped at compile time - except `Index`/`IndexMut` traits, since they are supposed to)*
@@ -111,7 +109,7 @@
 //!
 //! `MIT` and `Apache-2.0`
 
-#![doc(html_root_url = "https://docs.rs/arraystring/0.2.5/arraystring")]
+#![doc(html_root_url = "https://docs.rs/arraystring/0.3.0/arraystring")]
 #![cfg_attr(docs_rs_workaround, feature(doc_cfg))]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(
