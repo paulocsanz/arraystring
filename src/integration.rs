@@ -60,6 +60,8 @@ impl<SIZE: Capacity, QS> AppearsOnTable<QS> for ArrayString<SIZE> {}
 #[cfg(feature = "diesel-traits")]
 impl<SIZE: Capacity> NonAggregate for ArrayString<SIZE> {}
 
+#[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
+#[cfg(feature = "diesel-traits")]
 impl<SIZE, DB> QueryFragment<DB> for ArrayString<SIZE>
 where
     SIZE: Capacity,
