@@ -8,15 +8,12 @@ macro_rules! impl_generic_array {
             impl private::Sealed for $type {}
             impl Capacity for $type {
                 type Array = [u8; Self::USIZE];
-
-                #[inline]
-                fn zeroed() -> Self::Array {
-                    [0; Self::USIZE]
-                }
             }
 
-            impl private::Sealed for [u8; <$type as Unsigned>::USIZE] {}
-            impl Slice for [u8; <$type as Unsigned>::USIZE] {
+            impl private::Sealed for <$type as Capacity>::Array {}
+            impl ArraySlice for <$type as Capacity>::Array {
+                const CAPACITY: usize = <$type as Unsigned>::USIZE;
+
                 #[inline]
                 fn as_slice(&self) -> &[u8] {
                     self
@@ -25,6 +22,11 @@ macro_rules! impl_generic_array {
                 #[inline]
                 unsafe fn as_mut_slice(&mut self) -> &mut [u8] {
                     self
+                }
+
+                #[inline]
+                fn zeroed() -> Self {
+                    [0; Self::CAPACITY]
                 }
             }
         )*
@@ -39,21 +41,23 @@ mod private {
 
 /// Implements needed types for all types of arrays (bigger than 32 don't have the default traits)
 #[doc(hidden)]
-pub trait Slice: private::Sealed {
+pub trait ArraySlice: private::Sealed {
+    /// Capacity represented by type
+    const CAPACITY: usize;
+
     /// Returns slice of the entire array
     fn as_slice(&self) -> &[u8];
     /// Returns mutable slice of the entire array
     unsafe fn as_mut_slice(&mut self) -> &mut [u8];
+    /// Returns array filled with zeroes
+    fn zeroed() -> Self;
 }
 
 /// Converts between `typenum` types and its corresponding array
 #[doc(hidden)]
 pub trait Capacity: Unsigned + private::Sealed {
-    /// Array corresponding to specified type from `typenum`
-    type Array: Slice + Copy;
-
-    /// Returns array filled with zeroes (`Default` is not implemented for bigish arrays)
-    fn zeroed() -> Self::Array;
+    /// Array with specified capacity
+    type Array: ArraySlice + Copy;
 }
 
 impl_generic_array!(

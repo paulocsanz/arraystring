@@ -1,6 +1,6 @@
 //! Trait implementations for `ArrayString` (that aren't for integration)
 
-use crate::{generic::Slice, prelude::*};
+use crate::{generic::ArraySlice, prelude::*};
 use core::fmt::{self, Debug, Display, Formatter, Write};
 use core::iter::FromIterator;
 use core::ops::{Add, Deref, DerefMut, Index, IndexMut};
@@ -15,7 +15,7 @@ where
     #[inline]
     fn default() -> Self {
         Self {
-            array: SIZE::zeroed(),
+            array: SIZE::Array::zeroed(),
             size: Default::default(),
         }
     }

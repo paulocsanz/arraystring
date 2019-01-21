@@ -1,6 +1,6 @@
 //! Misc functions to improve readability
 
-use crate::{generic::Slice, prelude::*};
+use crate::{generic::ArraySlice, prelude::*};
 use core::ptr::copy;
 #[cfg(feature = "logs")]
 use log::{debug, trace};

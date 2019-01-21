@@ -2,7 +2,7 @@
 
 use crate::utils::{encode_char_utf8_unchecked, is_char_boundary, is_inside_boundary, never};
 use crate::utils::{shift_left_unchecked, shift_right_unchecked, truncate_str, IntoLossy};
-use crate::{error::Error, generic::Slice, prelude::*};
+use crate::{error::Error, generic::ArraySlice, prelude::*};
 use core::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use core::str::{from_utf8, from_utf8_unchecked};
 use core::{cmp::min, ops::*, ptr::copy_nonoverlapping};
