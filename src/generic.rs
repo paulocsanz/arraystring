@@ -6,7 +6,7 @@ macro_rules! impl_generic_array {
     ($($type: ty),*) => {
         $(
             impl private::Sealed for $type {}
-            impl Length for $type {
+            impl Capacity for $type {
                 type Array = [u8; Self::USIZE];
 
                 #[inline]
@@ -23,7 +23,7 @@ macro_rules! impl_generic_array {
                 }
 
                 #[inline]
-                fn as_mut_slice(&mut self) -> &mut [u8] {
+                unsafe fn as_mut_slice(&mut self) -> &mut [u8] {
                     self
                 }
             }
@@ -43,12 +43,12 @@ pub trait Slice: private::Sealed {
     /// Returns slice of the entire array
     fn as_slice(&self) -> &[u8];
     /// Returns mutable slice of the entire array
-    fn as_mut_slice(&mut self) -> &mut [u8];
+    unsafe fn as_mut_slice(&mut self) -> &mut [u8];
 }
 
 /// Converts between `typenum` types and its corresponding array
 #[doc(hidden)]
-pub trait Length: Unsigned + private::Sealed {
+pub trait Capacity: Unsigned + private::Sealed {
     /// Array corresponding to specified type from `typenum`
     type Array: Slice + Copy;
 

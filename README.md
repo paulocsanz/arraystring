@@ -68,28 +68,45 @@ fn main() -> Result<(), Error> {
 }
 ```
 
- ## Benchmarks
+ ## Comparisons
 
-*This benchmarks ran while I streamed video and used my computer (with* **non-disclosed specs**) *as usual, so don't take the actual times too serious, just focus on the comparison*
+*These benchmarks ran while I streamed video and used my computer (with* **non-disclosed specs**) *as usual, so don't take the actual times too seriously, just focus on the comparison*
 
 ```my_custom_benchmark
-string                     clone                 25.850 ns
-string                     from                  25.815 ns
----------------------------------------------------------
-small-string  (21 bytes)   clone                  4.556 ns
-small-string  (21 bytes)   try_from_str          15.749 ns
-small-string  (21 bytes)   from_str_truncate     10.991 ns
-small-string  (21 bytes)   from_str_unchecked    11.195 ns
----------------------------------------------------------
-cache-string  (63 bytes)   clone                 10.345 ns
-cache-string  (63 bytes)   try_from_str          24.959 ns
-cache-string  (63 bytes)   from_str_truncate     17.485 ns
-cache-string  (63 bytes)   from_str_unchecked    16.684 ns
----------------------------------------------------------
-max-string   (255 bytes)   clone                145.750 ns
-max-string   (255 bytes)   try_from_str         157.890 ns
-max-string   (255 bytes)   from_str_truncate    193.870 ns
-max-string   (255 bytes)   from_str_unchecked   163.740 ns
+small-string  (23 bytes)      clone                  4.837 ns
+small-string  (23 bytes)      try_from_str          14.777 ns
+small-string  (23 bytes)      from_str_truncate     11.360 ns
+small-string  (23 bytes)      from_str_unchecked    11.291 ns
+small-string  (23 bytes)      try_push_str           1.162 ns
+small-string  (23 bytes)      push_str               3.490 ns
+small-string  (23 bytes)      push_str_unchecked     1.098 ns
+-------------------------------------------------------------
+cache-string  (63 bytes)      clone                 10.170 ns
+cache-string  (63 bytes)      try_from_str          25.579 ns
+cache-string  (63 bytes)      from_str_truncate     16.977 ns
+cache-string  (63 bytes)      from_str_unchecked    17.201 ns
+cache-string  (63 bytes)      try_push_str           1.160 ns
+cache-string  (63 bytes)      push_str               3.486 ns
+cache-string  (63 bytes)      push_str_unchecked     1.115 ns
+-------------------------------------------------------------
+max-string   (255 bytes)      clone                147.410 ns
+max-string   (255 bytes)      try_from_str         157.340 ns
+max-string   (255 bytes)      from_str_truncate    158.000 ns
+max-string   (255 bytes)      from_str_unchecked   158.420 ns
+max-string   (255 bytes)      try_push_str           1.167 ns
+max-string   (255 bytes)      push_str               4.337 ns
+max-string   (255 bytes)      push_str_unchecked     1.103 ns
+-------------------------------------------------------------
+string (19 bytes)             clone                 33.295 ns
+string (19 bytes)             from                  32.512 ns
+string (19 bytes)             push str              28.128 ns
+-------------------------------------------------------------
+inlinable-string (30 bytes)   clone                 16.751 ns
+inlinable-string (30 bytes)   from_str              29.310 ns
+inlinable-string (30 bytes)   push_str               2.865 ns
+-------------------------------------------------------------
+smallstring crate (20 bytes)  clone                 60.988 ns
+smallstring crate (20 bytes)  from_str              50.233 ns
 ```
 
 ## Licenses

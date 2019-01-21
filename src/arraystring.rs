@@ -9,7 +9,7 @@ use core::{cmp::min, ops::*, ptr::copy_nonoverlapping};
 #[cfg(feature = "logs")]
 use log::{debug, trace};
 
-use crate::generic::Length;
+use crate::generic::Capacity;
 
 /// String based on a generic array (size defined at compile time through `typenum`)
 ///
@@ -19,14 +19,14 @@ use crate::generic::Length;
 ///
 /// [`capacity`]: ./struct.ArrayString.html#method.capacity
 #[derive(Clone)]
-pub struct ArrayString<SIZE: Length> {
+pub struct ArrayString<SIZE: Capacity> {
     /// Array type corresponding to specified `SIZE`
     pub(crate) array: SIZE::Array,
     /// Current string size
     pub(crate) size: u8,
 }
 
-impl<SIZE: Length> ArrayString<SIZE> {
+impl<SIZE: Capacity> ArrayString<SIZE> {
     /// Creates new empty string.
     ///
     /// ```rust
@@ -851,7 +851,7 @@ impl<SIZE: Length> ArrayString<SIZE> {
     #[inline]
     pub fn remove(&mut self, idx: u8) -> Result<char, Error> {
         debug!("Remove: {}", idx);
-        is_inside_boundary(idx, self.len())?;
+        is_inside_boundary(idx, self.len().saturating_sub(1))?;
         is_char_boundary(self, idx)?;
         debug_assert!(idx < self.len() && self.as_str().is_char_boundary(idx.into()));
         let ch = unsafe { self.as_str().get_unchecked(idx.into()..).chars().next() };

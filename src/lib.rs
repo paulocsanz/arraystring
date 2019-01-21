@@ -66,28 +66,45 @@
 //! }
 //! ```
 //!
-//!  ## Benchmarks
-//!
-//! *This benchmarks ran while I streamed video and used my computer (with* **non-disclosed specs**) *as usual, so don't take the actual times too serious, just focus on the comparison*
-//!
+//!  ## Comparisons
+//! 
+//! *These benchmarks ran while I streamed video and used my computer (with* **non-disclosed specs**) *as usual, so don't take the actual times too seriously, just focus on the comparison*
+//! 
 //! ```my_custom_benchmark
-//! string                     clone                 25.850 ns
-//! string                     from                  25.815 ns
-//! ---------------------------------------------------------
-//! small-string  (21 bytes)   clone                  4.556 ns
-//! small-string  (21 bytes)   try_from_str          15.749 ns
-//! small-string  (21 bytes)   from_str_truncate     10.991 ns
-//! small-string  (21 bytes)   from_str_unchecked    11.195 ns
-//! ---------------------------------------------------------
-//! cache-string  (63 bytes)   clone                 10.345 ns
-//! cache-string  (63 bytes)   try_from_str          24.959 ns
-//! cache-string  (63 bytes)   from_str_truncate     17.485 ns
-//! cache-string  (63 bytes)   from_str_unchecked    16.684 ns
-//! ---------------------------------------------------------
-//! max-string   (255 bytes)   clone                145.750 ns
-//! max-string   (255 bytes)   try_from_str         157.890 ns
-//! max-string   (255 bytes)   from_str_truncate    193.870 ns
-//! max-string   (255 bytes)   from_str_unchecked   163.740 ns
+//! small-string  (23 bytes)      clone                  4.837 ns
+//! small-string  (23 bytes)      try_from_str          14.777 ns
+//! small-string  (23 bytes)      from_str_truncate     11.360 ns
+//! small-string  (23 bytes)      from_str_unchecked    11.291 ns
+//! small-string  (23 bytes)      try_push_str           1.162 ns
+//! small-string  (23 bytes)      push_str               3.490 ns
+//! small-string  (23 bytes)      push_str_unchecked     1.098 ns
+//! -------------------------------------------------------------
+//! cache-string  (63 bytes)      clone                 10.170 ns
+//! cache-string  (63 bytes)      try_from_str          25.579 ns
+//! cache-string  (63 bytes)      from_str_truncate     16.977 ns
+//! cache-string  (63 bytes)      from_str_unchecked    17.201 ns
+//! cache-string  (63 bytes)      try_push_str           1.160 ns
+//! cache-string  (63 bytes)      push_str               3.486 ns
+//! cache-string  (63 bytes)      push_str_unchecked     1.115 ns
+//! -------------------------------------------------------------
+//! max-string   (255 bytes)      clone                147.410 ns
+//! max-string   (255 bytes)      try_from_str         157.340 ns
+//! max-string   (255 bytes)      from_str_truncate    158.000 ns
+//! max-string   (255 bytes)      from_str_unchecked   158.420 ns
+//! max-string   (255 bytes)      try_push_str           1.167 ns
+//! max-string   (255 bytes)      push_str               4.337 ns
+//! max-string   (255 bytes)      push_str_unchecked     1.103 ns
+//! -------------------------------------------------------------
+//! string                        clone                 33.295 ns
+//! string                        from                  32.512 ns
+//! string                        push str              28.128 ns
+//! -------------------------------------------------------------
+//! inlinable-string (30 bytes)   clone                 16.751 ns
+//! inlinable-string (30 bytes)   from_str              29.310 ns
+//! inlinable-string (30 bytes)   push_str               2.865 ns
+//! -------------------------------------------------------------
+//! smallstring crate (20 bytes)  clone                 60.988 ns
+//! smallstring crate (20 bytes)  from_str              50.233 ns
 //! ```
 //!
 //! ## Licenses
@@ -160,7 +177,7 @@ pub mod prelude {
     pub use crate::arraystring::ArrayString;
     pub use crate::drain::Drain;
     pub use crate::error::{OutOfBounds, Utf16, Utf8};
-    pub use crate::{generic::Length, CacheString, MaxString, SmallString};
+    pub use crate::{generic::Capacity, CacheString, MaxString, SmallString};
 }
 
 pub use crate::arraystring::ArrayString;
@@ -172,10 +189,29 @@ use core::{borrow::Borrow, borrow::BorrowMut, ops::*};
 use core::{cmp::Ordering, hash::Hash, hash::Hasher, str::FromStr};
 #[cfg(feature = "logs")]
 use log::trace;
-use typenum::{Unsigned, U21, U255, U63};
+use typenum::{Unsigned, U255, U63};
 
-/// String with the same `mem::size_of` of a `String` in a 64 bits architecture
-pub type SmallString = ArrayString<U21>;
+#[cfg(target_pointer_width="64")]
+use typenum::U23;
+
+#[cfg(target_pointer_width="32")]
+use typenum::U11;
+
+/// String with the same `mem::size_of` of a `String`
+///
+/// 24 bytes in 64 bits architecture
+///
+/// 12 bytes in 32 bits architecture (or others)
+#[cfg(target_pointer_width="64")]
+pub type SmallString = ArrayString<U23>;
+
+/// String with the same `mem::size_of` of a `String`
+///
+/// 24 bytes in 64 bits architecture
+///
+/// 12 bytes in 32 bits architecture (or others)
+#[cfg(not(target_pointer_width="64"))]
+pub type SmallString = ArrayString<U11>;
 
 /// Biggest array based string (255 bytes of string)
 pub type MaxString = ArrayString<U255>;
@@ -619,6 +655,30 @@ impl CacheString {
     pub fn capacity() -> u8 {
         <U63 as Unsigned>::to_u8()
     }
+
+    /// Splits `CacheString` in two if `at` is smaller than `self.len()`.
+    ///
+    /// Returns [`Utf8`] if `at` does not lie at a valid utf-8 char boundary and [`OutOfBounds`] if it's out of bounds
+    ///
+    /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
+    /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
+    ///
+    /// ```rust
+    /// # use arraystring::{error::Error, prelude::*};
+    /// # fn main() -> Result<(), Error> {
+    /// # let _ = env_logger::try_init();
+    /// let mut s = CacheString::try_from_str("AB🤔CD")?;
+    /// assert_eq!(s.split_off(6)?.as_str(), "CD");
+    /// assert_eq!(s.as_str(), "AB🤔");
+    /// assert_eq!(s.split_off(20), Err(Error::OutOfBounds));
+    /// assert_eq!(s.split_off(4), Err(Error::Utf8));
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[inline]
+    pub fn split_off(&mut self, at: u8) -> Result<Self, Error> {
+        Ok(CacheString(self.0.split_off(at)?))
+    }
 }
 
 impl Debug for CacheString {
@@ -743,5 +803,11 @@ impl Write for CacheString {
     #[inline]
     fn write_str(&mut self, slice: &str) -> fmt::Result {
         self.0.write_str(slice)
+    }
+}
+
+impl From<ArrayString<U63>> for CacheString {
+    fn from(array: ArrayString<U63>) -> Self {
+        CacheString(array)
     }
 }

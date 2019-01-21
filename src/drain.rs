@@ -13,11 +13,11 @@ use core::{cmp::Ordering, hash::Hash, hash::Hasher, iter::FusedIterator};
 /// [`ArrayString`]: ../struct.ArrayString.html
 /// [`drain`]: ../struct.ArrayString.html#method.drain
 #[derive(Clone, Default)]
-pub struct Drain<S: Length>(pub(crate) ArrayString<S>, pub(crate) u8);
+pub struct Drain<S: Capacity>(pub(crate) ArrayString<S>, pub(crate) u8);
 
 impl<SIZE> Debug for Drain<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -30,18 +30,18 @@ where
 
 impl<SIZE> PartialEq for Drain<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_str().eq(other.as_str())
     }
 }
-impl<SIZE: Length> Eq for Drain<SIZE> {}
+impl<SIZE: Capacity> Eq for Drain<SIZE> {}
 
 impl<SIZE> Ord for Drain<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
@@ -51,7 +51,7 @@ where
 
 impl<SIZE> PartialOrd for Drain<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -61,7 +61,7 @@ where
 
 impl<SIZE> Hash for Drain<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn hash<H: Hasher>(&self, hasher: &mut H) {
@@ -69,9 +69,9 @@ where
     }
 }
 
-impl<SIZE: Length + Copy> Copy for Drain<SIZE> where SIZE::Array: Copy {}
+impl<SIZE: Capacity + Copy> Copy for Drain<SIZE> where SIZE::Array: Copy {}
 
-impl<S: Length> Drain<S> {
+impl<S: Capacity> Drain<S> {
     /// Extracts string slice containing the remaining characters of `Drain`.
     #[inline]
     pub fn as_str(&self) -> &str {
@@ -79,7 +79,7 @@ impl<S: Length> Drain<S> {
     }
 }
 
-impl<S: Length> Iterator for Drain<S> {
+impl<S: Capacity> Iterator for Drain<S> {
     type Item = char;
 
     #[inline]
@@ -95,11 +95,11 @@ impl<S: Length> Iterator for Drain<S> {
     }
 }
 
-impl<S: Length> DoubleEndedIterator for Drain<S> {
+impl<S: Capacity> DoubleEndedIterator for Drain<S> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.pop()
     }
 }
 
-impl<S: Length> FusedIterator for Drain<S> {}
+impl<S: Capacity> FusedIterator for Drain<S> {}

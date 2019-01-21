@@ -19,6 +19,8 @@ name = "string"
 harness = false
 
 [dev-dependencies]
+inlinable_string = "0.1"
+smallstring = "0.1"
 serde_json = "1.0"
 criterion = "0.2"
 env_logger = "0.5"

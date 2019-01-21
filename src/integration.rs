@@ -24,7 +24,7 @@ use serde::{de::Deserializer, ser::Serializer, Deserialize, Serialize};
 #[cfg(feature = "serde-traits")]
 impl<SIZE> Serialize for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
@@ -36,7 +36,7 @@ where
 #[cfg(feature = "serde-traits")]
 impl<'a, SIZE> Deserialize<'a> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
@@ -46,23 +46,23 @@ where
 
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
 #[cfg(feature = "diesel-traits")]
-impl<SIZE: Length> Expression for ArrayString<SIZE> {
+impl<SIZE: Capacity> Expression for ArrayString<SIZE> {
     type SqlType = VarChar;
 }
 
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
 #[cfg(feature = "diesel-traits")]
-impl<SIZE: Length, QS> SelectableExpression<QS> for ArrayString<SIZE> {}
+impl<SIZE: Capacity, QS> SelectableExpression<QS> for ArrayString<SIZE> {}
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
 #[cfg(feature = "diesel-traits")]
-impl<SIZE: Length, QS> AppearsOnTable<QS> for ArrayString<SIZE> {}
+impl<SIZE: Capacity, QS> AppearsOnTable<QS> for ArrayString<SIZE> {}
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
 #[cfg(feature = "diesel-traits")]
-impl<SIZE: Length> NonAggregate for ArrayString<SIZE> {}
+impl<SIZE: Capacity> NonAggregate for ArrayString<SIZE> {}
 
 impl<SIZE, DB> QueryFragment<DB> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
     DB: Backend + HasSqlType<VarChar>,
 {
     #[inline]
@@ -76,7 +76,7 @@ where
 #[cfg(feature = "diesel-traits")]
 impl<SIZE, ST, DB> FromSql<ST, DB> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
     DB: Backend,
     *const str: FromSql<ST, DB>,
 {
@@ -92,7 +92,7 @@ where
 #[cfg(feature = "diesel-traits")]
 impl<SIZE, ST, DB> FromSqlRow<ST, DB> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
     DB: Backend,
     *const str: FromSql<ST, DB>,
 {
@@ -108,7 +108,7 @@ where
 #[cfg(feature = "diesel-traits")]
 impl<SIZE, ST, DB> Queryable<ST, DB> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
     DB: Backend,
     *const str: FromSql<ST, DB>,
 {
@@ -127,7 +127,7 @@ where
 #[cfg(all(feature = "diesel-traits", feature = "std"))]
 impl<SIZE, DB> ToSql<VarChar, DB> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
     DB: Backend,
 {
     #[inline]

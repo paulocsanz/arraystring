@@ -2,15 +2,15 @@
 
 use crate::{generic::Slice, prelude::*};
 use core::fmt::{self, Debug, Display, Formatter, Write};
+use core::iter::FromIterator;
 use core::ops::{Add, Deref, DerefMut, Index, IndexMut};
 use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
-use core::iter::FromIterator;
 use core::str::{self, FromStr};
 use core::{borrow::Borrow, borrow::BorrowMut, cmp::Ordering, hash::Hash, hash::Hasher};
 
 impl<SIZE> Default for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn default() -> Self {
@@ -21,11 +21,11 @@ where
     }
 }
 
-impl<SIZE: Length + Copy> Copy for ArrayString<SIZE> where SIZE::Array: Copy {}
+impl<SIZE: Capacity + Copy> Copy for ArrayString<SIZE> where SIZE::Array: Copy {}
 
 impl<SIZE> AsRef<str> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn as_ref(&self) -> &str {
@@ -35,7 +35,7 @@ where
 
 impl<SIZE> AsMut<str> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn as_mut(&mut self) -> &mut str {
@@ -47,7 +47,7 @@ where
 
 impl<SIZE> AsRef<[u8]> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn as_ref(&self) -> &[u8] {
@@ -57,7 +57,7 @@ where
 
 impl<'a, SIZE> From<&'a str> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn from(s: &str) -> Self {
@@ -67,7 +67,7 @@ where
 
 impl<SIZE> FromStr for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     type Err = OutOfBounds;
 
@@ -79,7 +79,7 @@ where
 
 impl<SIZE> Debug for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -92,7 +92,7 @@ where
 
 impl<'a, 'b, SIZE> PartialEq<str> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn eq(&self, other: &str) -> bool {
@@ -102,7 +102,7 @@ where
 
 impl<SIZE> Borrow<str> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn borrow(&self) -> &str {
@@ -112,7 +112,7 @@ where
 
 impl<SIZE> BorrowMut<str> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn borrow_mut(&mut self) -> &mut str {
@@ -122,7 +122,7 @@ where
 
 impl<SIZE> Hash for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn hash<H: Hasher>(&self, hasher: &mut H) {
@@ -132,18 +132,18 @@ where
 
 impl<SIZE> PartialEq for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_str().eq(other.as_str())
     }
 }
-impl<SIZE: Length> Eq for ArrayString<SIZE> {}
+impl<SIZE: Capacity> Eq for ArrayString<SIZE> {}
 
 impl<SIZE> Ord for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
@@ -153,7 +153,7 @@ where
 
 impl<SIZE> PartialOrd for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -163,7 +163,7 @@ where
 
 impl<'a, SIZE> Add<&'a str> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     type Output = Self;
 
@@ -177,7 +177,7 @@ where
 
 impl<SIZE> Write for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn write_str(&mut self, slice: &str) -> fmt::Result {
@@ -187,7 +187,7 @@ where
 
 impl<SIZE> Display for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -197,7 +197,7 @@ where
 
 impl<SIZE> Deref for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     type Target = str;
 
@@ -209,7 +209,7 @@ where
 
 impl<SIZE> DerefMut for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
@@ -219,52 +219,52 @@ where
 
 impl<SIZE> FromIterator<char> for ArrayString<SIZE>
 where
-    SIZE: Length
+    SIZE: Capacity,
 {
-    fn from_iter<I: IntoIterator<Item=char>>(iter: I) -> Self {
+    fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> Self {
         Self::from_chars(iter)
     }
 }
 
 impl<'a, SIZE> FromIterator<&'a str> for ArrayString<SIZE>
 where
-    SIZE: Length
+    SIZE: Capacity,
 {
-    fn from_iter<I: IntoIterator<Item=&'a str>>(iter: I) -> Self {
+    fn from_iter<I: IntoIterator<Item = &'a str>>(iter: I) -> Self {
         Self::from_iterator(iter)
     }
 }
 
 impl<SIZE> Extend<char> for ArrayString<SIZE>
 where
-    SIZE: Length
+    SIZE: Capacity,
 {
-    fn extend<I: IntoIterator<Item=char>>(&mut self, iterable: I) {
+    fn extend<I: IntoIterator<Item = char>>(&mut self, iterable: I) {
         self.push_str(Self::from_chars(iterable))
     }
 }
 
 impl<'a, SIZE> Extend<&'a char> for ArrayString<SIZE>
 where
-    SIZE: Length
+    SIZE: Capacity,
 {
-    fn extend<I: IntoIterator<Item=&'a char>>(&mut self, iter: I) {
+    fn extend<I: IntoIterator<Item = &'a char>>(&mut self, iter: I) {
         self.extend(iter.into_iter().cloned());
     }
 }
 
 impl<'a, SIZE> Extend<&'a str> for ArrayString<SIZE>
 where
-    SIZE: Length
+    SIZE: Capacity,
 {
-    fn extend<I: IntoIterator<Item=&'a str>>(&mut self, iterable: I) {
+    fn extend<I: IntoIterator<Item = &'a str>>(&mut self, iterable: I) {
         self.push_str(Self::from_iterator(iterable))
     }
 }
 
 impl<SIZE> IndexMut<RangeFrom<u8>> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn index_mut(&mut self, index: RangeFrom<u8>) -> &mut str {
@@ -275,7 +275,7 @@ where
 
 impl<SIZE> IndexMut<RangeTo<u8>> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn index_mut(&mut self, index: RangeTo<u8>) -> &mut str {
@@ -286,7 +286,7 @@ where
 
 impl<SIZE> IndexMut<RangeFull> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn index_mut(&mut self, index: RangeFull) -> &mut str {
@@ -296,7 +296,7 @@ where
 
 impl<SIZE> IndexMut<Range<u8>> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn index_mut(&mut self, index: Range<u8>) -> &mut str {
@@ -308,7 +308,7 @@ where
 
 impl<SIZE> IndexMut<RangeToInclusive<u8>> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn index_mut(&mut self, index: RangeToInclusive<u8>) -> &mut str {
@@ -320,7 +320,7 @@ where
 
 impl<SIZE> IndexMut<RangeInclusive<u8>> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     #[inline]
     fn index_mut(&mut self, index: RangeInclusive<u8>) -> &mut str {
@@ -332,7 +332,7 @@ where
 
 impl<SIZE> Index<RangeFrom<u8>> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     type Output = str;
 
@@ -345,7 +345,7 @@ where
 
 impl<SIZE> Index<RangeTo<u8>> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     type Output = str;
 
@@ -358,7 +358,7 @@ where
 
 impl<SIZE> Index<RangeFull> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     type Output = str;
 
@@ -370,7 +370,7 @@ where
 
 impl<SIZE> Index<Range<u8>> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     type Output = str;
 
@@ -383,7 +383,7 @@ where
 
 impl<SIZE> Index<RangeToInclusive<u8>> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     type Output = str;
 
@@ -396,7 +396,7 @@ where
 
 impl<SIZE> Index<RangeInclusive<u8>> for ArrayString<SIZE>
 where
-    SIZE: Length,
+    SIZE: Capacity,
 {
     type Output = str;
 
