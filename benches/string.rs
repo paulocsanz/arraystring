@@ -1,5 +1,6 @@
 use arraystring::{prelude::*, typenum::U20};
 use inlinable_string::{InlinableString, StringExt};
+use arrayvec::ArrayString as ArrayVecString;
 use smallstring::SmallString as SmallVecString;
 use criterion::{criterion_group, criterion_main, Criterion};
 
@@ -45,6 +46,28 @@ fn inlinable_push_str_benchmark(c: &mut Criterion) {
             string.push_str("ddauhifnaoe jaowijd");
             string.clear();
             string.shrink_to_fit();
+        })
+    });
+}
+
+fn arrayvec_clone_benchmark(c: &mut Criterion) {
+    let string = ArrayVecString::<[u8; 23]>::from("fhuehifhsaudhaisdha");
+    c.bench_function("arrayvec string clone", move |b| b.iter(|| string.clone()));
+}
+
+fn arrayvec_from_benchmark(c: &mut Criterion) {
+    let string = "huiaehdishudaishuda";
+    c.bench_function("arrayvec string from", move |b| {
+        b.iter(|| ArrayVecString::<[u8; 23]>::from(string))
+    });
+}
+
+fn arrayvec_push_str_benchmark(c: &mut Criterion) {
+    let mut string = ArrayVecString::<[u8; 23]>::default();
+    c.bench_function("arrayvec string push str", move |b| {
+        b.iter(|| {
+            string.push_str("adasaduhaishdasidha");
+            string.clear();
         })
     });
 }
@@ -242,6 +265,12 @@ criterion_group!(
     inlinable_push_str_benchmark
 );
 criterion_group!(
+    arrayvec,
+    arrayvec_clone_benchmark,
+    arrayvec_from_benchmark,
+    arrayvec_push_str_benchmark,
+);
+criterion_group!(
     smallvecstring,
     smallvecstring_clone_benchmark,
     smallvecstring_from_benchmark,
@@ -276,4 +305,4 @@ criterion_group!(
     max_push_str_unchecked_benchmark,
     max_push_str_benchmark,
 );
-criterion_main!(string, inlinable, smallvecstring, small, cache, max);
+criterion_main!(string, arrayvec, inlinable, smallvecstring, small, cache, max);

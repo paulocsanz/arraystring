@@ -64,8 +64,9 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         S: AsRef<str>,
     {
         trace!("Try from str: {:?}", s.as_ref());
-        is_inside_boundary(s.as_ref().len(), Self::capacity())?;
-        unsafe { Ok(Self::from_str_unchecked(s.as_ref())) }
+        let mut string = Self::default();
+        string.try_push_str(s)?;
+        Ok(string)
     }
 
     /// Creates new `ArrayString` from string slice truncating size if bigger than [`capacity`].
@@ -90,7 +91,9 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         S: AsRef<str>,
     {
         trace!("FromStr truncate");
-        unsafe { Self::from_str_unchecked(truncate_str(string.as_ref(), Self::capacity())) }
+        let mut s = Self::default();
+        s.push_str(string);
+        s
     }
 
     /// Creates new `ArrayString` from string slice assuming length is appropriate.

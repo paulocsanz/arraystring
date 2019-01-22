@@ -93,9 +93,13 @@
 //! max-string   (255 bytes)      push_str               4.337 ns
 //! max-string   (255 bytes)      push_str_unchecked     1.103 ns
 //! -------------------------------------------------------------
-//! string                        clone                 33.295 ns
-//! string                        from                  32.512 ns
-//! string                        push str              28.128 ns
+//! string (19 bytes)             clone                 33.295 ns
+//! string (19 bytes)             from                  32.512 ns
+//! string (19 bytes)             push str              28.128 ns
+//! -------------------------------------------------------------
+//! arrayvec string (23 bytes)    clone                  7.725 ns
+//! arrayvec string (23 bytes)    from                  14.794 ns
+//! arrayvec string (23 bytes)    push str               1.363 ns
 //! -------------------------------------------------------------
 //! inlinable-string (30 bytes)   clone                 16.751 ns
 //! inlinable-string (30 bytes)   from_str              29.310 ns

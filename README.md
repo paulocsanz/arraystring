@@ -72,7 +72,7 @@ fn main() -> Result<(), Error> {
 
 ```my_custom_benchmark
 small-string  (23 bytes)      clone                  4.837 ns
-small-string  (23 bytes)      try_from_str          14.777 ns
+small-string  (23 bytes)      try_from_str          13.552 ns
 small-string  (23 bytes)      from_str_truncate     11.360 ns
 small-string  (23 bytes)      from_str_unchecked    11.291 ns
 small-string  (23 bytes)      try_push_str           1.162 ns
@@ -98,6 +98,10 @@ max-string   (255 bytes)      push_str_unchecked     1.103 ns
 string (19 bytes)             clone                 33.295 ns
 string (19 bytes)             from                  32.512 ns
 string (19 bytes)             push str              28.128 ns
+-------------------------------------------------------------
+arrayvec string (23 bytes)    clone                  7.725 ns
+arrayvec string (23 bytes)    from                  14.794 ns
+arrayvec string (23 bytes)    push str               1.363 ns
 -------------------------------------------------------------
 inlinable-string (30 bytes)   clone                 16.751 ns
 inlinable-string (30 bytes)   from_str              29.310 ns
