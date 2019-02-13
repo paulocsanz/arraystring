@@ -813,3 +813,14 @@ impl From<ArrayString<U63>> for CacheString {
         CacheString(array)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use core::mem::size_of;
+
+    #[test]
+    fn size_of_cache() {
+        assert_eq!(size_of::<CacheString>(), 64);
+    }
+}
