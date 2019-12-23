@@ -1,3 +1,5 @@
+*For experimentation with `const generics` try [`staticvec`](https://github.com/slightlyoutofphase/staticvec/)*
+
 # ArrayString
 
 Fixed capacity stack based generic string
