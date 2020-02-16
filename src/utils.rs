@@ -237,10 +237,7 @@ mod tests {
             let mut string = SmallString::try_from_str("a").unwrap();
 
             encode_char_utf8_unchecked(&mut string, '🤔', 1);
-            assert_eq!(
-                from_utf8(&string.array.as_mut_slice()[..5]).unwrap(),
-                "a🤔"
-            );
+            assert_eq!(from_utf8(&string.array.as_mut_slice()[..5]).unwrap(), "a🤔");
         }
     }
 }

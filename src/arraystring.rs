@@ -38,7 +38,10 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
     #[inline]
     pub fn new() -> Self {
         trace!("New empty ArrayString");
-        Self::default()
+        Self {
+            array: SIZE::Array::zeroed(),
+            size: Default::default(),
+        }
     }
 
     /// Creates new `ArrayString` from string slice if length is lower or equal to [`capacity`], otherwise returns an error.
@@ -64,7 +67,7 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         S: AsRef<str>,
     {
         trace!("Try from str: {:?}", s.as_ref());
-        let mut string = Self::default();
+        let mut string = Self::new();
         string.try_push_str(s)?;
         Ok(string)
     }
@@ -91,7 +94,7 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         S: AsRef<str>,
     {
         trace!("FromStr truncate");
-        let mut s = Self::default();
+        let mut s = Self::new();
         s.push_str(string);
         s
     }
@@ -122,7 +125,7 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         S: AsRef<str>,
     {
         trace!("FromStr unchecked");
-        let mut out = Self::default();
+        let mut out = Self::new();
         out.push_str_unchecked(string);
         out
     }
@@ -149,7 +152,7 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         I: IntoIterator<Item = U>,
     {
         trace!("FromIterator");
-        let mut out = Self::default();
+        let mut out = Self::new();
         for s in iter {
             out.try_push_str(s)?;
         }
@@ -182,7 +185,7 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         I: IntoIterator<Item = U>,
     {
         trace!("FromIterator truncate");
-        let mut out = Self::default();
+        let mut out = Self::new();
         for s in iter {
             if out.try_push_str(s.as_ref()).is_err() {
                 out.push_str(s);
@@ -220,7 +223,7 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         I: IntoIterator<Item = U>,
     {
         trace!("FromIterator unchecked");
-        let mut out = Self::default();
+        let mut out = Self::new();
         for s in iter {
             out.push_str_unchecked(s);
         }
@@ -249,7 +252,7 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         I: IntoIterator<Item = char>,
     {
         trace!("TryFrom chars");
-        let mut out = Self::default();
+        let mut out = Self::new();
         for c in iter {
             out.try_push(c)?;
         }
@@ -278,7 +281,7 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         I: IntoIterator<Item = char>,
     {
         trace!("From chars truncate");
-        let mut out = Self::default();
+        let mut out = Self::new();
         for c in iter {
             if out.try_push(c).is_err() {
                 break;
@@ -310,7 +313,7 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         I: IntoIterator<Item = char>,
     {
         trace!("From chars unchecked");
-        let mut out = Self::default();
+        let mut out = Self::new();
         for c in iter {
             out.push_unchecked(c)
         }
@@ -432,7 +435,7 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         B: AsRef<[u16]>,
     {
         debug!("From utf16: {:?}", slice.as_ref());
-        let mut out = Self::default();
+        let mut out = Self::new();
         for c in decode_utf16(slice.as_ref().iter().cloned()) {
             out.try_push(c?)?;
         }
@@ -467,7 +470,7 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         B: AsRef<[u16]>,
     {
         debug!("From utf16: {:?}", slice.as_ref());
-        let mut out = Self::default();
+        let mut out = Self::new();
         for c in decode_utf16(slice.as_ref().iter().cloned()) {
             if out.try_push(c?).is_err() {
                 break;
@@ -503,7 +506,7 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
         B: AsRef<[u16]>,
     {
         debug!("From utf16 lossy: {:?}", slice.as_ref());
-        let mut out = Self::default();
+        let mut out = Self::new();
         for c in decode_utf16(slice.as_ref().iter().cloned()) {
             if out.try_push(c.unwrap_or(REPLACEMENT_CHARACTER)).is_err() {
                 break;

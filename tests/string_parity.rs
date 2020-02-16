@@ -647,7 +647,7 @@ where
     G: Fn(&'static str) -> U + RefUnwindSafe,
 {
     let _ = env_logger::try_init();
-    for string in STRINGS.into_iter() {
+    for string in STRINGS.iter() {
         let f = f(string).normalize();
         let g = g(string).normalize();
         assert_eq!(f, g);

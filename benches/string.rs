@@ -1,8 +1,8 @@
 use arraystring::{prelude::*, typenum::U20};
-use inlinable_string::{InlinableString, StringExt};
 use arrayvec::ArrayString as ArrayVecString;
-use smallstring::SmallString as SmallVecString;
 use criterion::{criterion_group, criterion_main, Criterion};
+use inlinable_string::{InlinableString, StringExt};
+use smallstring::SmallString as SmallVecString;
 
 fn string_clone_benchmark(c: &mut Criterion) {
     let string = String::from("abcdefghijklmnopqrst");
@@ -305,4 +305,12 @@ criterion_group!(
     max_push_str_unchecked_benchmark,
     max_push_str_benchmark,
 );
-criterion_main!(string, arrayvec, inlinable, smallvecstring, small, cache, max);
+criterion_main!(
+    string,
+    arrayvec,
+    inlinable,
+    smallvecstring,
+    small,
+    cache,
+    max
+);

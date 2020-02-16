@@ -28,9 +28,10 @@ Array based strings always occupies the full space in memory, so they may use mo
 
 ## Features
 
- **default:** `std`
+ **default:** `std`, `impl-all`
 
  - `std` enabled by default, enables `std` compatibility - `impl Error` trait for errors (remove it to be `#[no_std]` compatible)
+ - `impl-all` enabled by default, automatically implements `ArrayString` for every single possible size (1 to 255), it make make compile times longer, so you may disable it and manually call `impl_generic_array!` for the sizes wanted
  - `serde-traits` enables serde traits integration (`Serialize`/`Deserialize`)
 
      Opperates like `String`, but truncates it if it's bigger than capacity

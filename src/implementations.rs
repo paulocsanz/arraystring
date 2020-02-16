@@ -14,10 +14,7 @@ where
 {
     #[inline]
     fn default() -> Self {
-        Self {
-            array: SIZE::Array::zeroed(),
-            size: Default::default(),
-        }
+        Self::new()
     }
 }
 
@@ -168,10 +165,9 @@ where
     type Output = Self;
 
     #[inline]
-    fn add(self, other: &str) -> Self::Output {
-        let mut out = unsafe { Self::from_str_unchecked(self) };
-        out.push_str(other);
-        out
+    fn add(mut self, other: &str) -> Self::Output {
+        self.push_str(other);
+        self
     }
 }
 

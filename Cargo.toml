@@ -35,8 +35,9 @@ serde = { version = "1", optional = true }
 diesel = { version = "1", optional = true }
 
 [features]
-default = ["std"]
+default = ["std", "impl-all"]
 std = []
+impl-all = []
 logs = ["log"]
 serde-traits = ["serde"]
 diesel-traits = ["diesel"]
