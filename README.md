@@ -4,8 +4,6 @@
 
 Fixed capacity stack based generic string
 
-Since rust doesn't have constant generics yet `typenum` is used to allow for generic arrays (U1 to U255)
-
 Can't outgrow initial capacity (defined at compile time), always occupies `capacity` `+ 1` bytes of memory
 
 *Doesn't allocate memory on the heap and never panics in release (all panic branches are stripped at compile time - except `Index`/`IndexMut` traits, since they are supposed to)*
@@ -47,10 +45,10 @@ Array based strings always occupies the full space in memory, so they may use mo
  ## Examples
 
 ```rust
-use arraystring::{Error, ArrayString, 5, 20};
+use arraystring::{Error, ArrayString};
 
-type Username = ArrayString<U20>;
-type Role = ArrayString<U5>;
+type Username = ArrayString<20>;
+type Role = ArrayString<5>;
 
 #[derive(Debug)]
 pub struct User {
