@@ -154,10 +154,6 @@ mod mock {
     macro_rules! error(($($x:tt)*) => ());
 }
 
-#[cfg(all(feature = "diesel-traits", test))]
-#[macro_use]
-extern crate diesel;
-
 mod arraystring;
 pub mod drain;
 pub mod error;
@@ -211,6 +207,8 @@ mod cache_string {
     use core::fmt::{self, Debug, Display, Formatter, Write};
     use core::{borrow::Borrow, borrow::BorrowMut, ops::*};
     use core::{cmp::Ordering, hash::Hash, hash::Hasher, str::FromStr};
+    #[cfg(feature = "diesel-traits")]
+    use diesel::{AsExpression, FromSqlRow};
     #[cfg(feature = "logs")]
     use log::trace;
 
@@ -220,6 +218,8 @@ mod cache_string {
     /// 63 bytes of string
     #[repr(align(64))]
     #[derive(Copy, Clone, Default)]
+    #[cfg_attr(feature = "diesel-traits", derive(AsExpression, FromSqlRow))]
+    #[cfg_attr(feature = "diesel-traits", diesel(sql_type = diesel::sql_types::Text))]
     pub struct CacheString(pub ArrayString<CACHE_STRING_SIZE>);
 
     impl CacheString {
