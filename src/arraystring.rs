@@ -6,6 +6,8 @@ use crate::{error::Error, prelude::*};
 use core::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use core::str::{from_utf8, from_utf8_unchecked};
 use core::{cmp::min, ops::*, ptr::copy_nonoverlapping};
+#[cfg(feature = "diesel-traits")]
+use diesel::{AsExpression, FromSqlRow};
 #[cfg(feature = "logs")]
 use log::{debug, trace};
 
@@ -17,6 +19,8 @@ use log::{debug, trace};
 ///
 /// [`capacity`]: ./struct.ArrayString.html#method.capacity
 #[derive(Copy, Clone)]
+#[cfg_attr(feature = "diesel-traits", derive(AsExpression, FromSqlRow))]
+#[cfg_attr(feature = "diesel-traits", diesel(sql_type = diesel::sql_types::Text))]
 pub struct ArrayString<const N: usize> {
     /// Array type corresponding to specified `SIZE`
     pub(crate) array: [u8; N],
@@ -35,7 +39,7 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub const fn new() -> Self {
-        trace!("New empty ArrayString");
+        // trace!("New empty ArrayString"); <-- why sacrifice consts for traces...
         Self {
             array: [0; N],
             size: 0,
