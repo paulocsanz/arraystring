@@ -1,4 +1,4 @@
-use arraystring::{prelude::*, typenum::U20};
+use arraystring::prelude::*;
 use arrayvec::ArrayString as ArrayVecString;
 use criterion::{criterion_group, criterion_main, Criterion};
 use inlinable_string::{InlinableString, StringExt};
@@ -73,14 +73,14 @@ fn arrayvec_push_str_benchmark(c: &mut Criterion) {
 }
 
 fn smallvecstring_clone_benchmark(c: &mut Criterion) {
-    let string = SmallVecString::<<U20 as Capacity>::Array>::from("xhduibabicemlatdhue");
+    let string = SmallVecString::<[u8;20]>::from("xhduibabicemlatdhue");
     c.bench_function("smallvecstring clone", move |b| b.iter(|| string.clone()));
 }
 
 fn smallvecstring_from_benchmark(c: &mut Criterion) {
     let string = "audshaisdhaisduo8";
     c.bench_function("smallvecstring from", move |b| {
-        b.iter(|| SmallVecString::<<U20 as Capacity>::Array>::from(string))
+        b.iter(|| SmallVecString::<[u8;20]>::from(string))
     });
 }
 

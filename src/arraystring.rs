@@ -2,14 +2,12 @@
 
 use crate::utils::{encode_char_utf8_unchecked, is_char_boundary, is_inside_boundary, never};
 use crate::utils::{shift_left_unchecked, shift_right_unchecked, truncate_str, IntoLossy};
-use crate::{error::Error, generic::ArraySlice, prelude::*};
+use crate::{error::Error, prelude::*};
 use core::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use core::str::{from_utf8, from_utf8_unchecked};
 use core::{cmp::min, ops::*, ptr::copy_nonoverlapping};
 #[cfg(feature = "logs")]
 use log::{debug, trace};
-
-use crate::generic::Capacity;
 
 /// String based on a generic array (size defined at compile time through `typenum`)
 ///
@@ -18,15 +16,15 @@ use crate::generic::Capacity;
 /// *Doesn't allocate memory on the heap and never panics (all panic branches are stripped at compile time)*
 ///
 /// [`capacity`]: ./struct.ArrayString.html#method.capacity
-#[derive(Clone)]
-pub struct ArrayString<SIZE: Capacity> {
+#[derive(Copy, Clone)]
+pub struct ArrayString<const N: usize> {
     /// Array type corresponding to specified `SIZE`
-    pub(crate) array: SIZE::Array,
+    pub(crate) array: [u8; N],
     /// Current string size
     pub(crate) size: u8,
 }
 
-impl<SIZE: Capacity> ArrayString<SIZE> {
+impl<const N: usize> ArrayString<N> {
     /// Creates new empty string.
     ///
     /// ```rust
@@ -36,11 +34,11 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
     /// assert!(string.is_empty());
     /// ```
     #[inline]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         trace!("New empty ArrayString");
         Self {
-            array: SIZE::Array::zeroed(),
-            size: Default::default(),
+            array: [0; N],
+            size: 0,
         }
     }
 
@@ -588,11 +586,15 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
     /// ```rust
     /// # use arraystring::prelude::*;
     /// # let _ = env_logger::try_init();
-    /// assert_eq!(ArrayString::<typenum::U32>::capacity(), 32);
+    /// assert_eq!(ArrayString::<32>::capacity(), 32);
     /// ```
     #[inline]
-    pub fn capacity() -> u8 {
-        SIZE::to_u8()
+    pub const fn capacity() -> u8 {
+        if N > u8::MAX as usize {
+            u8::MAX
+        } else {
+            N as u8
+        }
     }
 
     /// Pushes string slice to the end of the `ArrayString` if total size is lower or equal to [`capacity`], otherwise returns an error.
@@ -1180,7 +1182,7 @@ impl<SIZE: Capacity> ArrayString<SIZE> {
     /// # }
     /// ```
     #[inline]
-    pub fn drain<R>(&mut self, range: R) -> Result<Drain<SIZE>, Error>
+    pub fn drain<R>(&mut self, range: R) -> Result<Drain<N>, Error>
     where
         R: RangeBounds<u8>,
     {

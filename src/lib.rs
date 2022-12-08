@@ -43,10 +43,10 @@
 //! ## Examples
 //!
 //! ```rust
-//! use arraystring::{Error, ArrayString, typenum::U5, typenum::U20};
+//! use arraystring::{Error, ArrayString};
 //!
-//! type Username = ArrayString<U20>;
-//! type Role = ArrayString<U5>;
+//! type Username = ArrayString<20>;
+//! type Role = ArrayString<5>;
 //!
 //! #[derive(Debug)]
 //! pub struct User {
@@ -126,7 +126,6 @@
     unused_qualifications,
     unused_results,
     bad_style,
-    const_err,
     dead_code,
     improper_ctypes,
     non_shorthand_field_patterns,
@@ -164,7 +163,6 @@ extern crate diesel;
 mod arraystring;
 pub mod drain;
 pub mod error;
-mod generic;
 mod implementations;
 #[cfg(any(feature = "serde-traits", feature = "diesel-traits"))]
 mod integration;
@@ -176,7 +174,7 @@ pub mod prelude {
     pub use crate::arraystring::ArrayString;
     pub use crate::drain::Drain;
     pub use crate::error::{OutOfBounds, Utf16, Utf8};
-    pub use crate::{generic::Capacity, CacheString, MaxString, SmallString};
+    pub use crate::{CacheString, MaxString, SmallString};
 }
 
 pub use crate::arraystring::ArrayString;
@@ -190,7 +188,7 @@ pub use crate::error::Error;
 #[cfg(target_pointer_width = "64")]
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "impl-all")))]
 #[cfg(feature = "impl-all")]
-pub type SmallString = ArrayString<typenum::U23>;
+pub type SmallString = ArrayString<23>;
 
 /// String with the same `mem::size_of` of a `String`
 ///
@@ -200,12 +198,12 @@ pub type SmallString = ArrayString<typenum::U23>;
 #[cfg(not(target_pointer_width = "64"))]
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "impl-all")))]
 #[cfg(feature = "impl-all")]
-pub type SmallString = ArrayString<typenum::U11>;
+pub type SmallString = ArrayString<11>;
 
 /// Biggest array based string (255 bytes of string)
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "impl-all")))]
 #[cfg(feature = "impl-all")]
-pub type MaxString = ArrayString<typenum::U255>;
+pub type MaxString = ArrayString<255>;
 
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "impl-all")))]
 #[cfg(feature = "impl-all")]
@@ -217,14 +215,14 @@ mod cache_string {
     use core::{cmp::Ordering, hash::Hash, hash::Hasher, str::FromStr};
     #[cfg(feature = "logs")]
     use log::trace;
-    use typenum::Unsigned;
 
+    const CACHE_STRING_SIZE: usize = 63;
     /// Newtype string that occupies 64 bytes in memory and is 64 bytes aligned (full cache line)
     ///
     /// 63 bytes of string
     #[repr(align(64))]
     #[derive(Copy, Clone, Default)]
-    pub struct CacheString(pub ArrayString<typenum::U63>);
+    pub struct CacheString(pub ArrayString<CACHE_STRING_SIZE>);
 
     impl CacheString {
         /// Creates new empty `CacheString`.
@@ -655,8 +653,8 @@ mod cache_string {
         /// assert_eq!(CacheString::capacity(), 63);
         /// ```
         #[inline]
-        pub fn capacity() -> u8 {
-            <typenum::U63 as Unsigned>::to_u8()
+        pub const fn capacity() -> u8 {
+            CACHE_STRING_SIZE as u8
         }
 
         /// Splits `CacheString` in two if `at` is smaller than `self.len()`.
@@ -721,7 +719,7 @@ mod cache_string {
     }
 
     impl Deref for CacheString {
-        type Target = ArrayString<typenum::U63>;
+        type Target = ArrayString<CACHE_STRING_SIZE>;
 
         #[inline]
         fn deref(&self) -> &Self::Target {
@@ -731,7 +729,7 @@ mod cache_string {
 
     impl DerefMut for CacheString {
         #[inline]
-        fn deref_mut(&mut self) -> &mut ArrayString<typenum::U63> {
+        fn deref_mut(&mut self) -> &mut ArrayString<CACHE_STRING_SIZE> {
             &mut self.0
         }
     }
@@ -809,8 +807,8 @@ mod cache_string {
         }
     }
 
-    impl From<ArrayString<typenum::U63>> for CacheString {
-        fn from(array: ArrayString<typenum::U63>) -> Self {
+    impl From<ArrayString<CACHE_STRING_SIZE>> for CacheString {
+        fn from(array: ArrayString<CACHE_STRING_SIZE>) -> Self {
             CacheString(array)
         }
     }
