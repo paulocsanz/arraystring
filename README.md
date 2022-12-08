@@ -47,7 +47,7 @@ Array based strings always occupies the full space in memory, so they may use mo
  ## Examples
 
 ```rust
-use arraystring::{Error, ArrayString, typenum::U5, typenum::U20};
+use arraystring::{Error, ArrayString, 5, 20};
 
 type Username = ArrayString<U20>;
 type Role = ArrayString<U5>;

@@ -1,6 +1,6 @@
 //! Misc functions to improve readability
 
-use crate::{generic::ArraySlice, prelude::*};
+use crate::prelude::*;
 use core::ptr::copy;
 #[cfg(feature = "logs")]
 use log::{debug, trace};
@@ -34,8 +34,8 @@ pub(crate) unsafe fn never(s: &str) -> ! {
 /// - It's UB if index is outside of buffer's boundaries (buffer needs at most 4 bytes)
 /// - It's UB if index is inside a character (like a index 3 for "a🤔")
 #[inline]
-pub(crate) unsafe fn encode_char_utf8_unchecked<S: Capacity>(
-    s: &mut ArrayString<S>,
+pub(crate) unsafe fn encode_char_utf8_unchecked<const N: usize>(
+    s: &mut ArrayString<N>,
     ch: char,
     index: u8,
 ) {
@@ -57,8 +57,8 @@ pub(crate) unsafe fn encode_char_utf8_unchecked<S: Capacity>(
 
     trace!("Encode char: {} to {}", ch, index);
 
-    debug_assert!(ch.len_utf8().saturating_add(index.into()) <= S::to_usize());
-    debug_assert!(ch.len_utf8().saturating_add(s.len().into()) <= S::to_usize());
+    debug_assert!(ch.len_utf8().saturating_add(index.into()) <= N);
+    debug_assert!(ch.len_utf8().saturating_add(s.len().into()) <= N);
     let dst = s.array.as_mut_slice().get_unchecked_mut(index.into()..);
     let code = ch as u32;
 
@@ -105,23 +105,21 @@ unsafe fn shift_unchecked(s: &mut [u8], from: usize, to: usize, len: usize) {
 ///
 /// [`<S as Unsigned>::to_u8()`]: ../struct.ArrayString.html#CAPACITY
 #[inline]
-pub(crate) unsafe fn shift_right_unchecked<S, F, T>(s: &mut ArrayString<S>, from: F, to: T)
+pub(crate) unsafe fn shift_right_unchecked<const N: usize, F, T>(s: &mut ArrayString<N>, from: F, to: T)
 where
-    S: Capacity,
     F: Into<usize> + Copy,
     T: Into<usize> + Copy,
 {
     let len = (s.len() as usize).saturating_sub(from.into());
-    debug_assert!(from.into() <= to.into() && to.into().saturating_add(len) <= S::to_usize());
+    debug_assert!(from.into() <= to.into() && to.into().saturating_add(len) <= N);
     debug_assert!(s.as_str().is_char_boundary(from.into()));
     shift_unchecked(s.array.as_mut_slice(), from.into(), to.into(), len);
 }
 
 /// Shifts string left
 #[inline]
-pub(crate) unsafe fn shift_left_unchecked<S, F, T>(s: &mut ArrayString<S>, from: F, to: T)
+pub(crate) unsafe fn shift_left_unchecked<const N: usize, F, T>(s: &mut ArrayString<N>, from: F, to: T)
 where
-    S: Capacity,
     F: Into<usize> + Copy,
     T: Into<usize> + Copy,
 {
@@ -146,7 +144,7 @@ where
 
 /// Returns error if index is not at a valid utf-8 char boundary
 #[inline]
-pub fn is_char_boundary<S: Capacity>(s: &ArrayString<S>, idx: u8) -> Result<(), Utf8> {
+pub fn is_char_boundary<const N: usize>(s: &ArrayString<N>, idx: u8) -> Result<(), Utf8> {
     trace!("Is char boundary: {} at {}", s.as_str(), idx);
     if s.as_str().is_char_boundary(idx.into()) {
         return Ok(());

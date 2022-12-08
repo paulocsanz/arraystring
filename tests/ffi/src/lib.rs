@@ -1,4 +1,4 @@
-use arraystring::{Error, prelude::*, typenum::U63};
+use arraystring::{Error, prelude::*, 63};
 
 pub type Str = CacheString;
 pub type Len = U63;
