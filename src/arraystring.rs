@@ -1,11 +1,12 @@
 //! `ArrayString` definition and Api implementation
 
-use crate::utils::{encode_char_utf8_unchecked, is_char_boundary, is_inside_boundary, never};
+use crate::utils::{append_char_truncate, encode_char_utf8_unchecked, is_char_boundary, is_inside_boundary, never};
 use crate::utils::{shift_left_unchecked, shift_right_unchecked, truncate_str, IntoLossy};
 use crate::{error::Error, prelude::*};
 use core::char::{decode_utf16, REPLACEMENT_CHARACTER};
-use core::str::{from_utf8, from_utf8_unchecked};
+use core::str::from_utf8;
 use core::{cmp::min, ops::*, ptr::copy_nonoverlapping};
+use std::str::FromStr;
 #[cfg(feature = "diesel-traits")]
 use diesel::{AsExpression, FromSqlRow};
 #[cfg(feature = "logs")]
@@ -46,6 +47,16 @@ impl<const N: usize> ArrayString<N> {
         }
     }
 
+    #[inline]
+    fn remaining_mut(&mut self) -> &mut [u8] {
+        &mut self.array[self.size as usize..]
+    }
+
+    #[inline]
+    fn remaining(&self) -> &[u8] {
+        &self.array[self.size as usize..]
+    }
+
     /// Creates new `ArrayString` from string slice if length is lower or equal to [`capacity`], otherwise returns an error.
     ///
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
@@ -65,8 +76,8 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn try_from_str<S>(s: S) -> Result<Self, OutOfBounds>
-    where
-        S: AsRef<str>,
+        where
+            S: AsRef<str>,
     {
         trace!("Try from str: {:?}", s.as_ref());
         let mut string = Self::new();
@@ -92,44 +103,13 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn from_str_truncate<S>(string: S) -> Self
-    where
-        S: AsRef<str>,
+        where
+            S: AsRef<str>,
     {
         trace!("FromStr truncate");
         let mut s = Self::new();
         s.push_str(string);
         s
-    }
-
-    /// Creates new `ArrayString` from string slice assuming length is appropriate.
-    ///
-    /// # Safety
-    ///
-    /// It's UB if `string.len()` > [`capacity`].
-    ///
-    /// [`capacity`]: ./struct.ArrayString.html#method.capacity
-    ///
-    /// ```rust
-    /// # use arraystring::prelude::*;
-    /// let filled = "0".repeat(SmallString::capacity().into());
-    /// let string = unsafe {
-    ///     SmallString::from_str_unchecked(&filled)
-    /// };
-    /// assert_eq!(string.as_str(), filled.as_str());
-    ///
-    /// // Undefined behavior, don't do it
-    /// // let out_of_bounds = "0".repeat(SmallString::capacity().into() + 1);
-    /// // let ub = unsafe { SmallString::from_str_unchecked(out_of_bounds) };
-    /// ```
-    #[inline]
-    pub unsafe fn from_str_unchecked<S>(string: S) -> Self
-    where
-        S: AsRef<str>,
-    {
-        trace!("FromStr unchecked");
-        let mut out = Self::new();
-        out.push_str_unchecked(string);
-        out
     }
 
     /// Creates new `ArrayString` from string slice iterator if total length is lower or equal to [`capacity`], otherwise returns an error.
@@ -149,9 +129,9 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn try_from_iterator<U, I>(iter: I) -> Result<Self, OutOfBounds>
-    where
-        U: AsRef<str>,
-        I: IntoIterator<Item = U>,
+        where
+            U: AsRef<str>,
+            I: IntoIterator<Item=U>,
     {
         trace!("FromIterator");
         let mut out = Self::new();
@@ -182,9 +162,9 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn from_iterator<U, I>(iter: I) -> Self
-    where
-        U: AsRef<str>,
-        I: IntoIterator<Item = U>,
+        where
+            U: AsRef<str>,
+            I: IntoIterator<Item=U>,
     {
         trace!("FromIterator truncate");
         let mut out = Self::new();
@@ -197,40 +177,6 @@ impl<const N: usize> ArrayString<N> {
         out
     }
 
-    /// Creates new `ArrayString` from string slice iterator assuming length is appropriate.
-    ///
-    /// # Safety
-    ///
-    /// It's UB if `iter.map(|c| c.len()).sum()` > [`capacity`].
-    ///
-    /// [`capacity`]: ./struct.ArrayString.html#method.capacity
-    ///
-    /// ```rust
-    /// # use arraystring::prelude::*;
-    /// let string = unsafe {
-    ///     MaxString::from_iterator_unchecked(&["My String", " My Other String"][..])
-    /// };
-    /// assert_eq!(string.as_str(), "My String My Other String");
-    ///
-    /// // Undefined behavior, don't do it
-    /// // let out_of_bounds = (0..400).map(|_| "000");
-    /// // let undefined_behavior = unsafe {
-    /// //     SmallString::from_iterator_unchecked(out_of_bounds)
-    /// // };
-    /// ```
-    #[inline]
-    pub unsafe fn from_iterator_unchecked<U, I>(iter: I) -> Self
-    where
-        U: AsRef<str>,
-        I: IntoIterator<Item = U>,
-    {
-        trace!("FromIterator unchecked");
-        let mut out = Self::new();
-        for s in iter {
-            out.push_str_unchecked(s);
-        }
-        out
-    }
 
     /// Creates new `ArrayString` from char iterator if total length is lower or equal to [`capacity`], otherwise returns an error.
     ///
@@ -250,8 +196,8 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn try_from_chars<I>(iter: I) -> Result<Self, OutOfBounds>
-    where
-        I: IntoIterator<Item = char>,
+        where
+            I: IntoIterator<Item=char>,
     {
         trace!("TryFrom chars");
         let mut out = Self::new();
@@ -279,8 +225,8 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn from_chars<I>(iter: I) -> Self
-    where
-        I: IntoIterator<Item = char>,
+        where
+            I: IntoIterator<Item=char>,
     {
         trace!("From chars truncate");
         let mut out = Self::new();
@@ -288,36 +234,6 @@ impl<const N: usize> ArrayString<N> {
             if out.try_push(c).is_err() {
                 break;
             }
-        }
-        out
-    }
-
-    /// Creates new `ArrayString` from char iterator assuming length is appropriate.
-    ///
-    /// # Safety
-    ///
-    /// It's UB if `iter.map(|c| c.len_utf8()).sum()` > [`capacity`].
-    ///
-    /// [`capacity`]: ./struct.ArrayString.html#method.capacity
-    ///
-    /// ```rust
-    /// # use arraystring::prelude::*;
-    /// let string = unsafe { SmallString::from_chars_unchecked("My String".chars()) };
-    /// assert_eq!(string.as_str(), "My String");
-    ///
-    /// // Undefined behavior, don't do it
-    /// // let out_of_bounds = "000".repeat(400);
-    /// // let undefined_behavior = unsafe { SmallString::from_chars_unchecked(out_of_bounds.chars()) };
-    /// ```
-    #[inline]
-    pub unsafe fn from_chars_unchecked<I>(iter: I) -> Self
-    where
-        I: IntoIterator<Item = char>,
-    {
-        trace!("From chars unchecked");
-        let mut out = Self::new();
-        for c in iter {
-            out.push_unchecked(c)
         }
         out
     }
@@ -345,8 +261,8 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn try_from_utf8<B>(slice: B) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
+        where
+            B: AsRef<[u8]>,
     {
         debug!("From utf8: {:?}", slice.as_ref());
         Ok(Self::try_from_str(from_utf8(slice.as_ref())?)?)
@@ -375,38 +291,11 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn from_utf8<B>(slice: B) -> Result<Self, Utf8>
-    where
-        B: AsRef<[u8]>,
+        where
+            B: AsRef<[u8]>,
     {
         debug!("From utf8: {:?}", slice.as_ref());
         Ok(Self::from_str_truncate(from_utf8(slice.as_ref())?))
-    }
-
-    /// Creates new `ArrayString` from byte slice assuming it's utf-8 and of a appropriate size.
-    ///
-    /// # Safety
-    ///
-    /// It's UB if `slice` is not a valid utf-8 string or `slice.len()` > [`capacity`].
-    ///
-    /// [`capacity`]: ./struct.ArrayString.html#method.capacity
-    ///
-    /// ```rust
-    /// # use arraystring::prelude::*;
-    /// let string = unsafe { SmallString::from_utf8_unchecked("My String") };
-    /// assert_eq!(string.as_str(), "My String");
-    ///
-    /// // Undefined behavior, don't do it
-    /// // let out_of_bounds = "0".repeat(300);
-    /// // let ub = unsafe { SmallString::from_utf8_unchecked(out_of_bounds)) };
-    /// ```
-    #[inline]
-    pub unsafe fn from_utf8_unchecked<B>(slice: B) -> Self
-    where
-        B: AsRef<[u8]>,
-    {
-        trace!("From utf8 unchecked");
-        debug_assert!(from_utf8(slice.as_ref()).is_ok());
-        Self::from_str_unchecked(from_utf8_unchecked(slice.as_ref()))
     }
 
     /// Creates new `ArrayString` from `u16` slice, returning [`Utf16`] on invalid utf-16 data or [`OutOfBounds`] if bigger than [`capacity`]
@@ -433,8 +322,8 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn try_from_utf16<B>(slice: B) -> Result<Self, Error>
-    where
-        B: AsRef<[u16]>,
+        where
+            B: AsRef<[u16]>,
     {
         debug!("From utf16: {:?}", slice.as_ref());
         let mut out = Self::new();
@@ -468,8 +357,8 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn from_utf16<B>(slice: B) -> Result<Self, Utf16>
-    where
-        B: AsRef<[u16]>,
+        where
+            B: AsRef<[u16]>,
     {
         debug!("From utf16: {:?}", slice.as_ref());
         let mut out = Self::new();
@@ -504,8 +393,8 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn from_utf16_lossy<B>(slice: B) -> Self
-    where
-        B: AsRef<[u16]>,
+        where
+            B: AsRef<[u16]>,
     {
         debug!("From utf16 lossy: {:?}", slice.as_ref());
         let mut out = Self::new();
@@ -619,13 +508,17 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn try_push_str<S>(&mut self, string: S) -> Result<(), OutOfBounds>
-    where
-        S: AsRef<str>,
+        where
+            S: AsRef<str>,
     {
         trace!("Push str");
-        let new_end = string.as_ref().len().saturating_add(self.len().into());
-        is_inside_boundary(new_end, Self::capacity())?;
-        unsafe { self.push_str_unchecked(string) };
+        let (s, len) = (string.as_ref(), string.as_ref().len());
+        is_inside_boundary(len + self.len() as usize, Self::capacity())?;
+        debug_assert!(len.saturating_add(self.len().into()) <= Self::capacity() as usize);
+        unsafe {
+            copy_nonoverlapping(s.as_ptr(), self.remaining_mut().as_mut_ptr(), len);
+        }
+        self.size = self.size.saturating_add(len as _);
         Ok(())
     }
 
@@ -649,47 +542,11 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn push_str<S>(&mut self, string: S)
-    where
-        S: AsRef<str>,
+        where
+            S: AsRef<str>,
     {
         trace!("Push str truncate");
-        let size = Self::capacity().saturating_sub(self.len());
-        unsafe { self.push_str_unchecked(truncate_str(string.as_ref(), size)) }
-    }
-
-    /// Pushes string slice to the end of the `ArrayString` assuming total size is appropriate.
-    ///
-    /// # Safety
-    ///
-    /// It's UB if `self.len() + string.len()` > [`capacity`].
-    ///
-    /// [`capacity`]: ./struct.ArrayString.html#method.capacity
-    ///
-    /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
-    /// # fn main() -> Result<(), Error> {
-    /// let mut s = MaxString::try_from_str("My String")?;
-    /// unsafe { s.push_str_unchecked(" My other String") };
-    /// assert_eq!(s.as_str(), "My String My other String");
-    ///
-    /// // Undefined behavior, don't do it
-    /// // let mut undefined_behavior = SmallString::default();
-    /// // undefined_behavior.push_str_unchecked("0".repeat(SmallString::capacity().into() + 1));
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    pub unsafe fn push_str_unchecked<S>(&mut self, string: S)
-    where
-        S: AsRef<str>,
-    {
-        let (s, len) = (string.as_ref(), string.as_ref().len());
-        debug!("Push str unchecked: {} ({} + {})", s, self.len(), len);
-        debug_assert!(len.saturating_add(self.len().into()) <= Self::capacity() as usize);
-
-        let dest = self.as_mut_bytes().as_mut_ptr().add(self.len().into());
-        copy_nonoverlapping(s.as_ptr(), dest, len);
-        self.size = self.size.saturating_add(len.into_lossy());
+        let _ = self.try_push_str(truncate_str(string.as_ref(), self.remaining().len().into_lossy()));
     }
 
     /// Inserts character to the end of the `ArrayString` erroring if total size if bigger than [`capacity`].
@@ -712,39 +569,29 @@ impl<const N: usize> ArrayString<N> {
     #[inline]
     pub fn try_push(&mut self, character: char) -> Result<(), OutOfBounds> {
         trace!("Push: {}", character);
-        let new_end = character.len_utf8().saturating_add(self.len().into());
-        is_inside_boundary(new_end, Self::capacity())?;
-        unsafe { self.push_unchecked(character) };
-        Ok(())
+        let last_size = self.len();
+        self.push(character);
+        (self.size != last_size).then_some(()).ok_or(OutOfBounds)
     }
 
-    /// Inserts character to the end of the `ArrayString` assuming length is appropriate
-    ///
-    /// # Safety
-    ///
-    /// It's UB if `self.len() + character.len_utf8()` > [`capacity`]
-    ///
-    /// [`capacity`]: ./struct.ArrayString.html#method.capacity
+    /// Inserts character to the end of the `ArrayString` truncating if no room is left
     ///
     /// ```rust
     /// # use arraystring::{error::Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// let mut s = SmallString::try_from_str("My String")?;
-    /// unsafe { s.push_unchecked('!') };
+    /// s.push('!');
     /// assert_eq!(s.as_str(), "My String!");
     ///
     /// // s = SmallString::try_from_str(&"0".repeat(SmallString::capacity().into()))?;
     /// // Undefined behavior, don't do it
-    /// // s.push_unchecked('!');
+    /// // s.push('!');
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub unsafe fn push_unchecked(&mut self, ch: char) {
-        let (len, chlen) = (self.len(), ch.len_utf8().into_lossy());
-        debug!("Push unchecked (len: {}): {} (len: {})", len, ch, chlen);
-        encode_char_utf8_unchecked(self, ch, len);
-        self.size = self.size.saturating_add(chlen);
+    pub fn push(&mut self, ch: char) {
+        self.size = self.size.saturating_add(append_char_truncate(self.remaining_mut(), ch).into_lossy());
     }
 
     /// Truncates `ArrayString` to specified size (if smaller than current size and a valid utf-8 char index).
@@ -889,7 +736,7 @@ impl<const N: usize> ArrayString<N> {
     pub fn retain<F: FnMut(char) -> bool>(&mut self, mut f: F) {
         trace!("Retain");
         // Not the most efficient solution, we could shift left during batch mismatch
-        *self = unsafe { Self::from_chars_unchecked(self.as_str().chars().filter(|c| f(*c))) };
+        *self = Self::from_chars(self.as_str().chars().filter(|c| f(*c)));
     }
 
     /// Inserts character at specified index, returning error if total length is bigger than [`capacity`].
@@ -956,7 +803,7 @@ impl<const N: usize> ArrayString<N> {
         let clen = ch.len_utf8().into_lossy();
         debug!("Insert uncheck ({}+{}) {} at {}", self.len(), clen, ch, idx);
         shift_right_unchecked(self, idx, idx.saturating_add(clen));
-        encode_char_utf8_unchecked(self, ch, idx);
+        let _ = encode_char_utf8_unchecked(self, ch, idx);
         self.size = self.size.saturating_add(clen);
     }
 
@@ -986,8 +833,8 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn try_insert_str<S>(&mut self, idx: u8, s: S) -> Result<(), Error>
-    where
-        S: AsRef<str>,
+        where
+            S: AsRef<str>,
     {
         trace!("Try insert str");
         is_inside_boundary(idx, self.len())?;
@@ -1026,8 +873,8 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn insert_str<S>(&mut self, idx: u8, string: S) -> Result<(), Error>
-    where
-        S: AsRef<str>,
+        where
+            S: AsRef<str>,
     {
         trace!("Insert str");
         is_inside_boundary(idx, self.len())?;
@@ -1064,8 +911,8 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub unsafe fn insert_str_unchecked<S>(&mut self, idx: u8, string: S)
-    where
-        S: AsRef<str>,
+        where
+            S: AsRef<str>,
     {
         let (s, slen) = (string.as_ref(), string.as_ref().len().into_lossy());
         let ptr = s.as_ptr();
@@ -1144,7 +991,7 @@ impl<const N: usize> ArrayString<N> {
         is_inside_boundary(at, self.len())?;
         is_char_boundary(self, at)?;
         debug_assert!(at <= self.len() && self.as_str().is_char_boundary(at.into()));
-        let new = unsafe { Self::from_utf8_unchecked(self.as_str().get_unchecked(at.into()..)) };
+        let new = unsafe { Self::from_utf8(self.as_str().get_unchecked(at.into()..))? };
         self.size = at;
         Ok(new)
     }
@@ -1187,8 +1034,8 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn drain<R>(&mut self, range: R) -> Result<Drain<N>, Error>
-    where
-        R: RangeBounds<u8>,
+        where
+            R: RangeBounds<u8>,
     {
         let start = match range.start_bound() {
             Bound::Included(t) => *t,
@@ -1212,7 +1059,7 @@ impl<const N: usize> ArrayString<N> {
 
         let drain = unsafe {
             let slice = self.as_str().get_unchecked(start.into()..end.into());
-            Self::from_str_unchecked(slice)
+            Self::from_str(slice)?
         };
         unsafe { shift_left_unchecked(self, end, start) };
         self.size = self.size.saturating_sub(end.saturating_sub(start));
@@ -1238,9 +1085,9 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub fn replace_range<S, R>(&mut self, r: R, with: S) -> Result<(), Error>
-    where
-        S: AsRef<str>,
-        R: RangeBounds<u8>,
+        where
+            S: AsRef<str>,
+            R: RangeBounds<u8>,
     {
         let replace_with = with.as_ref();
         let start = match r.start_bound() {

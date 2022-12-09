@@ -31,13 +31,6 @@ fn from_str_truncate() {
 }
 
 #[test]
-fn from_str_unchecked() {
-    assert(String::from, |s| unsafe {
-        MaxString::from_str_unchecked(s)
-    });
-}
-
-#[test]
 fn try_from_chars() {
     assert(
         |s| String::from_iter(s.chars()),
@@ -54,14 +47,6 @@ fn from_chars() {
 }
 
 #[test]
-fn from_chars_unchecked() {
-    assert(
-        |s| String::from_iter(s.chars()),
-        |s| unsafe { MaxString::from_chars_unchecked(s.chars()) },
-    );
-}
-
-#[test]
 fn try_from_iter() {
     assert(
         |s| String::from_iter(vec![s]),
@@ -74,14 +59,6 @@ fn from_iter() {
     assert(
         |s| String::from_iter(vec![s]),
         |s| MaxString::from_iterator(vec![s]),
-    );
-}
-
-#[test]
-fn from_iter_unchecked() {
-    assert(
-        |s| String::from_iter(vec![s]),
-        |s| unsafe { MaxString::from_iterator_unchecked(vec![s]) },
     );
 }
 
@@ -200,16 +177,6 @@ fn from_utf16_lossy_invalid() {
 }
 
 #[test]
-fn from_utf8_unchecked() {
-    unsafe {
-        assert(
-            |s| String::from_utf8_unchecked(s.as_bytes().to_vec()),
-            |s| MaxString::from_utf8_unchecked(s.as_bytes()),
-        );
-    }
-}
-
-#[test]
 fn try_push_str() {
     assert(
         |s| {
@@ -248,21 +215,6 @@ fn add_str() {
     );
 }
 
-#[test]
-fn push_str_unchecked() {
-    assert(
-        |s| {
-            let mut st = String::from(s);
-            st.push_str(s);
-            st
-        },
-        |s| {
-            let mut ms = MaxString::try_from_str(s).unwrap();
-            unsafe { ms.push_str_unchecked(s) };
-            ms
-        },
-    );
-}
 
 #[test]
 fn push() {
@@ -275,22 +227,6 @@ fn push() {
         |s| {
             let mut ms = MaxString::try_from_str(s).unwrap();
             ms.try_push('🤔').map(|()| ms)
-        },
-    );
-}
-
-#[test]
-fn push_unchecked() {
-    assert(
-        |s| {
-            let mut s = String::from(s);
-            s.push('🤔');
-            s
-        },
-        |s| {
-            let mut ms = MaxString::try_from_str(s).unwrap();
-            unsafe { ms.push_unchecked('🤔') };
-            ms
         },
     );
 }
