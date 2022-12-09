@@ -143,11 +143,23 @@ pub fn is_char_boundary<const N: usize>(s: &ArrayString<N>, idx: u8) -> Result<(
 /// Truncates string to specified size (ignoring last bytes if they form a partial `char`)
 #[inline]
 pub(crate) fn truncate_str(slice: &str, size: u8) -> &str {
-    let mut index = size as usize;
-    while !slice.is_char_boundary(index) {
-        index = index.saturating_sub(1);
+    trace!("Truncate str: {} at {}", slice, size);
+    let mut size = size as usize;
+    if slice.is_char_boundary(size) {
+        return unsafe { slice.get_unchecked(..size) }
+    } else if size >= slice.len() {
+        return slice;
     }
-    unsafe { slice.get_unchecked(..index) }
+    size -= 1;
+    if slice.is_char_boundary(size) {
+        return unsafe { slice.get_unchecked(..size) }
+    }
+    size -= 1;
+    if slice.is_char_boundary(size) {
+        return unsafe { slice.get_unchecked(..size) }
+    }
+    size -= 1;
+    unsafe { slice.get_unchecked(..size) }
 }
 
 impl IntoLossy<u8> for usize {
