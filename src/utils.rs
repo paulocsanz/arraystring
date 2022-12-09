@@ -22,6 +22,18 @@ pub(crate) unsafe fn never(s: &str) -> ! {
     core::hint::unreachable_unchecked()
 }
 
+/// Encodes `char` into `ArrayString` at specified position, heavily unsafe
+///
+/// We reimplement the `core` function to avoid panicking (UB instead, be careful)
+///
+/// Reimplemented from:
+///
+/// `https://github.com/rust-lang/rust/blob/7843e2792dce0f20d23b3c1cca51652013bef0ea/src/libcore/char/methods.rs#L447`
+/// # Safety
+///
+/// - It's UB if index is outside of buffer's boundaries (buffer needs at most 4 bytes)
+/// - It's UB if index is inside a character (like a index 3 for "a🤔")
+#[inline]
 pub(crate) unsafe fn encode_char_utf8_unchecked<const N: usize>(
     s: &mut ArrayString<N>,
     ch: char,
@@ -95,9 +107,9 @@ unsafe fn shift_unchecked(s: &mut [u8], from: usize, to: usize, len: usize) {
 /// [`<S as Unsigned>::to_u8()`]: ../struct.ArrayString.html#CAPACITY
 #[inline]
 pub(crate) unsafe fn shift_right_unchecked<const N: usize, F, T>(s: &mut ArrayString<N>, from: F, to: T)
-    where
-        F: Into<usize> + Copy,
-        T: Into<usize> + Copy,
+where
+    F: Into<usize> + Copy,
+    T: Into<usize> + Copy,
 {
     let len = (s.len() as usize).saturating_sub(from.into());
     debug_assert!(from.into() <= to.into() && to.into().saturating_add(len) <= N);
@@ -108,9 +120,9 @@ pub(crate) unsafe fn shift_right_unchecked<const N: usize, F, T>(s: &mut ArraySt
 /// Shifts string left
 #[inline]
 pub(crate) unsafe fn shift_left_unchecked<const N: usize, F, T>(s: &mut ArrayString<N>, from: F, to: T)
-    where
-        F: Into<usize> + Copy,
-        T: Into<usize> + Copy,
+where
+    F: Into<usize> + Copy,
+    T: Into<usize> + Copy,
 {
     debug_assert!(to.into() <= from.into() && from.into() <= s.len().into());
     debug_assert!(s.as_str().is_char_boundary(from.into()));
@@ -122,9 +134,9 @@ pub(crate) unsafe fn shift_left_unchecked<const N: usize, F, T>(s: &mut ArrayStr
 /// Returns error if size is outside of specified boundary
 #[inline]
 pub fn is_inside_boundary<S, L>(size: S, limit: L) -> Result<(), OutOfBounds>
-    where
-        S: Into<usize>,
-        L: Into<usize>,
+where
+    S: Into<usize>,
+    L: Into<usize>,
 {
     let (s, l) = (size.into(), limit.into());
     (s <= l).then_some(()).ok_or(OutOfBounds)

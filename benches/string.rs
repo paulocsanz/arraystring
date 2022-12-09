@@ -94,6 +94,13 @@ fn small_clone_benchmark(c: &mut Criterion) {
     c.bench_function("small clone", move |b| b.iter(|| string.clone()));
 }
 
+fn small_from_unchecked_benchmark(c: &mut Criterion) {
+    let string = "rrssttuuvvwwxxyyzza";
+    c.bench_function("small from unchecked", move |b| {
+        b.iter(|| unsafe { SmallString::from_str_unchecked(&string) })
+    });
+}
+
 fn small_from_truncate_benchmark(c: &mut Criterion) {
     let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(19).map(char::from).collect();
     c.bench_function("small from truncate", move |b| {
@@ -105,6 +112,16 @@ fn small_try_from_benchmark(c: &mut Criterion) {
     let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(19).map(char::from).collect();
     c.bench_function("small try from", move |b| {
         b.iter(|| SmallString::try_from_str(&rand_string))
+    });
+}
+
+fn small_push_str_unchecked_benchmark(c: &mut Criterion) {
+    let mut string = SmallString::default();
+    c.bench_function("small push str unchecked", move |b| {
+        b.iter(|| unsafe {
+            string.push_str_unchecked("1413121110987654321");
+            string.clear();
+        })
     });
 }
 
@@ -149,6 +166,16 @@ fn cache_try_from_benchmark(c: &mut Criterion) {
     });
 }
 
+fn cache_push_str_unchecked_benchmark(c: &mut Criterion) {
+    let mut string = CacheString::default();
+    c.bench_function("cache push str unchecked", move |b| {
+        b.iter(|| unsafe {
+            string.push_str_unchecked("1413121110987654321");
+            string.clear();
+        })
+    });
+}
+
 fn cache_push_str_benchmark(c: &mut Criterion) {
     let mut string = CacheString::default();
     let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(19).map(char::from).collect();
@@ -176,6 +203,13 @@ fn max_clone_benchmark(c: &mut Criterion) {
     c.bench_function("max clone", move |b| b.iter(|| string.clone()));
 }
 
+fn max_from_unchecked_benchmark(c: &mut Criterion) {
+    let string = "vvvvwwwwxxxxyyyzzzza";
+    c.bench_function("max from unchecked", move |b| {
+        b.iter(|| unsafe { MaxString::from_str_unchecked(&string) })
+    });
+}
+
 fn max_from_truncate_benchmark(c: &mut Criterion) {
     let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(19).map(char::from).collect();
     c.bench_function("max from truncate", move |b| {
@@ -187,6 +221,16 @@ fn max_try_from_benchmark(c: &mut Criterion) {
     let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(19).map(char::from).collect();
     c.bench_function("max try from", move |b| {
         b.iter(|| MaxString::try_from_str(&rand_string).unwrap())
+    });
+}
+
+fn max_push_str_unchecked_benchmark(c: &mut Criterion) {
+    let mut string = MaxString::default();
+    c.bench_function("max push str unchecked", move |b| {
+        b.iter(|| unsafe {
+            string.push_str_unchecked("1413121110987654321");
+            string.clear();
+        })
     });
 }
 
