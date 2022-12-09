@@ -18,23 +18,21 @@ impl<const N: usize> Default for ArrayString<N> {
 impl<const N: usize> AsRef<str> for ArrayString<N> {
     #[inline]
     fn as_ref(&self) -> &str {
-        unsafe { str::from_utf8_unchecked(self.as_ref()) }
+        self.as_str()
     }
 }
 
 impl<const N: usize> AsMut<str> for ArrayString<N> {
     #[inline]
     fn as_mut(&mut self) -> &mut str {
-        let len = self.size as usize;
-        let slice = unsafe { self.array.as_mut_slice().get_unchecked_mut(..len) };
-        unsafe { str::from_utf8_unchecked_mut(slice) }
+        self.as_mut_str()
     }
 }
 
 impl<const N: usize> AsRef<[u8]> for ArrayString<N> {
     #[inline]
     fn as_ref(&self) -> &[u8] {
-        unsafe { self.array.as_slice().get_unchecked(..self.size.into()) }
+        self.as_bytes()
     }
 }
 

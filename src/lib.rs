@@ -41,7 +41,7 @@
 //! ## Examples
 //!
 //! ```rust
-//! use arraystring::{Error, ArrayString};
+//! use arraystring::{Error, prelude::*};
 //!
 //! type Username = ArrayString<20>;
 //! type Role = ArrayString<5>;
@@ -162,10 +162,13 @@ mod implementations;
 mod integration;
 #[doc(hidden)]
 pub mod utils;
+pub mod ext;
 
 /// Most used traits and data-strucutres
 pub mod prelude {
     pub use crate::arraystring::ArrayString;
+    pub use crate::ext::ArrayStringExt;
+    pub use crate::ext::ArrayStringBase;
     pub use crate::drain::Drain;
     pub use crate::error::{OutOfBounds, Utf16, Utf8};
     pub use crate::{CacheString, MaxString, SmallString};
@@ -202,15 +205,13 @@ pub type MaxString = ArrayString<255>;
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "impl-all")))]
 #[cfg(feature = "impl-all")]
 mod cache_string {
-    use super::*;
     use crate::prelude::*;
     use core::fmt::{self, Debug, Display, Formatter, Write};
     use core::{borrow::Borrow, borrow::BorrowMut, ops::*};
     use core::{cmp::Ordering, hash::Hash, hash::Hasher, str::FromStr};
     #[cfg(feature = "diesel-traits")]
     use diesel::{AsExpression, FromSqlRow};
-    #[cfg(feature = "logs")]
-    use log::trace;
+    use crate::Error;
 
     const CACHE_STRING_SIZE: usize = 63;
     /// Newtype string that occupies 64 bytes in memory and is 64 bytes aligned (full cache line)
@@ -233,412 +234,7 @@ mod cache_string {
         /// ```
         #[inline]
         pub fn new() -> Self {
-            trace!("New empty CacheString");
             Self::default()
-        }
-
-        /// Creates new `CacheString` from string slice if length is lower or equal to [`capacity`], otherwise returns an error.
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        /// ```rust
-        /// # use arraystring::{error::Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # let _ = env_logger::try_init();
-        /// let string = CacheString::try_from_str("My String")?;
-        /// assert_eq!(string.as_str(), "My String");
-        ///
-        /// assert_eq!(CacheString::try_from_str("")?.as_str(), "");
-        ///
-        /// let out_of_bounds = "0".repeat(CacheString::capacity() as usize + 1);
-        /// assert!(CacheString::try_from_str(out_of_bounds).is_err());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn try_from_str<S>(s: S) -> Result<Self, OutOfBounds>
-        where
-            S: AsRef<str>,
-        {
-            Ok(CacheString(ArrayString::try_from_str(s)?))
-        }
-
-        /// Creates new `CacheString` from string slice truncating size if bigger than [`capacity`].
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::prelude::*;
-        /// # let _ = env_logger::try_init();
-        /// let string = CacheString::from_str_truncate("My String");
-        /// # assert_eq!(string.as_str(), "My String");
-        /// println!("{}", string);
-        ///
-        /// let truncate = "0".repeat(CacheString::capacity() as usize + 1);
-        /// let truncated = "0".repeat(CacheString::capacity().into());
-        /// let string = CacheString::from_str_truncate(&truncate);
-        /// assert_eq!(string.as_str(), truncated);
-        /// ```
-        #[inline]
-        pub fn from_str_truncate<S>(string: S) -> Self
-        where
-            S: AsRef<str>,
-        {
-            CacheString(ArrayString::from_str_truncate(string))
-        }
-
-        /// Creates new `CacheString` from string slice assuming length is appropriate.
-        ///
-        /// # Safety
-        ///
-        /// It's UB if `string.len()` > [`capacity`].
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::prelude::*;
-        /// let filled = "0".repeat(CacheString::capacity().into());
-        /// let string = unsafe {
-        ///     CacheString::from_str_unchecked(&filled)
-        /// };
-        /// assert_eq!(string.as_str(), filled.as_str());
-        ///
-        /// // Undefined behavior, don't do it
-        /// // let out_of_bounds = "0".repeat(CacheString::capacity().into() + 1);
-        /// // let ub = unsafe { CacheString::from_str_unchecked(out_of_bounds) };
-        /// ```
-        #[inline]
-        pub unsafe fn from_str_unchecked<S>(string: S) -> Self
-        where
-            S: AsRef<str>,
-        {
-            CacheString(ArrayString::from_str_unchecked(string))
-        }
-
-        /// Creates new `CacheString` from string slice iterator if total length is lower or equal to [`capacity`], otherwise returns an error.
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::prelude::*;
-        /// # fn main() -> Result<(), OutOfBounds> {
-        /// let string = CacheString::try_from_iterator(&["My String", " My Other String"][..])?;
-        /// assert_eq!(string.as_str(), "My String My Other String");
-        ///
-        /// let out_of_bounds = (0..100).map(|_| "000");
-        /// assert!(CacheString::try_from_iterator(out_of_bounds).is_err());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn try_from_iterator<U, I>(iter: I) -> Result<Self, OutOfBounds>
-        where
-            U: AsRef<str>,
-            I: IntoIterator<Item = U>,
-        {
-            Ok(CacheString(ArrayString::try_from_iterator(iter)?))
-        }
-
-        /// Creates new `CacheString` from string slice iterator truncating size if bigger than [`capacity`].
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::prelude::*;
-        /// # fn main() -> Result<(), OutOfBounds> {
-        /// # let _ = env_logger::try_init();
-        /// let string = CacheString::from_iterator(&["My String", " Other String"][..]);
-        /// assert_eq!(string.as_str(), "My String Other String");
-        ///
-        /// let out_of_bounds = (0..400).map(|_| "000");
-        /// let truncated = "0".repeat(CacheString::capacity().into());
-        ///
-        /// let truncate = CacheString::from_iterator(out_of_bounds);
-        /// assert_eq!(truncate.as_str(), truncated.as_str());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn from_iterator<U, I>(iter: I) -> Self
-        where
-            U: AsRef<str>,
-            I: IntoIterator<Item = U>,
-        {
-            CacheString(ArrayString::from_iterator(iter))
-        }
-
-        /// Creates new `CacheString` from string slice iterator assuming length is appropriate.
-        ///
-        /// # Safety
-        ///
-        /// It's UB if `iter.map(|c| c.len()).sum()` > [`capacity`].
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::prelude::*;
-        /// let string = unsafe {
-        ///     CacheString::from_iterator_unchecked(&["My String", " My Other String"][..])
-        /// };
-        /// assert_eq!(string.as_str(), "My String My Other String");
-        ///
-        /// // Undefined behavior, don't do it
-        /// // let out_of_bounds = (0..400).map(|_| "000");
-        /// // let undefined_behavior = unsafe {
-        /// //     CacheString::from_iterator_unchecked(out_of_bounds)
-        /// // };
-        /// ```
-        #[inline]
-        pub unsafe fn from_iterator_unchecked<U, I>(iter: I) -> Self
-        where
-            U: AsRef<str>,
-            I: IntoIterator<Item = U>,
-        {
-            CacheString(ArrayString::from_iterator_unchecked(iter))
-        }
-
-        /// Creates new `CacheString` from char iterator if total length is lower or equal to [`capacity`], otherwise returns an error.
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::{error::Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # let _ = env_logger::try_init();
-        /// let string = CacheString::try_from_chars("My String".chars())?;
-        /// assert_eq!(string.as_str(), "My String");
-        ///
-        /// let out_of_bounds = "0".repeat(CacheString::capacity() as usize + 1);
-        /// assert!(CacheString::try_from_chars(out_of_bounds.chars()).is_err());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn try_from_chars<I>(iter: I) -> Result<Self, OutOfBounds>
-        where
-            I: IntoIterator<Item = char>,
-        {
-            Ok(CacheString(ArrayString::try_from_chars(iter)?))
-        }
-
-        /// Creates new `CacheString` from char iterator truncating size if bigger than [`capacity`].
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::prelude::*;
-        /// # let _ = env_logger::try_init();
-        /// let string = CacheString::from_chars("My String".chars());
-        /// assert_eq!(string.as_str(), "My String");
-        ///
-        /// let out_of_bounds = "0".repeat(CacheString::capacity() as usize + 1);
-        /// let truncated = "0".repeat(CacheString::capacity().into());
-        ///
-        /// let truncate = CacheString::from_chars(out_of_bounds.chars());
-        /// assert_eq!(truncate.as_str(), truncated.as_str());
-        /// ```
-        #[inline]
-        pub fn from_chars<I>(iter: I) -> Self
-        where
-            I: IntoIterator<Item = char>,
-        {
-            CacheString(ArrayString::from_chars(iter))
-        }
-
-        /// Creates new `CacheString` from char iterator assuming length is appropriate.
-        ///
-        /// # Safety
-        ///
-        /// It's UB if `iter.map(|c| c.len_utf8()).sum()` > [`capacity`].
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::prelude::*;
-        /// let string = unsafe { CacheString::from_chars_unchecked("My String".chars()) };
-        /// assert_eq!(string.as_str(), "My String");
-        ///
-        /// // Undefined behavior, don't do it
-        /// // let out_of_bounds = "000".repeat(400);
-        /// // let undefined_behavior = unsafe { CacheString::from_chars_unchecked(out_of_bounds.chars()) };
-        /// ```
-        #[inline]
-        pub unsafe fn from_chars_unchecked<I>(iter: I) -> Self
-        where
-            I: IntoIterator<Item = char>,
-        {
-            CacheString(ArrayString::from_chars_unchecked(iter))
-        }
-
-        /// Creates new `CacheString` from byte slice, returning [`Utf8`] on invalid utf-8 data or [`OutOfBounds`] if bigger than [`capacity`]
-        ///
-        /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
-        /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::{error::Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # let _ = env_logger::try_init();
-        /// let string = CacheString::try_from_utf8("My String")?;
-        /// assert_eq!(string.as_str(), "My String");
-        ///
-        /// let invalid_utf8 = [0, 159, 146, 150];
-        /// assert_eq!(CacheString::try_from_utf8(invalid_utf8), Err(Error::Utf8));
-        ///
-        /// let out_of_bounds = "0000".repeat(400);
-        /// assert_eq!(CacheString::try_from_utf8(out_of_bounds.as_bytes()), Err(Error::OutOfBounds));
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn try_from_utf8<B>(slice: B) -> Result<Self, Error>
-        where
-            B: AsRef<[u8]>,
-        {
-            Ok(CacheString(ArrayString::try_from_utf8(slice)?))
-        }
-
-        /// Creates new `CacheString` from byte slice, returning [`Utf8`] on invalid utf-8 data, truncating if bigger than [`capacity`].
-        ///
-        /// [`Utf8`]: ./error/struct.Utf8.html
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::{error::Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # let _ = env_logger::try_init();
-        /// let string = CacheString::from_utf8("My String")?;
-        /// assert_eq!(string.as_str(), "My String");
-        ///
-        /// let invalid_utf8 = [0, 159, 146, 150];
-        /// assert_eq!(CacheString::from_utf8(invalid_utf8), Err(Utf8));
-        ///
-        /// let out_of_bounds = "0".repeat(300);
-        /// assert_eq!(CacheString::from_utf8(out_of_bounds.as_bytes())?.as_str(),
-        ///            "0".repeat(CacheString::capacity().into()).as_str());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn from_utf8<B>(slice: B) -> Result<Self, Utf8>
-        where
-            B: AsRef<[u8]>,
-        {
-            Ok(CacheString(ArrayString::from_utf8(slice)?))
-        }
-
-        /// Creates new `CacheString` from byte slice assuming it's utf-8 and of a appropriate size.
-        ///
-        /// # Safety
-        ///
-        /// It's UB if `slice` is not a valid utf-8 string or `slice.len()` > [`capacity`].
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::prelude::*;
-        /// let string = unsafe { CacheString::from_utf8_unchecked("My String") };
-        /// assert_eq!(string.as_str(), "My String");
-        ///
-        /// // Undefined behavior, don't do it
-        /// // let out_of_bounds = "0".repeat(300);
-        /// // let ub = unsafe { CacheString::from_utf8_unchecked(out_of_bounds)) };
-        /// ```
-        #[inline]
-        pub unsafe fn from_utf8_unchecked<B>(slice: B) -> Self
-        where
-            B: AsRef<[u8]>,
-        {
-            CacheString(ArrayString::from_utf8_unchecked(slice))
-        }
-
-        /// Creates new `CacheString` from `u16` slice, returning [`Utf16`] on invalid utf-16 data or [`OutOfBounds`] if bigger than [`capacity`]
-        ///
-        /// [`Utf16`]: ./error/enum.Error.html#variant.Utf16
-        /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::{error::Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # let _ = env_logger::try_init();
-        /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
-        /// let string = CacheString::try_from_utf16(music)?;
-        /// assert_eq!(string.as_str(), "𝄞music");
-        ///
-        /// let invalid_utf16 = [0xD834, 0xDD1E, 0x006d, 0x0075, 0xD800, 0x0069, 0x0063];
-        /// assert_eq!(CacheString::try_from_utf16(invalid_utf16), Err(Error::Utf16));
-        ///
-        /// let out_of_bounds: Vec<_> = (0..300).map(|_| 0).collect();
-        /// assert_eq!(CacheString::try_from_utf16(out_of_bounds), Err(Error::OutOfBounds));
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn try_from_utf16<B>(slice: B) -> Result<Self, Error>
-        where
-            B: AsRef<[u16]>,
-        {
-            Ok(CacheString(ArrayString::try_from_utf16(slice)?))
-        }
-
-        /// Creates new `CacheString` from `u16` slice, returning [`Utf16`] on invalid utf-16 data, truncating if bigger than [`capacity`].
-        ///
-        /// [`Utf16`]: ./error/struct.Utf16.html
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::{error::Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # let _ = env_logger::try_init();
-        /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
-        /// let string = CacheString::from_utf16(music)?;
-        /// assert_eq!(string.as_str(), "𝄞music");
-        ///
-        /// let invalid_utf16 = [0xD834, 0xDD1E, 0x006d, 0x0075, 0xD800, 0x0069, 0x0063];
-        /// assert_eq!(CacheString::from_utf16(invalid_utf16), Err(Utf16));
-        ///
-        /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
-        /// assert_eq!(CacheString::from_utf16(out_of_bounds)?.as_str(),
-        ///            "\0".repeat(CacheString::capacity().into()).as_str());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn from_utf16<B>(slice: B) -> Result<Self, Utf16>
-        where
-            B: AsRef<[u16]>,
-        {
-            Ok(CacheString(ArrayString::from_utf16(slice)?))
-        }
-
-        /// Creates new `CacheString` from `u16` slice, replacing invalid utf-16 data with `REPLACEMENT_CHARACTER` (\u{FFFD}) and truncating size if bigger than [`capacity`]
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::{error::Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # let _ = env_logger::try_init();
-        /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
-        /// let string = CacheString::from_utf16_lossy(music);
-        /// assert_eq!(string.as_str(), "𝄞music");
-        ///
-        /// let invalid_utf16 = [0xD834, 0xDD1E, 0x006d, 0x0075, 0xD800, 0x0069, 0x0063];
-        /// assert_eq!(CacheString::from_utf16_lossy(invalid_utf16).as_str(), "𝄞mu\u{FFFD}ic");
-        ///
-        /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
-        /// assert_eq!(CacheString::from_utf16_lossy(&out_of_bounds).as_str(),
-        ///            "\0".repeat(CacheString::capacity().into()).as_str());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn from_utf16_lossy<B>(slice: B) -> Self
-        where
-            B: AsRef<[u16]>,
-        {
-            CacheString(ArrayString::from_utf16_lossy(slice))
         }
 
         /// Returns maximum string capacity, defined at compile time, it will never change
@@ -652,31 +248,66 @@ mod cache_string {
         /// ```
         #[inline]
         pub const fn capacity() -> u8 {
-            CACHE_STRING_SIZE as u8
+            ArrayString::<CACHE_STRING_SIZE>::capacity()
         }
 
-        /// Splits `CacheString` in two if `at` is smaller than `self.len()`.
+
+        /// Creates a draining iterator that removes the specified range in the `CacheString` and yields the removed chars.
         ///
-        /// Returns [`Utf8`] if `at` does not lie at a valid utf-8 char boundary and [`OutOfBounds`] if it's out of bounds
-        ///
-        /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
-        /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
+        /// Note: The element range is removed even if the iterator is not consumed until the end.
         ///
         /// ```rust
         /// # use arraystring::{error::Error, prelude::*};
         /// # fn main() -> Result<(), Error> {
         /// # let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("AB🤔CD")?;
-        /// assert_eq!(s.split_off(6)?.as_str(), "CD");
-        /// assert_eq!(s.as_str(), "AB🤔");
-        /// assert_eq!(s.split_off(20), Err(Error::OutOfBounds));
-        /// assert_eq!(s.split_off(4), Err(Error::Utf8));
+        /// let mut s = CacheString::try_from_str("ABCD🤔")?;
+        /// assert_eq!(s.drain(..3)?.collect::<Vec<_>>(), vec!['A', 'B', 'C']);
+        /// assert_eq!(s.as_str(), "D🤔");
+        ///
+        /// assert_eq!(s.drain(3..), Err(Error::Utf8));
+        /// assert_eq!(s.drain(10..), Err(Error::OutOfBounds));
         /// # Ok(())
         /// # }
         /// ```
         #[inline]
-        pub fn split_off(&mut self, at: u8) -> Result<Self, Error> {
-            Ok(CacheString(self.0.split_off(at)?))
+        pub fn drain<R>(&mut self, range: R) -> Result<Drain<CACHE_STRING_SIZE>, Error>
+            where
+                R: RangeBounds<u8>,
+        {
+            self.0.drain(range)
+        }
+    }
+
+    impl ArrayStringBase for CacheString {
+
+        #[inline]
+        fn len(&self) -> u8 {
+            self.size
+        }
+
+        #[inline]
+        fn capacity() -> u8 {
+            Self::capacity()
+        }
+
+        #[inline]
+        fn new() -> Self {
+            Self::new()
+        }
+
+        #[inline]
+        unsafe fn raw_bytes(&self) -> &[u8] {
+            &self.array
+        }
+
+        #[inline]
+        unsafe fn raw_bytes_mut(&mut self) -> &mut [u8] {
+            &mut self.array
+        }
+
+        #[inline]
+        unsafe fn set_len_unchecked(&mut self, len: u8) {
+            self.size = len;
         }
     }
 
