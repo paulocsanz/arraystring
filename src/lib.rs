@@ -210,7 +210,7 @@ mod cache_string {
         derive(diesel::AsExpression, diesel::FromSqlRow)
     )]
     #[cfg_attr(feature = "diesel-traits", diesel(sql_type = diesel::sql_types::Text))]
-    pub struct CacheString(pub (crate) ArrayString<CACHE_STRING_SIZE>);
+    pub struct CacheString(pub(crate) ArrayString<CACHE_STRING_SIZE>);
 
     impl CacheString {
         /// Creates new empty `CacheString`.

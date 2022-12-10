@@ -1,6 +1,6 @@
 //! Misc functions to improve readability
 
-use crate::prelude::*;
+use crate::{arraystring::sealed::ValidCapacity, prelude::*};
 use core::ptr::copy;
 #[cfg(feature = "logs")]
 use log::{debug, trace};
@@ -38,7 +38,9 @@ pub(crate) unsafe fn encode_char_utf8_unchecked<const N: usize>(
     s: &mut ArrayString<N>,
     ch: char,
     index: u8,
-) {
+) where
+    ArrayString<N>: ValidCapacity,
+{
     // UTF-8 ranges and tags for encoding characters
     #[allow(clippy::missing_docs_in_private_items)]
     const TAG_CONT: u8 = 0b1000_0000;
@@ -110,6 +112,7 @@ pub(crate) unsafe fn shift_right_unchecked<const N: usize, F, T>(
     from: F,
     to: T,
 ) where
+    ArrayString<N>: ValidCapacity,
     F: Into<usize> + Copy,
     T: Into<usize> + Copy,
 {
@@ -126,6 +129,7 @@ pub(crate) unsafe fn shift_left_unchecked<const N: usize, F, T>(
     from: F,
     to: T,
 ) where
+    ArrayString<N>: ValidCapacity,
     F: Into<usize> + Copy,
     T: Into<usize> + Copy,
 {
@@ -150,7 +154,10 @@ where
 
 /// Returns error if index is not at a valid utf-8 char boundary
 #[inline]
-pub fn is_char_boundary<const N: usize>(s: &ArrayString<N>, idx: u8) -> Result<(), Utf8> {
+pub fn is_char_boundary<const N: usize>(s: &ArrayString<N>, idx: u8) -> Result<(), Utf8>
+where
+    ArrayString<N>: ValidCapacity,
+{
     trace!("Is char boundary: {} at {}", s.as_str(), idx);
     if s.as_str().is_char_boundary(idx.into()) {
         return Ok(());
