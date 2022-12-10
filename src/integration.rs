@@ -27,6 +27,7 @@ mod diesel_impl {
         fn from_sql(bytes: RawValue<'_, DB>) -> deserialize::Result<Self> {
             let ptr = <*const str as FromSql<ST, DB>>::from_sql(bytes)?;
             // We know that the pointer impl will never return null
+            debug_assert!(!ptr.is_null());
             Ok(Self::from_str_truncate(unsafe { &*ptr }))
         }
     }

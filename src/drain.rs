@@ -2,7 +2,7 @@
 //!
 //! [`ArrayString`]: ../struct.ArrayString.html
 
-use crate::{arraystring::sealed::ValidCapacity, prelude::*, utils::IntoLossy};
+use crate::{arraystring::sealed::ValidCapacity, prelude::*};
 use core::fmt::{self, Debug, Formatter};
 use core::{cmp::Ordering, hash::Hash, hash::Hasher, iter::FusedIterator};
 
@@ -95,7 +95,7 @@ where
     /// Extracts string slice containing the remaining characters of `Drain`.
     #[inline]
     pub fn as_str(&self) -> &str {
-        unsafe { self.0.as_str().get_unchecked(self.1.into()..) }
+        self.0.as_str()
     }
 }
 
@@ -107,14 +107,7 @@ where
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        self.0
-            .as_str()
-            .get(self.1.into()..)
-            .and_then(|s| s.chars().next())
-            .map(|c| {
-                self.1 = self.1.saturating_add(c.len_utf8().into_lossy());
-                c
-            })
+        self.0.remove(0).ok()
     }
 }
 

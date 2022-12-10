@@ -24,6 +24,7 @@ where
 {
     #[inline]
     fn as_ref(&self) -> &str {
+        debug_assert!(str::from_utf8(self.as_ref()).is_ok());
         unsafe { str::from_utf8_unchecked(self.as_ref()) }
     }
 }
@@ -34,8 +35,10 @@ where
 {
     #[inline]
     fn as_mut(&mut self) -> &mut str {
+        debug_assert!((self.size as usize) < N);
         let len = self.size as usize;
         let slice = unsafe { self.array.as_mut_slice().get_unchecked_mut(..len) };
+        debug_assert!(str::from_utf8(slice).is_ok());
         unsafe { str::from_utf8_unchecked_mut(slice) }
     }
 }
@@ -46,6 +49,7 @@ where
 {
     #[inline]
     fn as_ref(&self) -> &[u8] {
+        debug_assert!((self.size as usize) < N);
         unsafe { self.array.as_slice().get_unchecked(..self.size.into()) }
     }
 }
