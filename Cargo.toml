@@ -27,6 +27,7 @@ criterion = "0.2"
 env_logger = "0.5"
 serde = { version = "1.0", features = ["derive"] }
 diesel = { version = "2", features = ["sqlite", "postgres", "mysql"] }
+rand = "0.8.5"
 
 [dependencies]
 typenum = "1"
