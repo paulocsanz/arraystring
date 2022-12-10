@@ -3,23 +3,26 @@
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
 #[cfg(feature = "diesel-traits")]
 mod diesel_impl {
-    pub use crate::prelude::*;
+    pub use crate::{arraystring::sealed::ValidCapacity, prelude::*};
 
     #[cfg(feature = "std")]
     pub use std::io::Write;
 
-    #[cfg(feature = "std")]
     pub use diesel::serialize::{self, Output, ToSql};
 
     pub use diesel::backend::Backend;
-    use diesel::backend::RawValue;
+    pub use diesel::backend::RawValue;
     pub use diesel::deserialize::{self, FromSql, FromSqlRow, Queryable};
-    pub use diesel::{expression::*, prelude::*, query_builder::*, row::Row, sql_types::*};
+    pub use diesel::{
+        expression::*, internal::derives::as_expression::Bound, query_builder::*, row::Row,
+        sql_types::*,
+    };
 
     impl<const N: usize, ST, DB> FromSql<ST, DB> for ArrayString<N>
     where
         DB: Backend,
         *const str: FromSql<ST, DB>,
+        Self: ValidCapacity,
     {
         fn from_sql(bytes: RawValue<'_, DB>) -> deserialize::Result<Self> {
             let ptr = <*const str as FromSql<ST, DB>>::from_sql(bytes)?;
@@ -27,13 +30,11 @@ mod diesel_impl {
             Ok(Self::from_str_truncate(unsafe { &*ptr }))
         }
     }
-
-    #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "std")))]
-    #[cfg(feature = "std")]
-    impl<const N: usize, DB> ToSql<VarChar, DB> for ArrayString<N>
+    impl<const N: usize, DB> ToSql<Text, DB> for ArrayString<N>
     where
         DB: Backend,
-        str: ToSql<VarChar, DB>,
+        str: ToSql<Text, DB>,
+        Self: ValidCapacity,
     {
         fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, DB>) -> serialize::Result {
             self.as_str().to_sql(out)
@@ -51,44 +52,45 @@ mod diesel_impl {
         }
     }
 
-    impl<DB> ToSql<VarChar, DB> for CacheString
+    impl<DB> ToSql<Text, DB> for CacheString
     where
         DB: Backend,
-        str: ToSql<VarChar, DB>,
+        str: ToSql<Text, DB>,
     {
         #[inline]
         fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, DB>) -> serialize::Result {
-            ToSql::<VarChar, DB>::to_sql(&self.0, out)
+            ToSql::<Text, DB>::to_sql(&self.0, out)
         }
     }
 }
 
+#[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
+#[cfg(feature = "serde-traits")]
 mod serde_impl {
-    pub use crate::prelude::*;
+    pub use crate::{arraystring::sealed::ValidCapacity, prelude::*};
 
-    #[cfg(feature = "serde-traits")]
     pub use serde::{de::Deserializer, ser::Serializer, Deserialize, Serialize};
 
-    #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
-    #[cfg(feature = "serde-traits")]
-    impl<const N: usize> Serialize for ArrayString<N> {
+    impl<const N: usize> Serialize for ArrayString<N>
+    where
+        Self: ValidCapacity,
+    {
         #[inline]
         fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
             Serialize::serialize(self.as_str(), ser)
         }
     }
 
-    #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
-    #[cfg(feature = "serde-traits")]
-    impl<'a, const N: usize> Deserialize<'a> for ArrayString<N> {
+    impl<'a, const N: usize> Deserialize<'a> for ArrayString<N>
+    where
+        Self: ValidCapacity,
+    {
         #[inline]
         fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
             <&str>::deserialize(des).map(Self::from_str_truncate)
         }
     }
 
-    #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
-    #[cfg(feature = "serde-traits")]
     impl Serialize for CacheString {
         #[inline]
         fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
@@ -96,8 +98,6 @@ mod serde_impl {
         }
     }
 
-    #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
-    #[cfg(feature = "serde-traits")]
     impl<'a> Deserialize<'a> for CacheString {
         #[inline]
         fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
@@ -165,7 +165,7 @@ mod tests {
     }
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
-    use diesel::{dsl, insert_into, mysql, pg};
+    use diesel::{dsl, insert_into, mysql, pg, prelude::*};
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
     table! {
@@ -183,7 +183,7 @@ mod tests {
         pub name: ArrayString<32>,
     }
 
-    #[cfg(feature = "diesel-traits")]
+    #[cfg(all(feature = "diesel-traits", feature = "std"))]
     #[derive(AsChangeset, Identifiable, Queryable, QueryableByName, Insertable, Clone, Debug)]
     #[diesel(table_name = derives)]
     struct Derive2Diesel {
@@ -268,6 +268,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(all(feature = "diesel-traits", feature = "std"))]
     fn diesel_derive2_query_sqlite() {
         let mut conn = diesel::sqlite::SqliteConnection::establish(":memory:").unwrap();
         let _ = diesel::sql_query("CREATE TABLE derives (id INTEGER, name VARCHAR(32));")
