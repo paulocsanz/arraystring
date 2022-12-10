@@ -73,14 +73,14 @@ fn arrayvec_push_str_benchmark(c: &mut Criterion) {
 }
 
 fn smallvecstring_clone_benchmark(c: &mut Criterion) {
-    let string = SmallVecString::<[u8;20]>::from("xhduibabicemlatdhue");
+    let string = SmallVecString::<[u8; 20]>::from("xhduibabicemlatdhue");
     c.bench_function("smallvecstring clone", move |b| b.iter(|| string.clone()));
 }
 
 fn smallvecstring_from_benchmark(c: &mut Criterion) {
     let string = "audshaisdhaisduo8";
     c.bench_function("smallvecstring from", move |b| {
-        b.iter(|| SmallVecString::<[u8;20]>::from(string))
+        b.iter(|| SmallVecString::<[u8; 20]>::from(string))
     });
 }
 

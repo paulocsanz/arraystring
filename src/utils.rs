@@ -105,8 +105,11 @@ unsafe fn shift_unchecked(s: &mut [u8], from: usize, to: usize, len: usize) {
 ///
 /// [`<S as Unsigned>::to_u8()`]: ../struct.ArrayString.html#CAPACITY
 #[inline]
-pub(crate) unsafe fn shift_right_unchecked<const N: usize, F, T>(s: &mut ArrayString<N>, from: F, to: T)
-where
+pub(crate) unsafe fn shift_right_unchecked<const N: usize, F, T>(
+    s: &mut ArrayString<N>,
+    from: F,
+    to: T,
+) where
     F: Into<usize> + Copy,
     T: Into<usize> + Copy,
 {
@@ -118,8 +121,11 @@ where
 
 /// Shifts string left
 #[inline]
-pub(crate) unsafe fn shift_left_unchecked<const N: usize, F, T>(s: &mut ArrayString<N>, from: F, to: T)
-where
+pub(crate) unsafe fn shift_left_unchecked<const N: usize, F, T>(
+    s: &mut ArrayString<N>,
+    from: F,
+    to: T,
+) where
     F: Into<usize> + Copy,
     T: Into<usize> + Copy,
 {
@@ -190,6 +196,8 @@ mod tests {
     use super::*;
     use core::str::from_utf8;
 
+    type TestString = ArrayString<23>;
+
     #[test]
     fn truncate() {
         assert_eq!(truncate_str("i", 10), "i");
@@ -200,7 +208,7 @@ mod tests {
     #[test]
     fn shift_right() {
         let _ = env_logger::try_init();
-        let mut ls = SmallString::try_from_str("abcdefg").unwrap();
+        let mut ls = TestString::try_from_str("abcdefg").unwrap();
         unsafe { shift_right_unchecked(&mut ls, 0u8, 4u8) };
         ls.size += 4;
         assert_eq!(ls.as_str(), "abcdabcdefg");
@@ -209,7 +217,7 @@ mod tests {
     #[test]
     fn shift_left() {
         let _ = env_logger::try_init();
-        let mut ls = SmallString::try_from_str("abcdefg").unwrap();
+        let mut ls = TestString::try_from_str("abcdefg").unwrap();
         unsafe { shift_left_unchecked(&mut ls, 1u8, 0u8) };
         ls.size -= 1;
         assert_eq!(ls.as_str(), "bcdefg");
@@ -218,7 +226,7 @@ mod tests {
     #[test]
     fn shift_nop() {
         let _ = env_logger::try_init();
-        let mut ls = SmallString::try_from_str("abcdefg").unwrap();
+        let mut ls = TestString::try_from_str("abcdefg").unwrap();
         unsafe { shift_right_unchecked(&mut ls, 0u8, 0u8) };
         assert_eq!(ls.as_str(), "abcdefg");
         unsafe { shift_left_unchecked(&mut ls, 0u8, 0u8) };
@@ -228,11 +236,11 @@ mod tests {
     #[test]
     fn encode_char_utf8() {
         let _ = env_logger::try_init();
-        let mut string = SmallString::default();
+        let mut string = TestString::default();
         unsafe {
             encode_char_utf8_unchecked(&mut string, 'a', 0);
             assert_eq!(from_utf8(&string.array.as_mut_slice()[..1]).unwrap(), "a");
-            let mut string = SmallString::try_from_str("a").unwrap();
+            let mut string = TestString::try_from_str("a").unwrap();
 
             encode_char_utf8_unchecked(&mut string, '🤔', 1);
             assert_eq!(from_utf8(&string.array.as_mut_slice()[..5]).unwrap(), "a🤔");

@@ -29,15 +29,13 @@ serde = { version = "1.0", features = ["derive"] }
 diesel = { version = "2", features = ["sqlite", "postgres", "mysql"] }
 
 [dependencies]
-typenum = "1"
 log = { version = "0.4", optional = true }
 serde = { version = "1", optional = true }
 diesel = { version = "2", optional = true }
 
 [features]
-default = ["std", "impl-all"]
+default = ["std"]
 std = []
-impl-all = []
 logs = ["log"]
 serde-traits = ["serde"]
 diesel-traits = ["diesel"]

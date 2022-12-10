@@ -6,6 +6,8 @@ Fixed capacity stack based generic string
 
 Can't outgrow initial capacity (defined at compile time), always occupies `capacity` `+ 1` bytes of memory
 
+*Maximum Capacity is 255*
+
 *Doesn't allocate memory on the heap and never panics in release (all panic branches are stripped at compile time - except `Index`/`IndexMut` traits, since they are supposed to)*
 
 * [Documentation](https://docs.rs/arraystring/0.3.0/arraystring)
@@ -18,23 +20,22 @@ Why pay the cost of heap allocations of strings with unlimited capacity if you h
 
 Stack based strings are generally faster to create, clone and append to than heap based strings (custom allocators and thread-locals may help with heap based ones).
 
-But that becomes less true as you increase the array size, `CacheString` occuppies a full cache line, 255 bytes is the maximum we accept - `MaxString` (bigger will just wrap) and it's probably already slower than heap based strings of that size (like in `std::string::String`)
+But that becomes less true as you increase the array size, `CacheString` occuppies a full cache line, 255 bytes is the maximum we accept - `MaxString` and it's probably already slower than heap based strings of that size (like in `std::string::String`)
 
 There are other stack based strings out there, they generally can have "unlimited" capacity (heap allocate), but the stack based size is defined by the library implementor, we go through a different route by implementing a string based in a generic array.
 
-Array based strings always occupies the full space in memory, so they may use more memory (in the stack) than dynamic strings.
+Array based strings always occupies the full space in memory, so they may use more memory (although in the stack) than dynamic strings.
 
 ## Features
 
- **default:** `std`, `impl-all`
+ **default:** `std`
 
- - `std` enabled by default, enables `std` compatibility - `impl Error` trait for errors (remove it to be `#[no_std]` compatible)
- - `impl-all` enabled by default, automatically implements `ArrayString` for every single possible size (1 to 255), it make make compile times longer, so you may disable it and manually call `impl_generic_array!` for the sizes wanted
+ - `std` enabled by default, enables `std` compatibility, implementing std trait (disable it to be `#[no_std]` compatible)
  - `serde-traits` enables serde traits integration (`Serialize`/`Deserialize`)
 
      Opperates like `String`, but truncates it if it's bigger than capacity
 
- - `diesel-traits` enables diesel traits integration (`Insertable`/`Queryable`)
+ - `diesel-traits` enables diesel traits integration
 
      Opperates like `String`, but truncates it if it's bigger than capacity
 

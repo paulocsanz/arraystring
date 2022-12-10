@@ -64,7 +64,7 @@ impl<const N: usize> Debug for ArrayString<N> {
     }
 }
 
-impl<'a, 'b, const N: usize> PartialEq<str> for ArrayString<N> {
+impl<const N: usize> PartialEq<str> for ArrayString<N> {
     #[inline]
     fn eq(&self, other: &str) -> bool {
         self.as_str().eq(other)
@@ -120,7 +120,7 @@ impl<'a, const N: usize> Add<&'a str> for ArrayString<N> {
 
     #[inline]
     fn add(mut self, other: &str) -> Self::Output {
-        self.push_str(other);
+        self.push_str_truncate(other);
         self
     }
 }
@@ -156,32 +156,32 @@ impl<const N: usize> DerefMut for ArrayString<N> {
 }
 
 impl<const N: usize> FromIterator<char> for ArrayString<N> {
-    fn from_iter<I: IntoIterator<Item=char>>(iter: I) -> Self {
-        Self::from_chars(iter)
+    fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> Self {
+        Self::from_chars_truncate(iter)
     }
 }
 
 impl<'a, const N: usize> FromIterator<&'a str> for ArrayString<N> {
-    fn from_iter<I: IntoIterator<Item=&'a str>>(iter: I) -> Self {
-        Self::from_iterator(iter)
+    fn from_iter<I: IntoIterator<Item = &'a str>>(iter: I) -> Self {
+        Self::from_iterator_truncate(iter)
     }
 }
 
 impl<const N: usize> Extend<char> for ArrayString<N> {
-    fn extend<I: IntoIterator<Item=char>>(&mut self, iterable: I) {
-        self.push_str(Self::from_chars(iterable))
+    fn extend<I: IntoIterator<Item = char>>(&mut self, iterable: I) {
+        self.push_str_truncate(Self::from_chars_truncate(iterable))
     }
 }
 
 impl<'a, const N: usize> Extend<&'a char> for ArrayString<N> {
-    fn extend<I: IntoIterator<Item=&'a char>>(&mut self, iter: I) {
+    fn extend<I: IntoIterator<Item = &'a char>>(&mut self, iter: I) {
         self.extend(iter.into_iter().cloned());
     }
 }
 
 impl<'a, const N: usize> Extend<&'a str> for ArrayString<N> {
-    fn extend<I: IntoIterator<Item=&'a str>>(&mut self, iterable: I) {
-        self.push_str(Self::from_iterator(iterable))
+    fn extend<I: IntoIterator<Item = &'a str>>(&mut self, iterable: I) {
+        self.push_str_truncate(Self::from_iterator_truncate(iterable))
     }
 }
 

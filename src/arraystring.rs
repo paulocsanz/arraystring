@@ -2,16 +2,14 @@
 
 use crate::utils::{encode_char_utf8_unchecked, is_char_boundary, is_inside_boundary, never};
 use crate::utils::{shift_left_unchecked, shift_right_unchecked, truncate_str, IntoLossy};
-use crate::{error::Error, prelude::*};
+use crate::{prelude::*, Error};
 use core::char::{decode_utf16, REPLACEMENT_CHARACTER};
 use core::str::{from_utf8, from_utf8_unchecked};
 use core::{cmp::min, ops::*, ptr::copy_nonoverlapping};
-#[cfg(feature = "diesel-traits")]
-use diesel::{AsExpression, FromSqlRow};
 #[cfg(feature = "logs")]
 use log::{debug, trace};
 
-/// String based on a generic array (size defined at compile time through `typenum`)
+/// String based on a generic array (size defined at compile time through `const generics`)
 ///
 /// Can't outgrow capacity (defined at compile time), always occupies [`capacity`] `+ 1` bytes of memory
 ///
@@ -19,7 +17,10 @@ use log::{debug, trace};
 ///
 /// [`capacity`]: ./struct.ArrayString.html#method.capacity
 #[derive(Copy, Clone)]
-#[cfg_attr(feature = "diesel-traits", derive(AsExpression, FromSqlRow))]
+#[cfg_attr(
+    feature = "diesel-traits",
+    derive(diesel::AsExpression, diesel::FromSqlRow)
+)]
 #[cfg_attr(feature = "diesel-traits", diesel(sql_type = diesel::sql_types::Text))]
 pub struct ArrayString<const N: usize> {
     /// Array type corresponding to specified `SIZE`
@@ -34,12 +35,11 @@ impl<const N: usize> ArrayString<N> {
     /// ```rust
     /// # use arraystring::prelude::*;
     /// # let _ = env_logger::try_init();
-    /// let string = SmallString::new();
+    /// let string = ArrayString::<23>::new();
     /// assert!(string.is_empty());
     /// ```
     #[inline]
     pub const fn new() -> Self {
-        // trace!("New empty ArrayString"); <-- why sacrifice consts for traces...
         Self {
             array: [0; N],
             size: 0,
@@ -50,28 +50,25 @@ impl<const N: usize> ArrayString<N> {
     ///
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let string = SmallString::try_from_str("My String")?;
+    /// let string = ArrayString::<23>::try_from_str("My String")?;
     /// assert_eq!(string.as_str(), "My String");
     ///
-    /// assert_eq!(SmallString::try_from_str("")?.as_str(), "");
+    /// assert_eq!(ArrayString::<23>::try_from_str("")?.as_str(), "");
     ///
-    /// let out_of_bounds = "0".repeat(SmallString::capacity() as usize + 1);
-    /// assert!(SmallString::try_from_str(out_of_bounds).is_err());
+    /// let out_of_bounds = "0".repeat(ArrayString::<23>::capacity() as usize + 1);
+    /// assert!(ArrayString::<23>::try_from_str(out_of_bounds).is_err());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn try_from_str<S>(s: S) -> Result<Self, OutOfBounds>
-    where
-        S: AsRef<str>,
-    {
-        trace!("Try from str: {:?}", s.as_ref());
-        let mut string = Self::new();
-        string.try_push_str(s)?;
-        Ok(string)
+    pub fn try_from_str(string: impl AsRef<str>) -> Result<Self, OutOfBounds> {
+        trace!("Try from str: {}", string.as_ref());
+        let mut s = Self::new();
+        s.try_push_str(string)?;
+        Ok(s)
     }
 
     /// Creates new `ArrayString` from string slice truncating size if bigger than [`capacity`].
@@ -81,23 +78,20 @@ impl<const N: usize> ArrayString<N> {
     /// ```rust
     /// # use arraystring::prelude::*;
     /// # let _ = env_logger::try_init();
-    /// let string = SmallString::from_str_truncate("My String");
+    /// let string = ArrayString::<23>::from_str_truncate("My String");
     /// # assert_eq!(string.as_str(), "My String");
     /// println!("{}", string);
     ///
-    /// let truncate = "0".repeat(SmallString::capacity() as usize + 1);
-    /// let truncated = "0".repeat(SmallString::capacity().into());
-    /// let string = SmallString::from_str_truncate(&truncate);
+    /// let truncate = "0".repeat(ArrayString::<23>::capacity() as usize + 1);
+    /// let truncated = "0".repeat(ArrayString::<23>::capacity().into());
+    /// let string = ArrayString::<23>::from_str_truncate(&truncate);
     /// assert_eq!(string.as_str(), truncated);
     /// ```
     #[inline]
-    pub fn from_str_truncate<S>(string: S) -> Self
-    where
-        S: AsRef<str>,
-    {
-        trace!("FromStr truncate");
+    pub fn from_str_truncate(string: impl AsRef<str>) -> Self {
+        trace!("FromStr truncate: {}", string.as_ref());
         let mut s = Self::new();
-        s.push_str(string);
+        s.push_str_truncate(string);
         s
     }
 
@@ -111,25 +105,22 @@ impl<const N: usize> ArrayString<N> {
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// let filled = "0".repeat(SmallString::capacity().into());
+    /// let filled = "0".repeat(ArrayString::<23>::capacity().into());
     /// let string = unsafe {
-    ///     SmallString::from_str_unchecked(&filled)
+    ///     ArrayString::<23>::from_str_unchecked(&filled)
     /// };
     /// assert_eq!(string.as_str(), filled.as_str());
     ///
     /// // Undefined behavior, don't do it
-    /// // let out_of_bounds = "0".repeat(SmallString::capacity().into() + 1);
-    /// // let ub = unsafe { SmallString::from_str_unchecked(out_of_bounds) };
+    /// // let out_of_bounds = "0".repeat(ArrayString::<23>::capacity().into() + 1);
+    /// // let ub = unsafe { ArrayString::<23>::from_str_unchecked(out_of_bounds) };
     /// ```
     #[inline]
-    pub unsafe fn from_str_unchecked<S>(string: S) -> Self
-    where
-        S: AsRef<str>,
-    {
-        trace!("FromStr unchecked");
-        let mut out = Self::new();
-        out.push_str_unchecked(string);
-        out
+    pub unsafe fn from_str_unchecked(string: impl AsRef<str>) -> Self {
+        trace!("FromStr unchecked: {}", string.as_ref());
+        let mut s = Self::new();
+        s.push_str_unchecked(string);
+        s
     }
 
     /// Creates new `ArrayString` from string slice iterator if total length is lower or equal to [`capacity`], otherwise returns an error.
@@ -139,20 +130,18 @@ impl<const N: usize> ArrayString<N> {
     /// ```rust
     /// # use arraystring::prelude::*;
     /// # fn main() -> Result<(), OutOfBounds> {
-    /// let string = MaxString::try_from_iterator(&["My String", " My Other String"][..])?;
+    /// let string = ArrayString::<255>::try_from_iterator(&["My String", " My Other String"][..])?;
     /// assert_eq!(string.as_str(), "My String My Other String");
     ///
     /// let out_of_bounds = (0..100).map(|_| "000");
-    /// assert!(SmallString::try_from_iterator(out_of_bounds).is_err());
+    /// assert!(ArrayString::<23>::try_from_iterator(out_of_bounds).is_err());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn try_from_iterator<U, I>(iter: I) -> Result<Self, OutOfBounds>
-    where
-        U: AsRef<str>,
-        I: IntoIterator<Item = U>,
-    {
+    pub fn try_from_iterator(
+        iter: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> Result<Self, OutOfBounds> {
         trace!("FromIterator");
         let mut out = Self::new();
         for s in iter {
@@ -169,28 +158,24 @@ impl<const N: usize> ArrayString<N> {
     /// # use arraystring::prelude::*;
     /// # fn main() -> Result<(), OutOfBounds> {
     /// # let _ = env_logger::try_init();
-    /// let string = MaxString::from_iterator(&["My String", " Other String"][..]);
+    /// let string = ArrayString::<255>::from_iterator_truncate(&["My String", " Other String"][..]);
     /// assert_eq!(string.as_str(), "My String Other String");
     ///
     /// let out_of_bounds = (0..400).map(|_| "000");
-    /// let truncated = "0".repeat(SmallString::capacity().into());
+    /// let truncated = "0".repeat(ArrayString::<23>::capacity().into());
     ///
-    /// let truncate = SmallString::from_iterator(out_of_bounds);
+    /// let truncate = ArrayString::<23>::from_iterator_truncate(out_of_bounds);
     /// assert_eq!(truncate.as_str(), truncated.as_str());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn from_iterator<U, I>(iter: I) -> Self
-    where
-        U: AsRef<str>,
-        I: IntoIterator<Item = U>,
-    {
+    pub fn from_iterator_truncate(iter: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
         trace!("FromIterator truncate");
         let mut out = Self::new();
         for s in iter {
             if out.try_push_str(s.as_ref()).is_err() {
-                out.push_str(s);
+                out.push_str_truncate(s);
                 break;
             }
         }
@@ -208,22 +193,18 @@ impl<const N: usize> ArrayString<N> {
     /// ```rust
     /// # use arraystring::prelude::*;
     /// let string = unsafe {
-    ///     MaxString::from_iterator_unchecked(&["My String", " My Other String"][..])
+    ///     ArrayString::<255>::from_iterator_unchecked(&["My String", " My Other String"][..])
     /// };
     /// assert_eq!(string.as_str(), "My String My Other String");
     ///
     /// // Undefined behavior, don't do it
     /// // let out_of_bounds = (0..400).map(|_| "000");
     /// // let undefined_behavior = unsafe {
-    /// //     SmallString::from_iterator_unchecked(out_of_bounds)
+    /// //     ArrayString::<23>::from_iterator_unchecked(out_of_bounds)
     /// // };
     /// ```
     #[inline]
-    pub unsafe fn from_iterator_unchecked<U, I>(iter: I) -> Self
-    where
-        U: AsRef<str>,
-        I: IntoIterator<Item = U>,
-    {
+    pub unsafe fn from_iterator_unchecked(iter: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
         trace!("FromIterator unchecked");
         let mut out = Self::new();
         for s in iter {
@@ -237,22 +218,19 @@ impl<const N: usize> ArrayString<N> {
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let string = SmallString::try_from_chars("My String".chars())?;
+    /// let string = ArrayString::<23>::try_from_chars("My String".chars())?;
     /// assert_eq!(string.as_str(), "My String");
     ///
-    /// let out_of_bounds = "0".repeat(SmallString::capacity() as usize + 1);
-    /// assert!(SmallString::try_from_chars(out_of_bounds.chars()).is_err());
+    /// let out_of_bounds = "0".repeat(ArrayString::<23>::capacity() as usize + 1);
+    /// assert!(ArrayString::<23>::try_from_chars(out_of_bounds.chars()).is_err());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn try_from_chars<I>(iter: I) -> Result<Self, OutOfBounds>
-    where
-        I: IntoIterator<Item = char>,
-    {
+    pub fn try_from_chars(iter: impl IntoIterator<Item = char>) -> Result<Self, OutOfBounds> {
         trace!("TryFrom chars");
         let mut out = Self::new();
         for c in iter {
@@ -268,20 +246,17 @@ impl<const N: usize> ArrayString<N> {
     /// ```rust
     /// # use arraystring::prelude::*;
     /// # let _ = env_logger::try_init();
-    /// let string = SmallString::from_chars("My String".chars());
+    /// let string = ArrayString::<23>::from_chars_truncate("My String".chars());
     /// assert_eq!(string.as_str(), "My String");
     ///
-    /// let out_of_bounds = "0".repeat(SmallString::capacity() as usize + 1);
-    /// let truncated = "0".repeat(SmallString::capacity().into());
+    /// let out_of_bounds = "0".repeat(ArrayString::<23>::capacity() as usize + 1);
+    /// let truncated = "0".repeat(ArrayString::<23>::capacity().into());
     ///
-    /// let truncate = SmallString::from_chars(out_of_bounds.chars());
+    /// let truncate = ArrayString::<23>::from_chars_truncate(out_of_bounds.chars());
     /// assert_eq!(truncate.as_str(), truncated.as_str());
     /// ```
     #[inline]
-    pub fn from_chars<I>(iter: I) -> Self
-    where
-        I: IntoIterator<Item = char>,
-    {
+    pub fn from_chars_truncate(iter: impl IntoIterator<Item = char>) -> Self {
         trace!("From chars truncate");
         let mut out = Self::new();
         for c in iter {
@@ -302,18 +277,15 @@ impl<const N: usize> ArrayString<N> {
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// let string = unsafe { SmallString::from_chars_unchecked("My String".chars()) };
+    /// let string = unsafe { ArrayString::<23>::from_chars_unchecked("My String".chars()) };
     /// assert_eq!(string.as_str(), "My String");
     ///
     /// // Undefined behavior, don't do it
     /// // let out_of_bounds = "000".repeat(400);
-    /// // let undefined_behavior = unsafe { SmallString::from_chars_unchecked(out_of_bounds.chars()) };
+    /// // let undefined_behavior = unsafe { ArrayString::<23>::from_chars_unchecked(out_of_bounds.chars()) };
     /// ```
     #[inline]
-    pub unsafe fn from_chars_unchecked<I>(iter: I) -> Self
-    where
-        I: IntoIterator<Item = char>,
-    {
+    pub unsafe fn from_chars_unchecked(iter: impl IntoIterator<Item = char>) -> Self {
         trace!("From chars unchecked");
         let mut out = Self::new();
         for c in iter {
@@ -329,25 +301,22 @@ impl<const N: usize> ArrayString<N> {
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let string = SmallString::try_from_utf8("My String")?;
+    /// let string = ArrayString::<23>::try_from_utf8("My String")?;
     /// assert_eq!(string.as_str(), "My String");
     ///
     /// let invalid_utf8 = [0, 159, 146, 150];
-    /// assert_eq!(SmallString::try_from_utf8(invalid_utf8), Err(Error::Utf8));
+    /// assert_eq!(ArrayString::<23>::try_from_utf8(invalid_utf8), Err(Error::Utf8));
     ///
     /// let out_of_bounds = "0000".repeat(400);
-    /// assert_eq!(SmallString::try_from_utf8(out_of_bounds.as_bytes()), Err(Error::OutOfBounds));
+    /// assert_eq!(ArrayString::<23>::try_from_utf8(out_of_bounds.as_bytes()), Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn try_from_utf8<B>(slice: B) -> Result<Self, Error>
-    where
-        B: AsRef<[u8]>,
-    {
+    pub fn try_from_utf8(slice: impl AsRef<[u8]>) -> Result<Self, Error> {
         debug!("From utf8: {:?}", slice.as_ref());
         Ok(Self::try_from_str(from_utf8(slice.as_ref())?)?)
     }
@@ -358,26 +327,23 @@ impl<const N: usize> ArrayString<N> {
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let string = SmallString::from_utf8("My String")?;
+    /// let string = ArrayString::<23>::from_utf8_truncate("My String")?;
     /// assert_eq!(string.as_str(), "My String");
     ///
     /// let invalid_utf8 = [0, 159, 146, 150];
-    /// assert_eq!(SmallString::from_utf8(invalid_utf8), Err(Utf8));
+    /// assert_eq!(ArrayString::<23>::from_utf8_truncate(invalid_utf8), Err(Utf8));
     ///
     /// let out_of_bounds = "0".repeat(300);
-    /// assert_eq!(SmallString::from_utf8(out_of_bounds.as_bytes())?.as_str(),
-    ///            "0".repeat(SmallString::capacity().into()).as_str());
+    /// assert_eq!(ArrayString::<23>::from_utf8_truncate(out_of_bounds.as_bytes())?.as_str(),
+    ///            "0".repeat(ArrayString::<23>::capacity().into()).as_str());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn from_utf8<B>(slice: B) -> Result<Self, Utf8>
-    where
-        B: AsRef<[u8]>,
-    {
+    pub fn from_utf8_truncate(slice: impl AsRef<[u8]>) -> Result<Self, Utf8> {
         debug!("From utf8: {:?}", slice.as_ref());
         Ok(Self::from_str_truncate(from_utf8(slice.as_ref())?))
     }
@@ -392,19 +358,16 @@ impl<const N: usize> ArrayString<N> {
     ///
     /// ```rust
     /// # use arraystring::prelude::*;
-    /// let string = unsafe { SmallString::from_utf8_unchecked("My String") };
+    /// let string = unsafe { ArrayString::<23>::from_utf8_unchecked("My String") };
     /// assert_eq!(string.as_str(), "My String");
     ///
     /// // Undefined behavior, don't do it
     /// // let out_of_bounds = "0".repeat(300);
-    /// // let ub = unsafe { SmallString::from_utf8_unchecked(out_of_bounds)) };
+    /// // let ub = unsafe { ArrayString::<23>::from_utf8_unchecked(out_of_bounds)) };
     /// ```
     #[inline]
-    pub unsafe fn from_utf8_unchecked<B>(slice: B) -> Self
-    where
-        B: AsRef<[u8]>,
-    {
-        trace!("From utf8 unchecked");
+    pub unsafe fn from_utf8_unchecked(slice: impl AsRef<[u8]>) -> Self {
+        trace!("From utf8 unchecked: {:?}", slice.as_ref());
         debug_assert!(from_utf8(slice.as_ref()).is_ok());
         Self::from_str_unchecked(from_utf8_unchecked(slice.as_ref()))
     }
@@ -416,26 +379,23 @@ impl<const N: usize> ArrayString<N> {
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
-    /// let string = SmallString::try_from_utf16(music)?;
+    /// let string = ArrayString::<23>::try_from_utf16(music)?;
     /// assert_eq!(string.as_str(), "𝄞music");
     ///
     /// let invalid_utf16 = [0xD834, 0xDD1E, 0x006d, 0x0075, 0xD800, 0x0069, 0x0063];
-    /// assert_eq!(SmallString::try_from_utf16(invalid_utf16), Err(Error::Utf16));
+    /// assert_eq!(ArrayString::<23>::try_from_utf16(invalid_utf16), Err(Error::Utf16));
     ///
     /// let out_of_bounds: Vec<_> = (0..300).map(|_| 0).collect();
-    /// assert_eq!(SmallString::try_from_utf16(out_of_bounds), Err(Error::OutOfBounds));
+    /// assert_eq!(ArrayString::<23>::try_from_utf16(out_of_bounds), Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn try_from_utf16<B>(slice: B) -> Result<Self, Error>
-    where
-        B: AsRef<[u16]>,
-    {
+    pub fn try_from_utf16(slice: impl AsRef<[u16]>) -> Result<Self, Error> {
         debug!("From utf16: {:?}", slice.as_ref());
         let mut out = Self::new();
         for c in decode_utf16(slice.as_ref().iter().cloned()) {
@@ -450,27 +410,24 @@ impl<const N: usize> ArrayString<N> {
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
-    /// let string = SmallString::from_utf16(music)?;
+    /// let string = ArrayString::<23>::from_utf16_truncate(music)?;
     /// assert_eq!(string.as_str(), "𝄞music");
     ///
     /// let invalid_utf16 = [0xD834, 0xDD1E, 0x006d, 0x0075, 0xD800, 0x0069, 0x0063];
-    /// assert_eq!(SmallString::from_utf16(invalid_utf16), Err(Utf16));
+    /// assert_eq!(ArrayString::<23>::from_utf16_truncate(invalid_utf16), Err(Utf16));
     ///
     /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
-    /// assert_eq!(SmallString::from_utf16(out_of_bounds)?.as_str(),
-    ///            "\0".repeat(SmallString::capacity().into()).as_str());
+    /// assert_eq!(ArrayString::<23>::from_utf16_truncate(out_of_bounds)?.as_str(),
+    ///            "\0".repeat(ArrayString::<23>::capacity().into()).as_str());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn from_utf16<B>(slice: B) -> Result<Self, Utf16>
-    where
-        B: AsRef<[u16]>,
-    {
+    pub fn from_utf16_truncate(slice: impl AsRef<[u16]>) -> Result<Self, Utf16> {
         debug!("From utf16: {:?}", slice.as_ref());
         let mut out = Self::new();
         for c in decode_utf16(slice.as_ref().iter().cloned()) {
@@ -486,27 +443,24 @@ impl<const N: usize> ArrayString<N> {
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
     /// let music = [0xD834, 0xDD1E, 0x006d, 0x0075, 0x0073, 0x0069, 0x0063];
-    /// let string = SmallString::from_utf16_lossy(music);
+    /// let string = ArrayString::<23>::from_utf16_lossy_truncate(music);
     /// assert_eq!(string.as_str(), "𝄞music");
     ///
     /// let invalid_utf16 = [0xD834, 0xDD1E, 0x006d, 0x0075, 0xD800, 0x0069, 0x0063];
-    /// assert_eq!(SmallString::from_utf16_lossy(invalid_utf16).as_str(), "𝄞mu\u{FFFD}ic");
+    /// assert_eq!(ArrayString::<23>::from_utf16_lossy_truncate(invalid_utf16).as_str(), "𝄞mu\u{FFFD}ic");
     ///
     /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
-    /// assert_eq!(SmallString::from_utf16_lossy(&out_of_bounds).as_str(),
-    ///            "\0".repeat(SmallString::capacity().into()).as_str());
+    /// assert_eq!(ArrayString::<23>::from_utf16_lossy_truncate(&out_of_bounds).as_str(),
+    ///            "\0".repeat(ArrayString::<23>::capacity().into()).as_str());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn from_utf16_lossy<B>(slice: B) -> Self
-    where
-        B: AsRef<[u16]>,
-    {
+    pub fn from_utf16_lossy_truncate(slice: impl AsRef<[u16]>) -> Self {
         debug!("From utf16 lossy: {:?}", slice.as_ref());
         let mut out = Self::new();
         for c in decode_utf16(slice.as_ref().iter().cloned()) {
@@ -520,67 +474,71 @@ impl<const N: usize> ArrayString<N> {
     /// Extracts a string slice containing the entire `ArrayString`
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let s = SmallString::try_from_str("My String")?;
+    /// let s = ArrayString::<23>::try_from_str("My String")?;
     /// assert_eq!(s.as_str(), "My String");
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
     pub fn as_str(&self) -> &str {
-        trace!("As str: {}", <Self as AsRef<str>>::as_ref(self));
+        trace!("As str: {self}");
         self.as_ref()
     }
 
     /// Extracts a mutable string slice containing the entire `ArrayString`
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("My String")?;
+    /// let mut s = ArrayString::<23>::try_from_str("My String")?;
     /// assert_eq!(s.as_mut_str(), "My String");
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
     pub fn as_mut_str(&mut self) -> &mut str {
-        trace!("As mut str: {}", self.as_mut());
+        trace!("As mut str: {self}");
         self.as_mut()
     }
 
     /// Extracts a byte slice containing the entire `ArrayString`
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let s = SmallString::try_from_str("My String")?;
+    /// let s = ArrayString::<23>::try_from_str("My String")?;
     /// assert_eq!(s.as_bytes(), "My String".as_bytes());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
-        trace!("As str: {}", self.as_str());
+        trace!("As bytes");
         self.as_ref()
     }
 
     /// Extracts a mutable string slice containing the entire `ArrayString`
     ///
+    /// # Safety
+    ///
+    /// It's UB to store invalid UTF-8 data in the returned byte array
+    ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = SmallString::try_from_str("My String")?;
+    /// let mut s = ArrayString::<23>::try_from_str("My String")?;
     /// assert_eq!(unsafe { s.as_mut_bytes() }, "My String".as_bytes());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
     pub unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
-        trace!("As mut str: {}", self.as_str());
+        trace!("As mut str");
         let len = self.len();
         self.array.as_mut_slice().get_unchecked_mut(..len.into())
     }
@@ -594,11 +552,7 @@ impl<const N: usize> ArrayString<N> {
     /// ```
     #[inline]
     pub const fn capacity() -> u8 {
-        if N > u8::MAX as usize {
-            u8::MAX
-        } else {
-            N as u8
-        }
+        N as u8
     }
 
     /// Pushes string slice to the end of the `ArrayString` if total size is lower or equal to [`capacity`], otherwise returns an error.
@@ -606,23 +560,20 @@ impl<const N: usize> ArrayString<N> {
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = MaxString::try_from_str("My String")?;
+    /// let mut s = ArrayString::<255>::try_from_str("My String")?;
     /// s.try_push_str(" My other String")?;
     /// assert_eq!(s.as_str(), "My String My other String");
     ///
-    /// assert!(s.try_push_str("0".repeat(MaxString::capacity().into())).is_err());
+    /// assert!(s.try_push_str("0".repeat(ArrayString::<255>::capacity().into())).is_err());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn try_push_str<S>(&mut self, string: S) -> Result<(), OutOfBounds>
-    where
-        S: AsRef<str>,
-    {
-        trace!("Push str");
+    pub fn try_push_str(&mut self, string: impl AsRef<str>) -> Result<(), OutOfBounds> {
+        trace!("Push str: {}", string.as_ref());
         let new_end = string.as_ref().len().saturating_add(self.len().into());
         is_inside_boundary(new_end, Self::capacity())?;
         unsafe { self.push_str_unchecked(string) };
@@ -634,25 +585,22 @@ impl<const N: usize> ArrayString<N> {
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = MaxString::try_from_str("My String")?;
-    /// s.push_str(" My other String");
+    /// let mut s = ArrayString::<255>::try_from_str("My String")?;
+    /// s.push_str_truncate(" My other String");
     /// assert_eq!(s.as_str(), "My String My other String");
     ///
-    /// let mut s = SmallString::default();
-    /// s.push_str("0".repeat(SmallString::capacity() as usize + 1));
-    /// assert_eq!(s.as_str(), "0".repeat(SmallString::capacity().into()).as_str());
+    /// let mut s = ArrayString::<23>::default();
+    /// s.push_str_truncate("0".repeat(ArrayString::<23>::capacity() as usize + 1));
+    /// assert_eq!(s.as_str(), "0".repeat(ArrayString::<23>::capacity().into()).as_str());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn push_str<S>(&mut self, string: S)
-    where
-        S: AsRef<str>,
-    {
-        trace!("Push str truncate");
+    pub fn push_str_truncate(&mut self, string: impl AsRef<str>) {
+        trace!("Push str truncate: {}", string.as_ref());
         let size = Self::capacity().saturating_sub(self.len());
         unsafe { self.push_str_unchecked(truncate_str(string.as_ref(), size)) }
     }
@@ -666,23 +614,20 @@ impl<const N: usize> ArrayString<N> {
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = MaxString::try_from_str("My String")?;
+    /// let mut s = ArrayString::<255>::try_from_str("My String")?;
     /// unsafe { s.push_str_unchecked(" My other String") };
     /// assert_eq!(s.as_str(), "My String My other String");
     ///
     /// // Undefined behavior, don't do it
-    /// // let mut undefined_behavior = SmallString::default();
-    /// // undefined_behavior.push_str_unchecked("0".repeat(SmallString::capacity().into() + 1));
+    /// // let mut undefined_behavior = ArrayString::<23>::default();
+    /// // undefined_behavior.push_str_unchecked("0".repeat(ArrayString::<23>::capacity().into() + 1));
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub unsafe fn push_str_unchecked<S>(&mut self, string: S)
-    where
-        S: AsRef<str>,
-    {
+    pub unsafe fn push_str_unchecked(&mut self, string: impl AsRef<str>) {
         let (s, len) = (string.as_ref(), string.as_ref().len());
         debug!("Push str unchecked: {} ({} + {})", s, self.len(), len);
         debug_assert!(len.saturating_add(self.len().into()) <= Self::capacity() as usize);
@@ -697,14 +642,14 @@ impl<const N: usize> ArrayString<N> {
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("My String")?;
+    /// let mut s = ArrayString::<23>::try_from_str("My String")?;
     /// s.try_push('!')?;
     /// assert_eq!(s.as_str(), "My String!");
     ///
-    /// let mut s = SmallString::try_from_str(&"0".repeat(SmallString::capacity().into()))?;
+    /// let mut s = ArrayString::<23>::try_from_str(&"0".repeat(ArrayString::<23>::capacity().into()))?;
     /// assert!(s.try_push('!').is_err());
     /// # Ok(())
     /// # }
@@ -727,13 +672,13 @@ impl<const N: usize> ArrayString<N> {
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = SmallString::try_from_str("My String")?;
+    /// let mut s = ArrayString::<23>::try_from_str("My String")?;
     /// unsafe { s.push_unchecked('!') };
     /// assert_eq!(s.as_str(), "My String!");
     ///
-    /// // s = SmallString::try_from_str(&"0".repeat(SmallString::capacity().into()))?;
+    /// // s = ArrayString::<23>::try_from_str(&"0".repeat(ArrayString::<23>::capacity().into()))?;
     /// // Undefined behavior, don't do it
     /// // s.push_unchecked('!');
     /// # Ok(())
@@ -750,10 +695,10 @@ impl<const N: usize> ArrayString<N> {
     /// Truncates `ArrayString` to specified size (if smaller than current size and a valid utf-8 char index).
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("My String")?;
+    /// let mut s = ArrayString::<23>::try_from_str("My String")?;
     /// s.truncate(5)?;
     /// assert_eq!(s.as_str(), "My St");
     ///
@@ -762,7 +707,7 @@ impl<const N: usize> ArrayString<N> {
     /// assert_eq!(s.as_str(), "My St");
     ///
     /// // Index is not at a valid char
-    /// let mut s = SmallString::try_from_str("🤔")?;
+    /// let mut s = ArrayString::<23>::try_from_str("🤔")?;
     /// assert!(s.truncate(1).is_err());
     /// # Ok(())
     /// # }
@@ -777,10 +722,10 @@ impl<const N: usize> ArrayString<N> {
     /// Removes last character from `ArrayString`, if any.
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("A🤔")?;
+    /// let mut s = ArrayString::<23>::try_from_str("A🤔")?;
     /// assert_eq!(s.pop(), Some('🤔'));
     /// assert_eq!(s.pop(), Some('A'));
     /// assert_eq!(s.pop(), None);
@@ -802,11 +747,11 @@ impl<const N: usize> ArrayString<N> {
     /// # use arraystring::prelude::*;
     /// # fn main() -> Result<(), OutOfBounds> {
     /// # let _ = env_logger::try_init();
-    /// let mut string = MaxString::try_from_str("   to be trimmed     ")?;
+    /// let mut string = ArrayString::<255>::try_from_str("   to be trimmed     ")?;
     /// string.trim();
     /// assert_eq!(string.as_str(), "to be trimmed");
     ///
-    /// let mut string = SmallString::try_from_str("   🤔")?;
+    /// let mut string = ArrayString::<23>::try_from_str("   🤔")?;
     /// string.trim();
     /// assert_eq!(string.as_str(), "🤔");
     /// # Ok(())
@@ -815,27 +760,24 @@ impl<const N: usize> ArrayString<N> {
     #[inline]
     pub fn trim(&mut self) {
         trace!("Trim");
-        let is_whitespace = |s: &[u8], index: usize| {
-            debug_assert!(index < s.len());
-            unsafe { s.get_unchecked(index) == &b' ' }
+        let is_whitespace = |s: &[u8], index: u8| {
+            debug_assert!((index as usize) < s.len());
+            unsafe { s.get_unchecked(index as usize) == &b' ' }
         };
         let (mut start, mut end, mut leave) = (0_u8, self.len(), 0_u8);
         while start < end && leave < 2 {
             leave = 0;
 
-            if is_whitespace(self.as_bytes(), start.into()) {
-                start = start.saturating_add(1);
-                if start >= end {
-                    continue;
-                };
+            if is_whitespace(self.as_bytes(), start) {
+                start += 1;
             } else {
-                leave = leave.saturating_add(1);
+                leave += 1;
             }
 
-            if start < end && is_whitespace(self.as_bytes(), end.saturating_sub(1).into()) {
-                end = end.saturating_sub(1);
+            if start < end && is_whitespace(self.as_bytes(), end - 1) {
+                end -= 1;
             } else {
-                leave = leave.saturating_add(1);
+                leave += 1;
             }
         }
 
@@ -846,10 +788,10 @@ impl<const N: usize> ArrayString<N> {
     /// Removes specified char from `ArrayString`
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("ABCD🤔")?;
+    /// let mut s = ArrayString::<23>::try_from_str("ABCD🤔")?;
     /// assert_eq!(s.remove("ABCD🤔".len() as u8), Err(Error::OutOfBounds));
     /// assert_eq!(s.remove(10), Err(Error::OutOfBounds));
     /// assert_eq!(s.remove(6), Err(Error::Utf8));
@@ -876,17 +818,17 @@ impl<const N: usize> ArrayString<N> {
     /// Retains only the characters specified by the predicate.
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("ABCD🤔")?;
+    /// let mut s = ArrayString::<23>::try_from_str("ABCD🤔")?;
     /// s.retain(|c| c != '🤔');
     /// assert_eq!(s.as_str(), "ABCD");
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn retain<F: FnMut(char) -> bool>(&mut self, mut f: F) {
+    pub fn retain(&mut self, mut f: impl FnMut(char) -> bool) {
         trace!("Retain");
         // Not the most efficient solution, we could shift left during batch mismatch
         *self = unsafe { Self::from_chars_unchecked(self.as_str().chars().filter(|c| f(*c))) };
@@ -901,17 +843,17 @@ impl<const N: usize> ArrayString<N> {
     /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("ABCD🤔")?;
+    /// let mut s = ArrayString::<23>::try_from_str("ABCD🤔")?;
     /// s.try_insert(1, 'A')?;
     /// s.try_insert(2, 'B')?;
     /// assert_eq!(s.as_str(), "AABBCD🤔");
     /// assert_eq!(s.try_insert(20, 'C'), Err(Error::OutOfBounds));
     /// assert_eq!(s.try_insert(8, 'D'), Err(Error::Utf8));
     ///
-    /// let mut s = SmallString::try_from_str(&"0".repeat(SmallString::capacity().into()))?;
+    /// let mut s = ArrayString::<23>::try_from_str(&"0".repeat(ArrayString::<23>::capacity().into()))?;
     /// assert_eq!(s.try_insert(0, 'C'), Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
@@ -938,9 +880,9 @@ impl<const N: usize> ArrayString<N> {
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = SmallString::try_from_str("ABCD🤔")?;
+    /// let mut s = ArrayString::<23>::try_from_str("ABCD🤔")?;
     /// unsafe { s.insert_unchecked(1, 'A') };
     /// unsafe { s.insert_unchecked(1, 'B') };
     /// assert_eq!(s.as_str(), "ABABCD🤔");
@@ -954,7 +896,7 @@ impl<const N: usize> ArrayString<N> {
     #[inline]
     pub unsafe fn insert_unchecked(&mut self, idx: u8, ch: char) {
         let clen = ch.len_utf8().into_lossy();
-        debug!("Insert uncheck ({}+{}) {} at {}", self.len(), clen, ch, idx);
+        debug!("Insert uncheck ({}+{clen}) {ch} at {idx}", self.len());
         shift_right_unchecked(self, idx, idx.saturating_add(clen));
         encode_char_utf8_unchecked(self, ch, idx);
         self.size = self.size.saturating_add(clen);
@@ -970,13 +912,13 @@ impl<const N: usize> ArrayString<N> {
     /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("ABCD🤔")?;
+    /// let mut s = ArrayString::<23>::try_from_str("ABCD🤔")?;
     /// s.try_insert_str(1, "AB")?;
     /// s.try_insert_str(1, "BC")?;
-    /// assert_eq!(s.try_insert_str(1, "0".repeat(SmallString::capacity().into())),
+    /// assert_eq!(s.try_insert_str(1, "0".repeat(ArrayString::<23>::capacity().into())),
     ///            Err(Error::OutOfBounds));
     /// assert_eq!(s.as_str(), "ABCABBCD🤔");
     /// assert_eq!(s.try_insert_str(20, "C"), Err(Error::OutOfBounds));
@@ -985,11 +927,8 @@ impl<const N: usize> ArrayString<N> {
     /// # }
     /// ```
     #[inline]
-    pub fn try_insert_str<S>(&mut self, idx: u8, s: S) -> Result<(), Error>
-    where
-        S: AsRef<str>,
-    {
-        trace!("Try insert str");
+    pub fn try_insert_str(&mut self, idx: u8, s: impl AsRef<str>) -> Result<(), Error> {
+        trace!("Try insert at {idx} str: {}", s.as_ref());
         is_inside_boundary(idx, self.len())?;
         let new_end = s.as_ref().len().saturating_add(self.len().into());
         is_inside_boundary(new_end, Self::capacity())?;
@@ -1007,29 +946,26 @@ impl<const N: usize> ArrayString<N> {
     /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("ABCD🤔")?;
-    /// s.insert_str(1, "AB")?;
-    /// s.insert_str(1, "BC")?;
+    /// let mut s = ArrayString::<23>::try_from_str("ABCD🤔")?;
+    /// s.insert_str_truncate(1, "AB")?;
+    /// s.insert_str_truncate(1, "BC")?;
     /// assert_eq!(s.as_str(), "ABCABBCD🤔");
     ///
-    /// assert_eq!(s.insert_str(20, "C"), Err(Error::OutOfBounds));
-    /// assert_eq!(s.insert_str(10, "D"), Err(Error::Utf8));
+    /// assert_eq!(s.insert_str_truncate(20, "C"), Err(Error::OutOfBounds));
+    /// assert_eq!(s.insert_str_truncate(10, "D"), Err(Error::Utf8));
     ///
     /// s.clear();
-    /// s.insert_str(0, "0".repeat(SmallString::capacity() as usize + 10))?;
-    /// assert_eq!(s.as_str(), "0".repeat(SmallString::capacity().into()).as_str());
+    /// s.insert_str_truncate(0, "0".repeat(ArrayString::<23>::capacity() as usize + 10))?;
+    /// assert_eq!(s.as_str(), "0".repeat(ArrayString::<23>::capacity().into()).as_str());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn insert_str<S>(&mut self, idx: u8, string: S) -> Result<(), Error>
-    where
-        S: AsRef<str>,
-    {
-        trace!("Insert str");
+    pub fn insert_str_truncate(&mut self, idx: u8, string: impl AsRef<str>) -> Result<(), Error> {
+        trace!("Insert str at {idx}: {}", string.as_ref());
         is_inside_boundary(idx, self.len())?;
         is_char_boundary(self, idx)?;
         let size = Self::capacity().saturating_sub(self.len());
@@ -1048,9 +984,9 @@ impl<const N: usize> ArrayString<N> {
     /// [`capacity`]: ./struct.ArrayString.html#method.capacity
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
-    /// let mut s = SmallString::try_from_str("ABCD🤔")?;
+    /// let mut s = ArrayString::<23>::try_from_str("ABCD🤔")?;
     /// unsafe { s.insert_str_unchecked(1, "AB") };
     /// unsafe { s.insert_str_unchecked(1, "BC") };
     /// assert_eq!(s.as_str(), "ABCABBCD🤔");
@@ -1058,18 +994,15 @@ impl<const N: usize> ArrayString<N> {
     /// // Undefined behavior, don't do it
     /// // unsafe { s.insert_str_unchecked(20, "C") };
     /// // unsafe { s.insert_str_unchecked(10, "D") };
-    /// // unsafe { s.insert_str_unchecked(1, "0".repeat(SmallString::capacity().into())) };
+    /// // unsafe { s.insert_str_unchecked(1, "0".repeat(ArrayString::<23>::capacity().into())) };
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub unsafe fn insert_str_unchecked<S>(&mut self, idx: u8, string: S)
-    where
-        S: AsRef<str>,
-    {
+    pub unsafe fn insert_str_unchecked(&mut self, idx: u8, string: impl AsRef<str>) {
         let (s, slen) = (string.as_ref(), string.as_ref().len().into_lossy());
         let ptr = s.as_ptr();
-        trace!("InsertStr uncheck {}+{} {} at {}", self.len(), slen, s, idx);
+        trace!("InsertStr uncheck {}+{slen} {s} at {idx}", self.len());
         debug_assert!(self.len().saturating_add(slen) <= Self::capacity());
         debug_assert!(idx <= self.len());
         debug_assert!(self.as_str().is_char_boundary(idx.into()));
@@ -1083,10 +1016,10 @@ impl<const N: usize> ArrayString<N> {
     /// Returns `ArrayString` length.
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("ABCD")?;
+    /// let mut s = ArrayString::<23>::try_from_str("ABCD")?;
     /// assert_eq!(s.len(), 4);
     /// s.try_push('🤔')?;
     /// // Emojis use 4 bytes (this is the default rust behavior, length of u8)
@@ -1103,10 +1036,10 @@ impl<const N: usize> ArrayString<N> {
     /// Checks if `ArrayString` is empty.
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("ABCD")?;
+    /// let mut s = ArrayString::<23>::try_from_str("ABCD")?;
     /// assert!(!s.is_empty());
     /// s.clear();
     /// assert!(s.is_empty());
@@ -1127,10 +1060,10 @@ impl<const N: usize> ArrayString<N> {
     /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("AB🤔CD")?;
+    /// let mut s = ArrayString::<23>::try_from_str("AB🤔CD")?;
     /// assert_eq!(s.split_off(6)?.as_str(), "CD");
     /// assert_eq!(s.as_str(), "AB🤔");
     /// assert_eq!(s.split_off(20), Err(Error::OutOfBounds));
@@ -1152,10 +1085,10 @@ impl<const N: usize> ArrayString<N> {
     /// Empties `ArrayString`
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("ABCD")?;
+    /// let mut s = ArrayString::<23>::try_from_str("ABCD")?;
     /// assert!(!s.is_empty());
     /// s.clear();
     /// assert!(s.is_empty());
@@ -1173,10 +1106,10 @@ impl<const N: usize> ArrayString<N> {
     /// Note: The element range is removed even if the iterator is not consumed until the end.
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("ABCD🤔")?;
+    /// let mut s = ArrayString::<23>::try_from_str("ABCD🤔")?;
     /// assert_eq!(s.drain(..3)?.collect::<Vec<_>>(), vec!['A', 'B', 'C']);
     /// assert_eq!(s.as_str(), "D🤔");
     ///
@@ -1186,10 +1119,7 @@ impl<const N: usize> ArrayString<N> {
     /// # }
     /// ```
     #[inline]
-    pub fn drain<R>(&mut self, range: R) -> Result<Drain<N>, Error>
-    where
-        R: RangeBounds<u8>,
-    {
+    pub fn drain(&mut self, range: impl RangeBounds<u8>) -> Result<Drain<N>, Error> {
         let start = match range.start_bound() {
             Bound::Included(t) => *t,
             Bound::Excluded(t) => t.saturating_add(1),
@@ -1201,7 +1131,7 @@ impl<const N: usize> ArrayString<N> {
             Bound::Unbounded => self.len(),
         };
 
-        debug!("Drain iterator (len: {}): {}..{}", self.len(), start, end);
+        debug!("Drain iterator (len: {}): {start}..{end}", self.len());
         is_inside_boundary(start, end)?;
         is_inside_boundary(end, self.len())?;
         is_char_boundary(self, start)?;
@@ -1222,26 +1152,26 @@ impl<const N: usize> ArrayString<N> {
     /// Removes the specified range of the `ArrayString`, and replaces it with the given string. The given string doesn't need to have the same length as the range.
     ///
     /// ```rust
-    /// # use arraystring::{error::Error, prelude::*};
+    /// # use arraystring::{Error, prelude::*};
     /// # fn main() -> Result<(), Error> {
     /// # let _ = env_logger::try_init();
-    /// let mut s = SmallString::try_from_str("ABCD🤔")?;
+    /// let mut s = ArrayString::<23>::try_from_str("ABCD🤔")?;
     /// s.replace_range(2..4, "EFGHI")?;
     /// assert_eq!(s.as_str(), "ABEFGHI🤔");
     ///
     /// assert_eq!(s.replace_range(9.., "J"), Err(Error::Utf8));
     /// assert_eq!(s.replace_range(..90, "K"), Err(Error::OutOfBounds));
-    /// assert_eq!(s.replace_range(0..1, "0".repeat(SmallString::capacity().into())),
+    /// assert_eq!(s.replace_range(0..1, "0".repeat(ArrayString::<23>::capacity().into())),
     ///            Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
-    pub fn replace_range<S, R>(&mut self, r: R, with: S) -> Result<(), Error>
-    where
-        S: AsRef<str>,
-        R: RangeBounds<u8>,
-    {
+    pub fn replace_range(
+        &mut self,
+        r: impl RangeBounds<u8>,
+        with: impl AsRef<str>,
+    ) -> Result<(), Error> {
         let replace_with = with.as_ref();
         let start = match r.start_bound() {
             Bound::Included(t) => *t,
