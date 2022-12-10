@@ -41,25 +41,6 @@ fn truncate_unrolled(slice: &str, mut size: u8) -> &str {
     unsafe { slice.get_unchecked(..size as usize) }
 }
 
-/// truncates about 20% faster but could segfault if it goes to an unmapped page)
-fn truncate_bits_unsafe(slice: &str, size: u8) -> &str {
-    if slice.is_char_boundary(size as usize) {
-        return unsafe { slice.get_unchecked(..size as usize) };
-    } else if size as usize >= slice.len() {
-        return slice;
-    }
-    unsafe {
-        let size = size.saturating_sub(3);
-        let ptr = (slice.as_bytes().as_ptr() as *const u32).add(size as usize);
-        let data = *ptr; // could segfault if it goes over to an unmapped page
-        let masked = data & 0xC0C0C0C0; // mask off only the two leftmost bis of each byte
-        let zeroes = masked ^ 0x80808080; // the right values become zeroes, so we can count where the first 1 is
-        let offset = zeroes.leading_zeros() / 8; // magic that gets the right
-        slice.get_unchecked(..size as usize + offset as usize)
-    }
-}
-
-
 #[inline]
 fn load_u32(slice: &[u8]) -> u32 {
     match slice {
@@ -78,26 +59,28 @@ fn truncate_bits(slice: &str, size: u8) -> &str {
         return slice;
     }
     unsafe {
-        let size = size.saturating_sub(3);
-        let data = load_u32(slice.as_bytes().get_unchecked(size as usize..)); // could segfault if it goes over a page limit when slice.len < 4
+        let idx = size.saturating_sub(3);
+        let data = load_u32(slice.as_bytes().get_unchecked(idx as usize..)); // could segfault if it goes over a page limit when slice.len < 4
         let masked = data & 0xC0C0C0C0; // mask off only the two leftmost bis of each byte
-        let zeroes = masked ^ 0x80808080; // the right values become zeroes, so we can count where the first 1 is
+        let zeroes = masked ^ 0x80808080; // the right values become zeroes, so we can count where the first 1 is that indicates the first non boundary
         let offset = zeroes.leading_zeros() / 8; // magic that gets the right
-        slice.get_unchecked(..size as usize + offset as usize)
+        slice.get_unchecked(..idx as usize + 3 - offset as usize)
     }
 }
 
 fn truncate_benchmark_1byte(c: &mut Criterion) {
     let string = "abdefghijaaaaa".repeat(thread_rng().gen_range(1..2));
-    const TESTS: [(&str, fn(&str, u8) -> &str); 5] = [
+    const TESTS: [(&str, fn(&str, u8) -> &str); 4] = [
         ("truncate_master 1byte", truncate_master),
         ("truncate_naive 1byte", truncate_naive),
         ("truncate_unrolled 1byte", truncate_unrolled),
-        ("truncate_bits_unsafe 1byte", truncate_bits_unsafe),
         ("truncate_bits 1byte", truncate_bits),
     ];
     for (name, f) in TESTS {
         let string = string.clone();
+        for (name2, f2) in TESTS {
+            assert_eq!(f(&string, 7), f2(&string, 7), "{} != {}", name, name2);
+        }
         c.bench_function(name, move |b| {
             b.iter(|| {
                 f(&string, 7);
@@ -109,15 +92,17 @@ fn truncate_benchmark_1byte(c: &mut Criterion) {
 
 fn truncate_benchmark_2byte(c: &mut Criterion) {
     let string = "ÅÅÅÅÅÅÅÅ".repeat(thread_rng().gen_range(1..2));
-    const TESTS: [(&str, fn(&str, u8) -> &str); 5] = [
+    const TESTS: [(&str, fn(&str, u8) -> &str); 4] = [
         ("truncate_master 2byte", truncate_master),
         ("truncate_naive 2byte", truncate_naive),
         ("truncate_unrolled 2byte", truncate_unrolled),
-        ("truncate_bits_unsafe 2byte", truncate_bits_unsafe),
         ("truncate_bits 2byte", truncate_bits),
     ];
     for (name, f) in TESTS {
         let string = string.clone();
+        for (name2, f2) in TESTS {
+            assert_eq!(f(&string, 7), f2(&string, 7), "{} != {}", name, name2);
+        }
         c.bench_function(name, move |b| {
             b.iter(|| {
                 f(&string, 7);
@@ -128,15 +113,17 @@ fn truncate_benchmark_2byte(c: &mut Criterion) {
 
 fn truncate_benchmark_3byte(c: &mut Criterion) {
     let string = "⠁⠂⠃⠄⠅⠆⠇⠈⠉⠊⠌⠍⠎⠏".repeat(thread_rng().gen_range(1..2));
-    const TESTS: [(&str, fn(&str, u8) -> &str); 5] = [
+    const TESTS: [(&str, fn(&str, u8) -> &str); 4] = [
         ("truncate_master 3byte", truncate_master),
         ("truncate_naive 3byte", truncate_naive),
         ("truncate_unrolled 3byte", truncate_unrolled),
-        ("truncate_bits_unsafe 3byte", truncate_bits_unsafe),
         ("truncate_bits 3byte", truncate_bits),
     ];
     for (name, f) in TESTS {
         let string = string.clone();
+        for (name2, f2) in TESTS {
+            assert_eq!(f(&string, 7), f2(&string, 7), "{} != {}", name, name2);
+        }
         c.bench_function(name, move |b| {
             b.iter(|| {
                 f(&string, 7);
@@ -147,15 +134,17 @@ fn truncate_benchmark_3byte(c: &mut Criterion) {
 
 fn truncate_benchmark_4byte(c: &mut Criterion) {
     let string = "👍👍👍👍👍👍👍".repeat(thread_rng().gen_range(1..2));
-    const TESTS: [(&str, fn(&str, u8) -> &str); 5] = [
+    const TESTS: [(&str, fn(&str, u8) -> &str); 4] = [
         ("truncate_master 4byte", truncate_master),
         ("truncate_naive 4byte", truncate_naive),
         ("truncate_unrolled 4byte", truncate_unrolled),
-        ("truncate_bits_unsafe 4byte", truncate_bits_unsafe),
         ("truncate_bits 4byte", truncate_bits),
     ];
     for (name, f) in TESTS {
         let string = string.clone();
+        for (name2, f2) in TESTS {
+            assert_eq!(f(&string, 7), f2(&string, 7), "{} != {}", name, name2);
+        }
         c.bench_function(name, move |b| {
             b.iter(|| {
                 f(&string, 7);
