@@ -286,6 +286,34 @@ mod cache_string {
             CacheString(ArrayString::from_str_truncate(string))
         }
 
+        /// Creates new `CacheString` from string slice assuming length is appropriate.
+        ///
+        /// # Safety
+        ///
+        /// It's UB if `string.len()` > [`capacity`].
+        ///
+        /// [`capacity`]: ./struct.CacheString.html#method.capacity
+        ///
+        /// ```rust
+        /// # use arraystring::prelude::*;
+        /// let filled = "0".repeat(CacheString::capacity().into());
+        /// let string = unsafe {
+        ///     CacheString::from_str_unchecked(&filled)
+        /// };
+        /// assert_eq!(string.as_str(), filled.as_str());
+        ///
+        /// // Undefined behavior, don't do it
+        /// // let out_of_bounds = "0".repeat(CacheString::capacity().into() + 1);
+        /// // let ub = unsafe { CacheString::from_str_unchecked(out_of_bounds) };
+        /// ```
+        #[inline]
+        pub unsafe fn from_str_unchecked<S>(string: S) -> Self
+        where
+            S: AsRef<str>,
+        {
+            CacheString(ArrayString::from_str_unchecked(string))
+        }
+
         /// Creates new `CacheString` from string slice iterator if total length is lower or equal to [`capacity`], otherwise returns an error.
         ///
         /// [`capacity`]: ./struct.CacheString.html#method.capacity
@@ -338,6 +366,36 @@ mod cache_string {
             CacheString(ArrayString::from_iterator(iter))
         }
 
+        /// Creates new `CacheString` from string slice iterator assuming length is appropriate.
+        ///
+        /// # Safety
+        ///
+        /// It's UB if `iter.map(|c| c.len()).sum()` > [`capacity`].
+        ///
+        /// [`capacity`]: ./struct.CacheString.html#method.capacity
+        ///
+        /// ```rust
+        /// # use arraystring::prelude::*;
+        /// let string = unsafe {
+        ///     CacheString::from_iterator_unchecked(&["My String", " My Other String"][..])
+        /// };
+        /// assert_eq!(string.as_str(), "My String My Other String");
+        ///
+        /// // Undefined behavior, don't do it
+        /// // let out_of_bounds = (0..400).map(|_| "000");
+        /// // let undefined_behavior = unsafe {
+        /// //     CacheString::from_iterator_unchecked(out_of_bounds)
+        /// // };
+        /// ```
+        #[inline]
+        pub unsafe fn from_iterator_unchecked<U, I>(iter: I) -> Self
+        where
+            U: AsRef<str>,
+            I: IntoIterator<Item = U>,
+        {
+            CacheString(ArrayString::from_iterator_unchecked(iter))
+        }
+
         /// Creates new `CacheString` from char iterator if total length is lower or equal to [`capacity`], otherwise returns an error.
         ///
         /// [`capacity`]: ./struct.CacheString.html#method.capacity
@@ -384,6 +442,31 @@ mod cache_string {
             I: IntoIterator<Item = char>,
         {
             CacheString(ArrayString::from_chars(iter))
+        }
+
+        /// Creates new `CacheString` from char iterator assuming length is appropriate.
+        ///
+        /// # Safety
+        ///
+        /// It's UB if `iter.map(|c| c.len_utf8()).sum()` > [`capacity`].
+        ///
+        /// [`capacity`]: ./struct.CacheString.html#method.capacity
+        ///
+        /// ```rust
+        /// # use arraystring::prelude::*;
+        /// let string = unsafe { CacheString::from_chars_unchecked("My String".chars()) };
+        /// assert_eq!(string.as_str(), "My String");
+        ///
+        /// // Undefined behavior, don't do it
+        /// // let out_of_bounds = "000".repeat(400);
+        /// // let undefined_behavior = unsafe { CacheString::from_chars_unchecked(out_of_bounds.chars()) };
+        /// ```
+        #[inline]
+        pub unsafe fn from_chars_unchecked<I>(iter: I) -> Self
+        where
+            I: IntoIterator<Item = char>,
+        {
+            CacheString(ArrayString::from_chars_unchecked(iter))
         }
 
         /// Creates new `CacheString` from byte slice, returning [`Utf8`] on invalid utf-8 data or [`OutOfBounds`] if bigger than [`capacity`]
@@ -442,6 +525,31 @@ mod cache_string {
             B: AsRef<[u8]>,
         {
             Ok(CacheString(ArrayString::from_utf8(slice)?))
+        }
+
+        /// Creates new `CacheString` from byte slice assuming it's utf-8 and of a appropriate size.
+        ///
+        /// # Safety
+        ///
+        /// It's UB if `slice` is not a valid utf-8 string or `slice.len()` > [`capacity`].
+        ///
+        /// [`capacity`]: ./struct.CacheString.html#method.capacity
+        ///
+        /// ```rust
+        /// # use arraystring::prelude::*;
+        /// let string = unsafe { CacheString::from_utf8_unchecked("My String") };
+        /// assert_eq!(string.as_str(), "My String");
+        ///
+        /// // Undefined behavior, don't do it
+        /// // let out_of_bounds = "0".repeat(300);
+        /// // let ub = unsafe { CacheString::from_utf8_unchecked(out_of_bounds)) };
+        /// ```
+        #[inline]
+        pub unsafe fn from_utf8_unchecked<B>(slice: B) -> Self
+        where
+            B: AsRef<[u8]>,
+        {
+            CacheString(ArrayString::from_utf8_unchecked(slice))
         }
 
         /// Creates new `CacheString` from `u16` slice, returning [`Utf16`] on invalid utf-16 data or [`OutOfBounds`] if bigger than [`capacity`]

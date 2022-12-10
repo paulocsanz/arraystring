@@ -95,9 +95,9 @@ fn small_clone_benchmark(c: &mut Criterion) {
 }
 
 fn small_from_unchecked_benchmark(c: &mut Criterion) {
-    let string = "rrssttuuvvwwxxyyzza";
+    let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(19).map(char::from).collect();
     c.bench_function("small from unchecked", move |b| {
-        b.iter(|| unsafe { SmallString::from_str_unchecked(&string) })
+        b.iter(|| unsafe { SmallString::from_str_unchecked(&rand_string) })
     });
 }
 
@@ -117,9 +117,10 @@ fn small_try_from_benchmark(c: &mut Criterion) {
 
 fn small_push_str_unchecked_benchmark(c: &mut Criterion) {
     let mut string = SmallString::default();
+    let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(19).map(char::from).collect();
     c.bench_function("small push str unchecked", move |b| {
         b.iter(|| unsafe {
-            string.push_str_unchecked("1413121110987654321");
+            string.push_str_unchecked(&rand_string);
             string.clear();
         })
     });
@@ -152,6 +153,13 @@ fn cache_clone_benchmark(c: &mut Criterion) {
     c.bench_function("cache clone", move |b| b.iter(|| string.clone()));
 }
 
+fn cache_from_unchecked_benchmark(c: &mut Criterion) {
+    let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(19).map(char::from).collect();
+    c.bench_function("cache from unchecked", move |b| {
+        b.iter(|| unsafe { CacheString::from_str_unchecked(&rand_string) })
+    });
+}
+
 fn cache_from_truncate_benchmark(c: &mut Criterion) {
     let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(19).map(char::from).collect();
     c.bench_function("cache from truncate", move |b| {
@@ -168,9 +176,10 @@ fn cache_try_from_benchmark(c: &mut Criterion) {
 
 fn cache_push_str_unchecked_benchmark(c: &mut Criterion) {
     let mut string = CacheString::default();
+    let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(19).map(char::from).collect();
     c.bench_function("cache push str unchecked", move |b| {
         b.iter(|| unsafe {
-            string.push_str_unchecked("1413121110987654321");
+            string.push_str_unchecked(&rand_string);
             string.clear();
         })
     });
@@ -204,9 +213,9 @@ fn max_clone_benchmark(c: &mut Criterion) {
 }
 
 fn max_from_unchecked_benchmark(c: &mut Criterion) {
-    let string = "vvvvwwwwxxxxyyyzzzza";
+    let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(19).map(char::from).collect();
     c.bench_function("max from unchecked", move |b| {
-        b.iter(|| unsafe { MaxString::from_str_unchecked(&string) })
+        b.iter(|| unsafe { MaxString::from_str_unchecked(&rand_string) })
     });
 }
 
@@ -226,9 +235,10 @@ fn max_try_from_benchmark(c: &mut Criterion) {
 
 fn max_push_str_unchecked_benchmark(c: &mut Criterion) {
     let mut string = MaxString::default();
+    let rand_string: String = thread_rng().sample_iter(&Alphanumeric).take(19).map(char::from).collect();
     c.bench_function("max push str unchecked", move |b| {
         b.iter(|| unsafe {
-            string.push_str_unchecked("1413121110987654321");
+            string.push_str_unchecked(&rand_string);
             string.clear();
         })
     });
@@ -283,24 +293,30 @@ criterion_group!(
     small,
     small_clone_benchmark,
     small_try_from_benchmark,
+    small_from_unchecked_benchmark,
     small_from_truncate_benchmark,
     small_try_push_str_benchmark,
+    small_push_str_unchecked_benchmark,
     small_push_str_benchmark,
 );
 criterion_group!(
     cache,
     cache_clone_benchmark,
     cache_try_from_benchmark,
+    cache_from_unchecked_benchmark,
     cache_from_truncate_benchmark,
     cache_try_push_str_benchmark,
+    cache_push_str_unchecked_benchmark,
     cache_push_str_benchmark,
 );
 criterion_group!(
     max,
     max_clone_benchmark,
     max_try_from_benchmark,
+    max_from_unchecked_benchmark,
     max_from_truncate_benchmark,
     max_try_push_str_benchmark,
+    max_push_str_unchecked_benchmark,
     max_push_str_benchmark,
 );
 criterion_main!(
