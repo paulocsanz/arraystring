@@ -605,7 +605,7 @@ where
     pub fn push_str_truncate(&mut self, string: impl AsRef<str>) {
         trace!("Push str truncate: {}", string.as_ref());
         let size = Self::capacity().saturating_sub(self.len());
-        unsafe { self.push_str_unchecked(truncate_str(string.as_ref(), size)) }
+        unsafe { self.push_str_unchecked(truncate_str(string.as_ref(), size as usize)) }
     }
 
     /// Pushes string slice to the end of the `ArrayString` assuming total size is appropriate.
@@ -972,7 +972,7 @@ where
         is_inside_boundary(idx, self.len())?;
         is_char_boundary(self, idx)?;
         let size = Self::capacity().saturating_sub(self.len());
-        unsafe { self.insert_str_unchecked(idx, truncate_str(string.as_ref(), size)) };
+        unsafe { self.insert_str_unchecked(idx, truncate_str(string.as_ref(), size as usize)) };
         Ok(())
     }
 
