@@ -167,18 +167,25 @@ where
 
 /// Truncates string to specified size (ignoring last bytes if they form a partial `char`)
 #[inline]
-pub(crate) fn truncate_str(slice: &str, size: u8) -> &str {
+pub(crate) fn truncate_str(slice: &str, mut size: usize) -> &str {
     trace!("Truncate str: {} at {}", slice, size);
-    if slice.is_char_boundary(size.into()) {
-        unsafe { slice.get_unchecked(..size.into()) }
-    } else if (size as usize) < slice.len() {
-        let mut index = size.saturating_sub(1) as usize;
-        while !slice.is_char_boundary(index) {
-            index = index.saturating_sub(1);
+    if size >= slice.len() {
+        return slice;
+    }
+    unsafe {
+        if slice.is_char_boundary(size) {
+            return slice.get_unchecked(..size);
         }
-        unsafe { slice.get_unchecked(..index) }
-    } else {
-        slice
+        size -= 1;
+        if slice.is_char_boundary(size) {
+            return slice.get_unchecked(..size);
+        }
+        size -= 1;
+        if slice.is_char_boundary(size) {
+            return slice.get_unchecked(..size);
+        }
+        size -= 1;
+        slice.get_unchecked(..size)
     }
 }
 
