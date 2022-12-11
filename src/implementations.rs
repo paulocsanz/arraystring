@@ -35,7 +35,7 @@ where
 {
     #[inline]
     fn as_mut(&mut self) -> &mut str {
-        debug_assert!((self.size as usize) < N);
+        debug_assert!((self.size as usize) <= N);
         let len = self.size as usize;
         let slice = unsafe { self.array.as_mut_slice().get_unchecked_mut(..len) };
         debug_assert!(str::from_utf8(slice).is_ok());
@@ -49,7 +49,7 @@ where
 {
     #[inline]
     fn as_ref(&self) -> &[u8] {
-        debug_assert!((self.size as usize) < N);
+        debug_assert!((self.size as usize) <= N);
         unsafe { self.array.as_slice().get_unchecked(..self.size.into()) }
     }
 }

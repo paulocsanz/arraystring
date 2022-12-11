@@ -808,7 +808,7 @@ where
     #[inline]
     pub fn remove(&mut self, idx: u8) -> Result<char, Error> {
         debug!("Remove: {}", idx);
-        is_inside_boundary(idx, self.len().saturating_sub(1))?;
+        is_inside_boundary(idx.saturating_add(1), self.len())?;
         is_char_boundary(self, idx)?;
         debug_assert!(idx < self.len() && self.as_str().is_char_boundary(idx.into()));
         let ch = unsafe { self.as_str().get_unchecked(idx.into()..).chars().next() };
@@ -1149,7 +1149,7 @@ where
         };
         unsafe { shift_left_unchecked(self, end, start) };
         self.size = self.size.saturating_sub(end.saturating_sub(start));
-        Ok(Drain(drain, 0))
+        Ok(Drain(drain))
     }
 
     /// Removes the specified range of the `ArrayString`, and replaces it with the given string. The given string doesn't need to have the same length as the range.

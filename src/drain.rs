@@ -12,7 +12,7 @@ use core::{cmp::Ordering, hash::Hash, hash::Hasher, iter::FusedIterator};
 ///
 /// [`ArrayString`]: ../struct.ArrayString.html
 /// [`drain`]: ../struct.ArrayString.html#method.drain
-pub struct Drain<const N: usize>(pub(crate) ArrayString<N>, pub(crate) u8)
+pub struct Drain<const N: usize>(pub(crate) ArrayString<N>)
 where
     ArrayString<N>: ValidCapacity;
 
@@ -22,7 +22,7 @@ where
     ArrayString<N>: ValidCapacity,
 {
     fn clone(&self) -> Self {
-        Self(self.0, self.1)
+        Self(self.0)
     }
 }
 impl<const N: usize> Default for Drain<N>
@@ -30,7 +30,7 @@ where
     ArrayString<N>: ValidCapacity,
 {
     fn default() -> Self {
-        Self(Default::default(), Default::default())
+        Self(Default::default())
     }
 }
 
@@ -42,7 +42,6 @@ where
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_tuple("Drain")
             .field(&self.0)
-            .field(&self.1)
             .finish()
     }
 }
