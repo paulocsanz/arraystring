@@ -1,11 +1,11 @@
-use criterion::{Criterion, criterion_group, criterion_main};
-use rand::{Rng, thread_rng};
+use criterion::{criterion_group, criterion_main, Criterion};
+use rand::{thread_rng, Rng};
 
-fn truncate_master(slice: &str, size: u8) -> &str {
-    if slice.is_char_boundary(size.into()) {
-        unsafe { slice.get_unchecked(..size.into()) }
-    } else if (size as usize) < slice.len() {
-        let mut index = size.saturating_sub(1) as usize;
+fn truncate_master(slice: &str, size: usize) -> &str {
+    if slice.is_char_boundary(size) {
+        unsafe { slice.get_unchecked(..size) }
+    } else if size < slice.len() {
+        let mut index = size.saturating_sub(1);
         while !slice.is_char_boundary(index) {
             index = index.saturating_sub(1);
         }
@@ -15,30 +15,37 @@ fn truncate_master(slice: &str, size: u8) -> &str {
     }
 }
 
-fn truncate_naive(slice: &str, size: u8) -> &str {
-    let mut index = size as usize;
-    while !slice.is_char_boundary(index) {
-        index = index.saturating_sub(1);
+fn truncate_naive(slice: &str, mut size: usize) -> &str {
+    while !slice.is_char_boundary(size) {
+        size = size.saturating_sub(1);
     }
-    unsafe { slice.get_unchecked(..index) }
+    unsafe { slice.get_unchecked(..size) }
 }
 
-fn truncate_unrolled(slice: &str, mut size: u8) -> &str {
-    if slice.is_char_boundary(size as usize) {
-        return unsafe { slice.get_unchecked(..size as usize) };
-    } else if size as usize >= slice.len() {
+fn truncate_unrolled(slice: &str, mut size: usize) -> &str {
+    if size >= slice.len() {
         return slice;
     }
-    size -= 1;
-    if slice.is_char_boundary(size as usize) {
-        return unsafe { slice.get_unchecked(..size as usize) };
+    unsafe {
+        if slice.is_char_boundary(size) {
+            return slice.get_unchecked(..size);
+        }
+        size -= 1;
+        if slice.is_char_boundary(size) {
+            return slice.get_unchecked(..size);
+        }
+        size -= 1;
+        if slice.is_char_boundary(size) {
+            return slice.get_unchecked(..size);
+        }
+        size -= 1;
+        slice.get_unchecked(..size)
     }
-    size -= 1;
-    if slice.is_char_boundary(size as usize) {
-        return unsafe { slice.get_unchecked(..size as usize) };
-    }
-    size -= 1;
-    unsafe { slice.get_unchecked(..size as usize) }
+}
+
+#[inline]
+fn is_char_boundary(code: &u8) -> bool {
+    (*code as i8) >= -0x40
 }
 
 #[inline]
@@ -48,16 +55,15 @@ fn load_u32(slice: &[u8]) -> u32 {
         [a, b, c] => u32::from_le_bytes([*a, *b, *c, 0]),
         [a, b] => u32::from_le_bytes([*a, *b, 0, 0]),
         [a] => u32::from_le_bytes([*a, 0, 0, 0]),
-        [] => 0
+        [] => 0,
     }
 }
 
-fn truncate_bits(slice: &str, size: u8) -> &str {
-    let size = size as usize;
-    match slice.as_bytes().get(size).map(|it| *it & 0xC0 != 0x80) {
-        Some(true) => unsafe { slice.get_unchecked(..size) },
+fn truncate_bits(slice: &str, size: usize) -> &str {
+    match slice.as_bytes().get(size as usize).map(is_char_boundary) {
+        Some(true) => unsafe { slice.get_unchecked(..size as usize) },
         Some(false) => unsafe {
-            let size = size.saturating_sub(3);
+            let size = size.saturating_sub(3) as usize;
             let data = load_u32(slice.as_bytes().get_unchecked(size..)); // could segfault if it goes over a page limit when slice.len < 4
             let masked = data & 0xC0C0C0C0; // mask off only the two leftmost bis of each byte
             let zeroes = masked ^ 0x80808080; // the right values become zeroes, so we can count where the first 1 is that indicates the first non boundary
@@ -70,7 +76,7 @@ fn truncate_bits(slice: &str, size: u8) -> &str {
 
 fn truncate_benchmark_1byte(c: &mut Criterion) {
     let string = "abdefghijaaaaa".repeat(thread_rng().gen_range(1..2));
-    const TESTS: [(&str, fn(&str, u8) -> &str); 4] = [
+    const TESTS: [(&str, fn(&str, usize) -> &str); 4] = [
         ("truncate_master 1byte", truncate_master),
         ("truncate_naive 1byte", truncate_naive),
         ("truncate_unrolled 1byte", truncate_unrolled),
@@ -89,10 +95,9 @@ fn truncate_benchmark_1byte(c: &mut Criterion) {
     }
 }
 
-
 fn truncate_benchmark_2byte(c: &mut Criterion) {
     let string = "ÅÅÅÅÅÅÅÅ".repeat(thread_rng().gen_range(1..2));
-    const TESTS: [(&str, fn(&str, u8) -> &str); 4] = [
+    const TESTS: [(&str, fn(&str, usize) -> &str); 4] = [
         ("truncate_master 2byte", truncate_master),
         ("truncate_naive 2byte", truncate_naive),
         ("truncate_unrolled 2byte", truncate_unrolled),
@@ -113,7 +118,7 @@ fn truncate_benchmark_2byte(c: &mut Criterion) {
 
 fn truncate_benchmark_3byte(c: &mut Criterion) {
     let string = "⠁⠂⠃⠄⠅⠆⠇⠈⠉⠊⠌⠍⠎⠏".repeat(thread_rng().gen_range(1..2));
-    const TESTS: [(&str, fn(&str, u8) -> &str); 4] = [
+    const TESTS: [(&str, fn(&str, usize) -> &str); 4] = [
         ("truncate_master 3byte", truncate_master),
         ("truncate_naive 3byte", truncate_naive),
         ("truncate_unrolled 3byte", truncate_unrolled),
@@ -134,7 +139,7 @@ fn truncate_benchmark_3byte(c: &mut Criterion) {
 
 fn truncate_benchmark_4byte(c: &mut Criterion) {
     let string = "👍👍👍👍👍👍👍".repeat(thread_rng().gen_range(1..2));
-    const TESTS: [(&str, fn(&str, u8) -> &str); 4] = [
+    const TESTS: [(&str, fn(&str, usize) -> &str); 4] = [
         ("truncate_master 4byte", truncate_master),
         ("truncate_naive 4byte", truncate_naive),
         ("truncate_unrolled 4byte", truncate_unrolled),
@@ -160,6 +165,4 @@ criterion_group!(
     truncate_benchmark_3byte,
     truncate_benchmark_4byte,
 );
-criterion_main!(
-    truncate,
-);
+criterion_main!(truncate,);
