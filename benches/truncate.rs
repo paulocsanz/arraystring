@@ -53,18 +53,18 @@ fn load_u32(slice: &[u8]) -> u32 {
 }
 
 fn truncate_bits(slice: &str, size: u8) -> &str {
-    unsafe {
-        if (*slice.as_bytes().get_unchecked(size as usize)) & 0xC0 != 0x80 {
-            return slice.get_unchecked(..size as usize);
-        } else if size as usize >= slice.len() {
-            return slice;
-        }
-        let size = size.saturating_sub(3);
-        let data = load_u32(slice.as_bytes().get_unchecked(size as usize..)); // could segfault if it goes over a page limit when slice.len < 4
-        let masked = data & 0xC0C0C0C0; // mask off only the two leftmost bis of each byte
-        let zeroes = masked ^ 0x80808080; // the right values become zeroes, so we can count where the first 1 is that indicates the first non boundary
-        let offset = zeroes.leading_zeros() / 8; // magic that gets the right
-        slice.get_unchecked(..size as usize + 3 - offset as usize)
+    let size = size as usize;
+    match slice.as_bytes().get(size).map(|it| *it & 0xC0 != 0x80) {
+        Some(true) => unsafe { slice.get_unchecked(..size) },
+        Some(false) => unsafe {
+            let size = size.saturating_sub(3);
+            let data = load_u32(slice.as_bytes().get_unchecked(size..)); // could segfault if it goes over a page limit when slice.len < 4
+            let masked = data & 0xC0C0C0C0; // mask off only the two leftmost bis of each byte
+            let zeroes = masked ^ 0x80808080; // the right values become zeroes, so we can count where the first 1 is that indicates the first non boundary
+            let offset = zeroes.leading_zeros() / 8; // magic that gets the right
+            slice.get_unchecked(..size + 3 - offset as usize)
+        },
+        None => slice,
     }
 }
 
