@@ -44,12 +44,12 @@ fn truncate_unrolled(slice: &str, mut size: usize) -> &str {
 }
 
 #[inline]
-fn is_char_boundary(code: &u8) -> bool {
+const fn is_char_boundary(code: &u8) -> bool {
     (*code as i8) >= -0x40
 }
 
 #[inline]
-fn load_u32(slice: &[u8]) -> u32 {
+const fn load_u32(slice: &[u8]) -> u32 {
     match slice {
         [a, b, c, d, ..] => u32::from_le_bytes([*a, *b, *c, *d]),
         [a, b, c] => u32::from_le_bytes([*a, *b, *c, 0]),
@@ -60,17 +60,14 @@ fn load_u32(slice: &[u8]) -> u32 {
 }
 
 fn truncate_bits(slice: &str, size: usize) -> &str {
-    match slice.as_bytes().get(size as usize).map(is_char_boundary) {
-        Some(true) => unsafe { slice.get_unchecked(..size as usize) },
-        Some(false) => unsafe {
-            let size = size.saturating_sub(3) as usize;
-            let data = load_u32(slice.as_bytes().get_unchecked(size..)); // could segfault if it goes over a page limit when slice.len < 4
-            let masked = data & 0xC0C0C0C0; // mask off only the two leftmost bis of each byte
-            let zeroes = masked ^ 0x80808080; // the right values become zeroes, so we can count where the first 1 is that indicates the first non boundary
-            let offset = zeroes.leading_zeros() / 8; // magic that gets the right
-            slice.get_unchecked(..size + 3 - offset as usize)
-        },
-        None => slice,
+    if let Some(bytes) = slice.as_bytes().get(size.saturating_sub(3)..) {
+        let data = load_u32(bytes);
+        let masked = data & 0xC0C0C0C0; // mask off only the two leftmost bis of each byte
+        let zeroes = masked ^ 0x80808080; // the right values become zeroes, so we can count where the first 1 is that indicates the first non boundary
+        let offset = zeroes.leading_zeros() / 8; // magic that gets the right offset
+        unsafe { slice.get_unchecked(..size - offset as usize) }
+    } else {
+        slice
     }
 }
 
