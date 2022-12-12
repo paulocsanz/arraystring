@@ -1301,6 +1301,12 @@ mod cache_string {
             Self(array)
         }
     }
+
+    impl From<&str> for CacheString {
+        fn from(s: &str) -> Self {
+            Self(ArrayString::<CACHE_STRING_SIZE>::from(s))
+        }
+    }
 }
 pub use cache_string::*;
 

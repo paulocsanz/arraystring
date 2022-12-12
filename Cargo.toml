@@ -21,10 +21,10 @@ harness = false
 [dev-dependencies]
 inlinable_string = "0.1"
 smallstring = "0.1"
-arrayvec = "0.4"
+arrayvec = "0.7"
 serde_json = "1.0"
-criterion = "0.2"
-env_logger = "0.5"
+criterion = { version = "0.4", features = ["html_reports"] }
+env_logger = "0.10"
 serde = { version = "1.0", features = ["derive"] }
 diesel = { version = "2", features = ["sqlite", "postgres", "mysql"] }
 
