@@ -134,7 +134,7 @@ fn bench_push(c: &mut Criterion) {
                                 param,
                                 |b, p| b.iter(|| {
                                     let _ = string.$f(p);
-                                    string.clear();
+                                    criterion::black_box(&mut string).clear(); // clear not inline
                                 }),
                             );
                         }
