@@ -196,6 +196,7 @@ pub type MaxString = ArrayString<255>;
 mod cache_string {
     use crate::{prelude::*, Error};
     use core::fmt::{self, Debug, Display, Formatter, Write};
+    use core::iter::FromIterator;
     use core::{borrow::Borrow, borrow::BorrowMut, ops::*};
     use core::{cmp::Ordering, hash::Hash, hash::Hasher, str::FromStr};
 
@@ -1223,6 +1224,36 @@ mod cache_string {
         }
     }
 
+    impl FromIterator<char> for CacheString {
+        fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> Self {
+            Self(ArrayString::<CACHE_STRING_SIZE>::from_iter(iter))
+        }
+    }
+
+    impl<'a> FromIterator<&'a str> for CacheString {
+        fn from_iter<I: IntoIterator<Item = &'a str>>(iter: I) -> Self {
+            Self(ArrayString::<CACHE_STRING_SIZE>::from_iter(iter))
+        }
+    }
+
+    impl Extend<char> for CacheString {
+        fn extend<I: IntoIterator<Item = char>>(&mut self, iterable: I) {
+            self.0.extend(iterable);
+        }
+    }
+
+    impl<'a> Extend<&'a char> for CacheString {
+        fn extend<I: IntoIterator<Item = &'a char>>(&mut self, iter: I) {
+            self.0.extend(iter)
+        }
+    }
+
+    impl<'a> Extend<&'a str> for CacheString {
+        fn extend<I: IntoIterator<Item = &'a str>>(&mut self, iterable: I) {
+            self.0.extend(iterable);
+        }
+    }
+
     impl Display for CacheString {
         #[inline]
         fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -1305,6 +1336,102 @@ mod cache_string {
     impl From<&str> for CacheString {
         fn from(s: &str) -> Self {
             Self(ArrayString::<CACHE_STRING_SIZE>::from(s))
+        }
+    }
+
+    impl IndexMut<RangeFrom<u8>> for CacheString {
+        #[inline]
+        fn index_mut(&mut self, index: RangeFrom<u8>) -> &mut str {
+            self.0.index_mut(index)
+        }
+    }
+
+    impl IndexMut<RangeTo<u8>> for CacheString {
+        #[inline]
+        fn index_mut(&mut self, index: RangeTo<u8>) -> &mut str {
+            self.0.index_mut(index)
+        }
+    }
+
+    impl IndexMut<RangeFull> for CacheString {
+        #[inline]
+        fn index_mut(&mut self, index: RangeFull) -> &mut str {
+            self.0.index_mut(index)
+        }
+    }
+
+    impl IndexMut<Range<u8>> for CacheString {
+        #[inline]
+        fn index_mut(&mut self, index: Range<u8>) -> &mut str {
+            self.0.index_mut(index)
+        }
+    }
+
+    impl IndexMut<RangeToInclusive<u8>> for CacheString {
+        #[inline]
+        fn index_mut(&mut self, index: RangeToInclusive<u8>) -> &mut str {
+            self.0.index_mut(index)
+        }
+    }
+
+    impl IndexMut<RangeInclusive<u8>> for CacheString {
+        #[inline]
+        fn index_mut(&mut self, index: RangeInclusive<u8>) -> &mut str {
+            self.0.index_mut(index)
+        }
+    }
+
+    impl Index<RangeFrom<u8>> for CacheString {
+        type Output = str;
+
+        #[inline]
+        fn index(&self, index: RangeFrom<u8>) -> &Self::Output {
+            self.0.index(index)
+        }
+    }
+
+    impl Index<RangeTo<u8>> for CacheString {
+        type Output = str;
+
+        #[inline]
+        fn index(&self, index: RangeTo<u8>) -> &Self::Output {
+            self.0.index(index)
+        }
+    }
+
+    impl Index<RangeFull> for CacheString {
+        type Output = str;
+
+        #[inline]
+        fn index(&self, index: RangeFull) -> &Self::Output {
+            self.0.index(index)
+        }
+    }
+
+    impl Index<Range<u8>> for CacheString {
+        type Output = str;
+
+        #[inline]
+        fn index(&self, index: Range<u8>) -> &Self::Output {
+            self.0.index(index)
+        }
+    }
+
+    impl Index<RangeToInclusive<u8>> for CacheString {
+        type Output = str;
+
+        #[inline]
+        fn index(&self, index: RangeToInclusive<u8>) -> &Self::Output {
+            self.0.index(index)
+        }
+    }
+
+    impl Index<RangeInclusive<u8>> for CacheString {
+        type Output = str;
+
+        #[inline]
+        fn index(&self, index: RangeInclusive<u8>) -> &Self::Output {
+            self.0.index(index)
         }
     }
 }

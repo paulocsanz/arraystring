@@ -40,9 +40,7 @@ where
 {
     #[inline]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.debug_tuple("Drain")
-            .field(&self.0)
-            .finish()
+        f.debug_tuple("Drain").field(&self.0).finish()
     }
 }
 
