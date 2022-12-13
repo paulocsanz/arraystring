@@ -9,8 +9,8 @@ use core::str::from_utf8;
 use core::{cmp::min, ops::*};
 #[cfg(feature = "logs")]
 use log::{debug, trace};
+#[cfg(not(debug_assertions))]
 use no_panic::no_panic;
-use std::{ptr, usize};
 
 /// String based on a generic array (size defined at compile time through `const generics`)
 ///
@@ -47,7 +47,7 @@ where
     #[inline]
     pub const fn new() -> Self {
         Self {
-            array: [0; N], // unsafe { MaybeUninit::uninit().assume_init() }, < miri says UB even if not really, lots faster
+            array: [0; N],
             size: 0,
         }
     }
@@ -89,7 +89,7 @@ where
     /// println!("{}", string);
     ///
     /// let truncate = "0".repeat(ArrayString::<23>::capacity() as usize + 1);
-    /// let truncated = "0".repeat(ArrayString::<23>::capacity().into());
+    /// let truncated = "0".repeat(ArrayString::<23>::capacity());
     /// let string = ArrayString::<23>::from_str_truncate(&truncate);
     /// assert_eq!(string.as_str(), truncated);
     /// ```
@@ -140,7 +140,7 @@ where
     /// assert_eq!(string.as_str(), "My String Other String");
     ///
     /// let out_of_bounds = (0..400).map(|_| "000");
-    /// let truncated = "0".repeat(ArrayString::<23>::capacity().into());
+    /// let truncated = "0".repeat(ArrayString::<23>::capacity());
     ///
     /// let truncate = ArrayString::<23>::from_iterator_truncate(out_of_bounds);
     /// assert_eq!(truncate.as_str(), truncated.as_str());
@@ -197,7 +197,7 @@ where
     /// assert_eq!(string.as_str(), "My String");
     ///
     /// let out_of_bounds = "0".repeat(ArrayString::<23>::capacity() as usize + 1);
-    /// let truncated = "0".repeat(ArrayString::<23>::capacity().into());
+    /// let truncated = "0".repeat(ArrayString::<23>::capacity());
     ///
     /// let truncate = ArrayString::<23>::from_chars_truncate(out_of_bounds.chars());
     /// assert_eq!(truncate.as_str(), truncated.as_str());
@@ -258,7 +258,7 @@ where
     ///
     /// let out_of_bounds = "0".repeat(300);
     /// assert_eq!(ArrayString::<23>::from_utf8_truncate(out_of_bounds.as_bytes())?.as_str(),
-    ///            "0".repeat(ArrayString::<23>::capacity().into()).as_str());
+    ///            "0".repeat(ArrayString::<23>::capacity()).as_str());
     /// # Ok(())
     /// # }
     /// ```
@@ -318,7 +318,7 @@ where
     ///
     /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
     /// assert_eq!(ArrayString::<23>::from_utf16_truncate(out_of_bounds)?.as_str(),
-    ///            "\0".repeat(ArrayString::<23>::capacity().into()).as_str());
+    ///            "\0".repeat(ArrayString::<23>::capacity()).as_str());
     /// # Ok(())
     /// # }
     /// ```
@@ -351,7 +351,7 @@ where
     ///
     /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
     /// assert_eq!(ArrayString::<23>::from_utf16_lossy_truncate(&out_of_bounds).as_str(),
-    ///            "\0".repeat(ArrayString::<23>::capacity().into()).as_str());
+    ///            "\0".repeat(ArrayString::<23>::capacity()).as_str());
     /// # Ok(())
     /// # }
     /// ```
@@ -436,7 +436,7 @@ where
     pub unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
         trace!("As mut str");
         let len = self.len();
-        self.array.as_mut_slice().get_unchecked_mut(..len.into())
+        self.array.as_mut_slice().get_unchecked_mut(..len)
     }
 
     /// Returns maximum string capacity, defined at compile time, it will never change
@@ -463,7 +463,7 @@ where
     /// s.try_push_str(" My other String")?;
     /// assert_eq!(s.as_str(), "My String My other String");
     ///
-    /// assert!(s.try_push_str("0".repeat(ArrayString::<255>::capacity().into())).is_err());
+    /// assert!(s.try_push_str("0".repeat(ArrayString::<255>::capacity())).is_err());
     /// # Ok(())
     /// # }
     /// ```
@@ -472,19 +472,19 @@ where
     pub fn try_push_str(&mut self, string: impl AsRef<str>) -> Result<(), OutOfBounds> {
         trace!("Push str: {}", string.as_ref());
         let str = string.as_ref().as_bytes();
-        if str.len() == 0 {
+        if str.is_empty() {
             return Ok(());
         }
         is_inside_boundary(str.len() + self.len(), Self::capacity())?;
         unsafe {
-            ptr::copy_nonoverlapping(
+            core::ptr::copy_nonoverlapping(
                 str.as_ptr(),
                 self.array.as_mut_ptr().add(self.len()),
                 str.len(),
             );
         }
-        self.size += str.len() as u8;
-        return Ok(());
+        self.size += str.len().into_lossy();
+        Ok(())
     }
 
     /// Pushes string slice to the end of the `ArrayString` truncating total size if bigger than [`capacity`].
@@ -501,7 +501,7 @@ where
     ///
     /// let mut s = ArrayString::<23>::default();
     /// s.push_str_truncate("0".repeat(ArrayString::<23>::capacity() as usize + 1));
-    /// assert_eq!(s.as_str(), "0".repeat(ArrayString::<23>::capacity().into()).as_str());
+    /// assert_eq!(s.as_str(), "0".repeat(ArrayString::<23>::capacity()).as_str());
     /// # Ok(())
     /// # }
     /// ```
@@ -511,18 +511,18 @@ where
         trace!("Push str truncate: {}", string.as_ref());
         let str = string.as_ref().as_bytes();
         let size = Self::capacity() - self.len();
-        if size == 0 || str.len() == 0 {
+        if size == 0 || str.is_empty() {
             return;
         }
         let str = truncate_str(str, size);
         unsafe {
-            ptr::copy_nonoverlapping(
+            core::ptr::copy_nonoverlapping(
                 str.as_ptr(),
                 self.array.as_mut_ptr().add(self.len()),
                 str.len(),
             );
         }
-        self.size += str.len() as u8;
+        self.size += str.len().into_lossy();
     }
 
     /// Inserts character to the end of the `ArrayString` erroring if total size if bigger than [`capacity`].
@@ -537,14 +537,14 @@ where
     /// s.try_push('!')?;
     /// assert_eq!(s.as_str(), "My String!");
     ///
-    /// let mut s = ArrayString::<23>::try_from_str(&"0".repeat(ArrayString::<23>::capacity().into()))?;
+    /// let mut s = ArrayString::<23>::try_from_str(&"0".repeat(ArrayString::<23>::capacity()))?;
     /// assert!(s.try_push('!').is_err());
     /// # Ok(())
     /// # }
     /// ```
     #[inline]
     pub fn try_push(&mut self, ch: char) -> Result<(), OutOfBounds> {
-        trace!("Push: {}", character);
+        trace!("Push: {}", ch);
         let mut buf = [0; 4];
         self.try_push_str(ch.encode_utf8(&mut buf))
     }
@@ -573,7 +573,7 @@ where
     pub fn truncate(&mut self, size: usize) -> Result<(), Utf8> {
         debug!("Truncate: {}", size);
         let len = min(self.len(), size);
-        is_char_boundary(self, len).map(|()| self.size = len as u8)
+        is_char_boundary(self, len).map(|()| self.size = len.into_lossy())
     }
 
     /// Removes last character from `ArrayString`, if any.
@@ -636,7 +636,7 @@ where
             end = pos;
         }
         let range = start..end;
-        self.size = range.clone().count() as u8;
+        self.size = range.clone().count().into_lossy();
         self.array.copy_within(range, 0);
     }
 
@@ -673,7 +673,7 @@ where
         if idx + len < self.len() {
             self.array.copy_within(idx + len.., idx);
         }
-        self.size -= len as u8;
+        self.size -= len.into_lossy();
         Ok(char)
     }
 
@@ -715,7 +715,7 @@ where
     /// assert_eq!(s.try_insert(20, 'C'), Err(Error::OutOfBounds));
     /// assert_eq!(s.try_insert(8, 'D'), Err(Error::Utf8));
     ///
-    /// let mut s = ArrayString::<23>::try_from_str(&"0".repeat(ArrayString::<23>::capacity().into()))?;
+    /// let mut s = ArrayString::<23>::try_from_str(&"0".repeat(ArrayString::<23>::capacity()))?;
     /// assert_eq!(s.try_insert(0, 'C'), Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
@@ -742,7 +742,7 @@ where
     /// let mut s = ArrayString::<23>::try_from_str("ABCD🤔")?;
     /// s.try_insert_str(1, "AB")?;
     /// s.try_insert_str(1, "BC")?;
-    /// assert_eq!(s.try_insert_str(1, "0".repeat(ArrayString::<23>::capacity().into())),
+    /// assert_eq!(s.try_insert_str(1, "0".repeat(ArrayString::<23>::capacity())),
     ///            Err(Error::OutOfBounds));
     /// assert_eq!(s.as_str(), "ABCABBCD🤔");
     /// assert_eq!(s.try_insert_str(20, "C"), Err(Error::OutOfBounds));
@@ -757,13 +757,13 @@ where
         is_inside_boundary(idx, self.len())?;
         is_inside_boundary(str.len() + self.len(), Self::capacity())?;
         is_char_boundary(self, idx)?;
-        if str.len() == 0 {
+        if str.is_empty() {
             return Ok(());
         }
         let this_len = self.len();
         self.array.copy_within(idx..this_len, idx + str.len());
         self.array[idx..idx + str.len()].copy_from_slice(str);
-        self.size += str.len() as u8;
+        self.size += str.len().into_lossy();
         Ok(())
     }
 
@@ -789,7 +789,7 @@ where
     ///
     /// s.clear();
     /// s.insert_str_truncate(0, "0".repeat(ArrayString::<23>::capacity() as usize + 10))?;
-    /// assert_eq!(s.as_str(), "0".repeat(ArrayString::<23>::capacity().into()).as_str());
+    /// assert_eq!(s.as_str(), "0".repeat(ArrayString::<23>::capacity()).as_str());
     /// # Ok(())
     /// # }
     /// ```
@@ -806,8 +806,8 @@ where
         if size == 0 {
             return Ok(());
         }
-        let str = truncate_str(string.as_ref().as_bytes(), size.into());
-        if str.len() == 0 {
+        let str = truncate_str(string.as_ref().as_bytes(), size);
+        if str.is_empty() {
             return Ok(());
         }
         let remaining = usize::min(size - str.len(), self.len() - idx);
@@ -816,7 +816,7 @@ where
                 .copy_within(idx..(idx + remaining), idx + str.len())
         }
         self.array[idx..idx + str.len()].copy_from_slice(str);
-        self.size = (idx + str.len() + remaining) as u8;
+        self.size = (idx + str.len() + remaining).into_lossy();
         Ok(())
     }
 
@@ -837,7 +837,7 @@ where
     #[inline]
     pub fn len(&self) -> usize {
         trace!("Len");
-        self.size as usize
+        self.size.into()
     }
 
     /// Checks if `ArrayString` is empty.
@@ -883,11 +883,10 @@ where
         debug!("Split off");
         is_inside_boundary(at, self.len())?;
         is_char_boundary(self, at)?;
-        debug_assert!(at <= self.len() && self.as_str().is_char_boundary(at.into()));
-        let new = unsafe {
-            Self::try_from_str(self.as_str().get_unchecked(at.into()..)).unwrap_unchecked()
-        };
-        self.size = at as u8;
+        debug_assert!(at <= self.len() && self.as_str().is_char_boundary(at));
+        let new =
+            unsafe { Self::try_from_str(self.as_str().get_unchecked(at..)).unwrap_unchecked() };
+        self.size = at.into_lossy();
         Ok(new)
     }
 
@@ -946,15 +945,17 @@ where
         is_char_boundary(self, start)?;
         is_char_boundary(self, end)?;
         debug_assert!(start <= end && end <= self.len());
-        debug_assert!(self.as_str().is_char_boundary(start.into()));
-        debug_assert!(self.as_str().is_char_boundary(end.into()));
+        debug_assert!(self.as_str().is_char_boundary(start));
+        debug_assert!(self.as_str().is_char_boundary(end));
 
         let drain = unsafe {
-            let slice = self.as_str().get_unchecked(start.into()..end.into());
+            let slice = self.as_str().get_unchecked(start..end);
             Self::try_from_str(slice).unwrap_unchecked()
         };
         self.array.copy_within(end.., start);
-        self.size = self.size.saturating_sub(end.saturating_sub(start) as u8);
+        self.size = self
+            .size
+            .saturating_sub(end.saturating_sub(start).into_lossy());
         Ok(Drain(drain))
     }
 
@@ -970,8 +971,7 @@ where
     ///
     /// assert_eq!(s.replace_range(9.., "J"), Err(Error::Utf8));
     /// assert_eq!(s.replace_range(..90, "K"), Err(Error::OutOfBounds));
-    /// assert_eq!(s.replace_range(0..1, "0".repeat(ArrayString::<23>::capacity().into())),
-    ///            Err(Error::OutOfBounds));
+    /// assert_eq!(s.replace_range(0..1, "0".repeat(ArrayString::<23>::capacity())), Err(Error::OutOfBounds));
     /// # Ok(())
     /// # }
     /// ```
@@ -1000,7 +1000,7 @@ where
             with.as_ref().len(),
             with.as_ref()
         );
-        if start == end && str.len() == 0 {
+        if start == end && str.is_empty() {
             return Ok(());
         }
         is_inside_boundary(start, end)?;
@@ -1011,11 +1011,11 @@ where
         let dest = start + str.len();
         let this_len = self.len();
         self.array.copy_within(end..this_len, dest);
-        if str.len() > 0 {
+        if !str.is_empty() {
             self.array[start..start + str.len()].copy_from_slice(str);
         }
-        self.size -= (end - start) as u8;
-        self.size += str.len() as u8;
+        self.size -= (end - start).into_lossy();
+        self.size += str.len().into_lossy();
         Ok(())
     }
 }

@@ -261,7 +261,7 @@ mod cache_string {
         /// println!("{}", string);
         ///
         /// let truncate = "0".repeat(CacheString::capacity() as usize + 1);
-        /// let truncated = "0".repeat(CacheString::capacity().into());
+        /// let truncated = "0".repeat(CacheString::capacity());
         /// let string = CacheString::from_str_truncate(&truncate);
         /// assert_eq!(string.as_str(), truncated);
         /// ```
@@ -304,7 +304,7 @@ mod cache_string {
         /// assert_eq!(string.as_str(), "My String Other String");
         ///
         /// let out_of_bounds = (0..400).map(|_| "000");
-        /// let truncated = "0".repeat(CacheString::capacity().into());
+        /// let truncated = "0".repeat(CacheString::capacity());
         ///
         /// let truncate = CacheString::from_iterator_truncate(out_of_bounds);
         /// assert_eq!(truncate.as_str(), truncated.as_str());
@@ -348,7 +348,7 @@ mod cache_string {
         /// assert_eq!(string.as_str(), "My String");
         ///
         /// let out_of_bounds = "0".repeat(CacheString::capacity() as usize + 1);
-        /// let truncated = "0".repeat(CacheString::capacity().into());
+        /// let truncated = "0".repeat(CacheString::capacity());
         ///
         /// let truncate = CacheString::from_chars_truncate(out_of_bounds.chars());
         /// assert_eq!(truncate.as_str(), truncated.as_str());
@@ -401,7 +401,7 @@ mod cache_string {
         ///
         /// let out_of_bounds = "0".repeat(300);
         /// assert_eq!(CacheString::from_utf8_truncate(out_of_bounds.as_bytes())?.as_str(),
-        ///            "0".repeat(CacheString::capacity().into()).as_str());
+        ///            "0".repeat(CacheString::capacity()).as_str());
         /// # Ok(())
         /// # }
         /// ```
@@ -455,7 +455,7 @@ mod cache_string {
         ///
         /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
         /// assert_eq!(CacheString::from_utf16_truncate(out_of_bounds)?.as_str(),
-        ///            "\0".repeat(CacheString::capacity().into()).as_str());
+        ///            "\0".repeat(CacheString::capacity()).as_str());
         /// # Ok(())
         /// # }
         /// ```
@@ -481,7 +481,7 @@ mod cache_string {
         ///
         /// let out_of_bounds: Vec<u16> = (0..300).map(|_| 0).collect();
         /// assert_eq!(CacheString::from_utf16_lossy_truncate(&out_of_bounds).as_str(),
-        ///            "\0".repeat(CacheString::capacity().into()).as_str());
+        ///            "\0".repeat(CacheString::capacity()).as_str());
         /// # Ok(())
         /// # }
         /// ```
@@ -567,8 +567,8 @@ mod cache_string {
         /// assert_eq!(CacheString::capacity(), 63);
         /// ```
         #[inline]
-        pub const fn capacity() -> u8 {
-            CACHE_STRING_SIZE as u8
+        pub const fn capacity() -> usize {
+            CACHE_STRING_SIZE
         }
 
         /// Pushes string slice to the end of the `CacheString` if total size is lower or equal to [`capacity`], otherwise returns an error.
@@ -583,7 +583,7 @@ mod cache_string {
         /// s.try_push_str(" My other String")?;
         /// assert_eq!(s.as_str(), "My String My other String");
         ///
-        /// assert!(s.try_push_str("0".repeat(CacheString::capacity().into())).is_err());
+        /// assert!(s.try_push_str("0".repeat(CacheString::capacity())).is_err());
         /// # Ok(())
         /// # }
         /// ```
@@ -606,7 +606,7 @@ mod cache_string {
         ///
         /// let mut s = CacheString::default();
         /// s.push_str_truncate("0".repeat(CacheString::capacity() as usize + 1));
-        /// assert_eq!(s.as_str(), "0".repeat(CacheString::capacity().into()).as_str());
+        /// assert_eq!(s.as_str(), "0".repeat(CacheString::capacity()).as_str());
         /// # Ok(())
         /// # }
         /// ```
@@ -627,7 +627,7 @@ mod cache_string {
         /// s.try_push('!')?;
         /// assert_eq!(s.as_str(), "My String!");
         ///
-        /// let mut s = CacheString::try_from_str(&"0".repeat(CacheString::capacity().into()))?;
+        /// let mut s = CacheString::try_from_str(&"0".repeat(CacheString::capacity()))?;
         /// assert!(s.try_push('!').is_err());
         /// # Ok(())
         /// # }
@@ -759,7 +759,7 @@ mod cache_string {
         /// assert_eq!(s.try_insert(20, 'C'), Err(Error::OutOfBounds));
         /// assert_eq!(s.try_insert(8, 'D'), Err(Error::Utf8));
         ///
-        /// let mut s = CacheString::try_from_str(&"0".repeat(CacheString::capacity().into()))?;
+        /// let mut s = CacheString::try_from_str(&"0".repeat(CacheString::capacity()))?;
         /// assert_eq!(s.try_insert(0, 'C'), Err(Error::OutOfBounds));
         /// # Ok(())
         /// # }
@@ -785,8 +785,7 @@ mod cache_string {
         /// let mut s = CacheString::try_from_str("ABCD🤔")?;
         /// s.try_insert_str(1, "AB")?;
         /// s.try_insert_str(1, "BC")?;
-        /// assert_eq!(s.try_insert_str(1, "0".repeat(CacheString::capacity().into())),
-        ///            Err(Error::OutOfBounds));
+        /// assert_eq!(s.try_insert_str(1, "0".repeat(CacheString::capacity())), Err(Error::OutOfBounds));
         /// assert_eq!(s.as_str(), "ABCABBCD🤔");
         /// assert_eq!(s.try_insert_str(20, "C"), Err(Error::OutOfBounds));
         /// assert_eq!(s.try_insert_str(10, "D"), Err(Error::Utf8));
@@ -820,7 +819,7 @@ mod cache_string {
         ///
         /// s.clear();
         /// s.insert_str_truncate(0, "0".repeat(CacheString::capacity() as usize + 10))?;
-        /// assert_eq!(s.as_str(), "0".repeat(CacheString::capacity().into()).as_str());
+        /// assert_eq!(s.as_str(), "0".repeat(CacheString::capacity()).as_str());
         /// # Ok(())
         /// # }
         /// ```
@@ -949,8 +948,7 @@ mod cache_string {
         ///
         /// assert_eq!(s.replace_range(9.., "J"), Err(Error::Utf8));
         /// assert_eq!(s.replace_range(..90, "K"), Err(Error::OutOfBounds));
-        /// assert_eq!(s.replace_range(0..1, "0".repeat(CacheString::capacity().into())),
-        ///            Err(Error::OutOfBounds));
+        /// assert_eq!(s.replace_range(0..1, "0".repeat(CacheString::capacity())), Err(Error::OutOfBounds));
         /// # Ok(())
         /// # }
         /// ```

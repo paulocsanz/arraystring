@@ -2,7 +2,8 @@
 
 use crate::{arraystring::sealed::ValidCapacity, prelude::*};
 #[cfg(feature = "logs")]
-use log::{debug, trace};
+use log::trace;
+#[cfg(not(debug_assertions))]
 use no_panic::no_panic;
 
 pub(crate) trait IntoLossy<T>: Sized {
@@ -12,21 +13,17 @@ pub(crate) trait IntoLossy<T>: Sized {
 /// Returns error if size is outside of specified boundary
 #[cfg_attr(not(debug_assertions), no_panic)]
 #[inline]
-pub fn is_inside_boundary(size: usize, limit: usize) -> Result<(), OutOfBounds> {
+pub(crate) fn is_inside_boundary(size: usize, limit: usize) -> Result<(), OutOfBounds> {
     trace!("Out of bounds: ensures {} <= {}", size, limit);
     (size <= limit).then_some(()).ok_or(OutOfBounds)
 }
 
 /// Returns error if index is not at a valid utf-8 char boundary
 #[inline]
-pub fn is_char_boundary<const N: usize>(
-    s: &ArrayString<N>,
-    idx: impl Into<usize>,
-) -> Result<(), Utf8>
+pub(crate) fn is_char_boundary<const N: usize>(s: &ArrayString<N>, idx: usize) -> Result<(), Utf8>
 where
     ArrayString<N>: ValidCapacity,
 {
-    let idx = idx.into();
     trace!("Is char boundary: {} at {}", s.as_str(), idx);
     if s.as_str().is_char_boundary(idx) {
         return Ok(());
@@ -35,7 +32,7 @@ where
 }
 
 #[inline]
-pub unsafe fn is_char_boundary_at(arr: &[u8], index: usize) -> bool {
+pub(crate) unsafe fn is_char_boundary_at(arr: &[u8], index: usize) -> bool {
     if index == 0 {
         return true;
     }
@@ -46,11 +43,7 @@ pub unsafe fn is_char_boundary_at(arr: &[u8], index: usize) -> bool {
 #[inline]
 #[cfg_attr(not(debug_assertions), no_panic)]
 pub(crate) fn truncate_str(slice: &[u8], mut size: usize) -> &[u8] {
-    trace!(
-        "Truncate str: {} at {}",
-        unsafe { std::str::from_utf8_unchecked(slice) },
-        size
-    );
+    trace!("Truncate str: {:?} at {size}", core::str::from_utf8(slice),);
     if size >= slice.len() {
         return slice;
     }
@@ -72,14 +65,6 @@ pub(crate) fn truncate_str(slice: &[u8], mut size: usize) -> &[u8] {
 }
 
 impl IntoLossy<u8> for usize {
-    #[allow(clippy::cast_possible_truncation)]
-    #[inline]
-    fn into_lossy(self) -> u8 {
-        self as u8
-    }
-}
-
-impl IntoLossy<u8> for u32 {
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
     fn into_lossy(self) -> u8 {

@@ -50,7 +50,7 @@ where
     #[inline]
     fn as_ref(&self) -> &[u8] {
         debug_assert!((self.size as usize) <= N);
-        unsafe { self.array.as_slice().get_unchecked(..self.size.into()) }
+        unsafe { self.array.as_slice().get_unchecked(..self.len()) }
     }
 }
 

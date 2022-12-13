@@ -81,7 +81,8 @@ fn from_utf8() {
 }
 
 #[inline]
-fn invalidate_utf8(buf: &mut [u8]) -> &mut [u8] {
+fn invalidate_utf8(buf: &str) -> Vec<u8> {
+    let mut buf = buf.as_bytes().to_vec();
     if buf.len() >= 4 {
         buf[0] = 0;
         buf[1] = 159;
@@ -93,22 +94,18 @@ fn invalidate_utf8(buf: &mut [u8]) -> &mut [u8] {
 
 #[test]
 fn try_from_utf8_invalid() {
-    unsafe {
-        assert(
-            |s| String::from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut()).to_vec()),
-            |s| TestString::try_from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut())),
-        );
-    }
+    assert(
+        |s| String::from_utf8(invalidate_utf8(s)),
+        |s| TestString::try_from_utf8(invalidate_utf8(s)),
+    );
 }
 
 #[test]
 fn from_utf8_invalid() {
-    unsafe {
-        assert(
-            |s| String::from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut()).to_vec()),
-            |s| TestString::from_utf8_truncate(invalidate_utf8(s.to_owned().as_bytes_mut())),
-        );
-    }
+    assert(
+        |s| String::from_utf8(invalidate_utf8(s)),
+        |s| TestString::from_utf8_truncate(invalidate_utf8(s)),
+    );
 }
 
 #[test]
