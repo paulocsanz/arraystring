@@ -25,10 +25,7 @@ use std::{ptr, usize};
     derive(diesel::AsExpression, diesel::FromSqlRow)
 )]
 #[cfg_attr(feature = "diesel-traits", diesel(sql_type = diesel::sql_types::Text))]
-pub struct ArrayString<const N: usize>
-where
-    Self: ValidCapacity,
-{
+pub struct ArrayString<const N: usize> {
     /// Array type corresponding to specified `SIZE`
     pub(crate) array: [u8; N],
     /// Current string size
