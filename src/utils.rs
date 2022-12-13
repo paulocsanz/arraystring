@@ -3,21 +3,18 @@
 use crate::{arraystring::sealed::ValidCapacity, prelude::*};
 #[cfg(feature = "logs")]
 use log::{debug, trace};
+use no_panic::no_panic;
 
 pub(crate) trait IntoLossy<T>: Sized {
     fn into_lossy(self) -> T;
 }
 
 /// Returns error if size is outside of specified boundary
+#[cfg_attr(not(debug_assertions), no_panic)]
 #[inline]
-pub fn is_inside_boundary<S, L>(size: S, limit: L) -> Result<(), OutOfBounds>
-where
-    S: Into<usize>,
-    L: Into<usize>,
-{
-    let (s, l) = (size.into(), limit.into());
-    trace!("Out of bounds: ensures {} < {}", s, l);
-    Some(()).filter(|_| s <= l).ok_or(OutOfBounds)
+pub fn is_inside_boundary(size: usize, limit: usize) -> Result<(), OutOfBounds> {
+    trace!("Out of bounds: ensures {} <= {}", size, limit);
+    (size <= limit).then_some(()).ok_or(OutOfBounds)
 }
 
 /// Returns error if index is not at a valid utf-8 char boundary
@@ -47,6 +44,7 @@ pub unsafe fn is_char_boundary_at(arr: &[u8], index: usize) -> bool {
 
 /// Truncates string to specified size (ignoring last bytes if they form a partial `char`)
 #[inline]
+#[cfg_attr(not(debug_assertions), no_panic)]
 pub(crate) fn truncate_str(slice: &[u8], mut size: usize) -> &[u8] {
     trace!(
         "Truncate str: {} at {}",

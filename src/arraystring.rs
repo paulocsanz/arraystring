@@ -9,7 +9,8 @@ use core::str::from_utf8;
 use core::{cmp::min, ops::*};
 #[cfg(feature = "logs")]
 use log::{debug, trace};
-use std::usize;
+use no_panic::no_panic;
+use std::{ptr, usize};
 
 /// String based on a generic array (size defined at compile time through `const generics`)
 ///
@@ -470,6 +471,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(not(debug_assertions), no_panic)]
     pub fn try_push_str(&mut self, string: impl AsRef<str>) -> Result<(), OutOfBounds> {
         trace!("Push str: {}", string.as_ref());
         let str = string.as_ref().as_bytes();
@@ -477,8 +479,13 @@ where
             return Ok(());
         }
         is_inside_boundary(str.len() + self.len(), Self::capacity())?;
-        let this_len = self.len();
-        self.array[this_len..this_len + str.len()].copy_from_slice(str);
+        unsafe {
+            ptr::copy_nonoverlapping(
+                str.as_ptr(),
+                self.array.as_mut_ptr().add(self.len()),
+                str.len(),
+            );
+        }
         self.size += str.len() as u8;
         return Ok(());
     }
@@ -502,17 +509,22 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(not(debug_assertions), no_panic)]
     pub fn push_str_truncate(&mut self, string: impl AsRef<str>) {
         trace!("Push str truncate: {}", string.as_ref());
+        let str = string.as_ref().as_bytes();
         let size = Self::capacity() - self.len();
-        if size == 0 {
+        if size == 0 || str.len() == 0 {
             return;
         }
-        let str = truncate_str(string.as_ref().as_bytes(), size.into());
-        if str.len() == 0 {
-            return;
+        let str = truncate_str(str, size);
+        unsafe {
+            ptr::copy_nonoverlapping(
+                str.as_ptr(),
+                self.array.as_mut_ptr().add(self.len()),
+                str.len(),
+            );
         }
-        self.array[self.size as usize..self.size as usize + str.len()].copy_from_slice(str);
         self.size += str.len() as u8;
     }
 
@@ -983,15 +995,6 @@ where
             Bound::Excluded(t) => *t,
             Bound::Unbounded => self.len(),
         };
-        is_inside_boundary(start, end)?;
-        is_inside_boundary(end, self.len())?;
-        is_char_boundary(self, start)?;
-        is_char_boundary(self, end)?;
-        let r_len = end - start;
-        is_inside_boundary(start + str.len() + self.len() - end, Self::capacity())?;
-        if start == end && with.as_ref().len() == 0 {
-            return Ok(());
-        }
         debug!(
             "Replace range (len: {}) ({}..{}) with (len: {}) {}",
             self.len(),
@@ -1000,13 +1003,21 @@ where
             with.as_ref().len(),
             with.as_ref()
         );
+        if start == end && str.len() == 0 {
+            return Ok(());
+        }
+        is_inside_boundary(start, end)?;
+        is_inside_boundary(end, self.len())?;
+        is_char_boundary(self, start)?;
+        is_char_boundary(self, end)?;
+        is_inside_boundary(start + str.len() + self.len() - end, Self::capacity())?;
         let dest = start + str.len();
         let this_len = self.len();
         self.array.copy_within(end..this_len, dest);
         if str.len() > 0 {
             self.array[start..start + str.len()].copy_from_slice(str);
         }
-        self.size -= r_len as u8;
+        self.size -= (end - start) as u8;
         self.size += str.len() as u8;
         Ok(())
     }
