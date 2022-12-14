@@ -239,7 +239,7 @@ mod cache_string {
         ///
         /// assert_eq!(CacheString::try_from_str("")?.as_str(), "");
         ///
-        /// let out_of_bounds = "0".repeat(CacheString::capacity() as usize + 1);
+        /// let out_of_bounds = "0".repeat(CacheString::capacity() + 1);
         /// assert!(CacheString::try_from_str(out_of_bounds).is_err());
         /// # Ok(())
         /// # }
@@ -260,7 +260,7 @@ mod cache_string {
         /// # assert_eq!(string.as_str(), "My String");
         /// println!("{}", string);
         ///
-        /// let truncate = "0".repeat(CacheString::capacity() as usize + 1);
+        /// let truncate = "0".repeat(CacheString::capacity() + 1);
         /// let truncated = "0".repeat(CacheString::capacity());
         /// let string = CacheString::from_str_truncate(&truncate);
         /// assert_eq!(string.as_str(), truncated);
@@ -327,7 +327,7 @@ mod cache_string {
         /// let string = CacheString::try_from_chars("My String".chars())?;
         /// assert_eq!(string.as_str(), "My String");
         ///
-        /// let out_of_bounds = "0".repeat(CacheString::capacity() as usize + 1);
+        /// let out_of_bounds = "0".repeat(CacheString::capacity() + 1);
         /// assert!(CacheString::try_from_chars(out_of_bounds.chars()).is_err());
         /// # Ok(())
         /// # }
@@ -347,7 +347,7 @@ mod cache_string {
         /// let string = CacheString::from_chars_truncate("My String".chars());
         /// assert_eq!(string.as_str(), "My String");
         ///
-        /// let out_of_bounds = "0".repeat(CacheString::capacity() as usize + 1);
+        /// let out_of_bounds = "0".repeat(CacheString::capacity() + 1);
         /// let truncated = "0".repeat(CacheString::capacity());
         ///
         /// let truncate = CacheString::from_chars_truncate(out_of_bounds.chars());
@@ -605,7 +605,7 @@ mod cache_string {
         /// assert_eq!(s.as_str(), "My String My other String");
         ///
         /// let mut s = CacheString::default();
-        /// s.push_str_truncate("0".repeat(CacheString::capacity() as usize + 1));
+        /// s.push_str_truncate("0".repeat(CacheString::capacity() + 1));
         /// assert_eq!(s.as_str(), "0".repeat(CacheString::capacity()).as_str());
         /// # Ok(())
         /// # }
@@ -818,7 +818,7 @@ mod cache_string {
         /// assert_eq!(s.insert_str_truncate(10, "D"), Err(Error::Utf8));
         ///
         /// s.clear();
-        /// s.insert_str_truncate(0, "0".repeat(CacheString::capacity() as usize + 10))?;
+        /// s.insert_str_truncate(0, "0".repeat(CacheString::capacity() + 10))?;
         /// assert_eq!(s.as_str(), "0".repeat(CacheString::capacity()).as_str());
         /// # Ok(())
         /// # }

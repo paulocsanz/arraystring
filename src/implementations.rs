@@ -24,6 +24,9 @@ where
 {
     #[inline]
     fn as_ref(&self) -> &str {
+        // Safety: our inner initialized slice should only contain valid utf-8
+        // There is no way to invalidate the utf-8 of it from safe functions
+        // And it's a invariant expected to be kept in unsafe functions
         debug_assert!(str::from_utf8(self.as_ref()).is_ok());
         unsafe { str::from_utf8_unchecked(self.as_ref()) }
     }
@@ -35,9 +38,13 @@ where
 {
     #[inline]
     fn as_mut(&mut self) -> &mut str {
-        debug_assert!((self.size as usize) <= N);
-        let len = self.size as usize;
+        let len = self.len();
+        // Safety: size will always be between 0 and capacity, so get_unchecked_mut will never fail
+        debug_assert!(len <= N);
         let slice = unsafe { self.array.as_mut_slice().get_unchecked_mut(..len) };
+        // Safety: our inner initialized slice should only contain valid utf-8
+        // There is no way to invalidate the utf-8 of it from safe functions
+        // And it's a invariant expected to be kept in unsafe functions
         debug_assert!(str::from_utf8(slice).is_ok());
         unsafe { str::from_utf8_unchecked_mut(slice) }
     }
@@ -49,7 +56,8 @@ where
 {
     #[inline]
     fn as_ref(&self) -> &[u8] {
-        debug_assert!((self.size as usize) <= N);
+        // Safety: size will always be between 0 and capacity, so get_unchecked_mut will never fail
+        debug_assert!(self.len() <= N);
         unsafe { self.array.as_slice().get_unchecked(..self.len()) }
     }
 }

@@ -47,6 +47,9 @@ pub(crate) fn truncate_str(slice: &[u8], mut size: usize) -> &[u8] {
     if size >= slice.len() {
         return slice;
     }
+    // Safety: size will always be between 0 and capacity, so get_unchecked will never fail
+    // We unroll the loop here as a utf-8 character can have at most 4 bytes, so decreasing 4
+    // times ensures we will find the char boundary. `is_char_boundary_at` returns true for 0 index
     unsafe {
         if is_char_boundary_at(slice, size) {
             return slice.get_unchecked(..size);
