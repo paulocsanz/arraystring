@@ -1,4 +1,4 @@
-//! Contains all of this crate errors
+//! Contains all of this crate's errors
 
 use core::fmt::{self, Debug, Display, Formatter};
 use core::{char::DecodeUtf16Error, hash::Hash, hash::Hasher, str::EncodeUtf16, str::Utf8Error};
@@ -10,11 +10,11 @@ use log::trace;
 /// [`ArrayString`]: ../struct.ArrayString.html
 #[derive(Copy, Clone)]
 pub enum Error {
-    /// Conversion between available byte slice and UTF-8 failed (invalid data or invalid utf-8 character index)
+    /// Invalid UTF-8 access (invalid data or invalid utf-8 character index)
     Utf8,
-    /// Conversion between available `u16` slice and string failed
+    /// Failed to convert `[u16]` to UTF-16 string
     Utf16,
-    /// Out of boundaries access
+    /// Out of bounds access
     OutOfBounds,
 }
 
@@ -22,10 +22,10 @@ impl PartialEq for Error {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         use self::Error::*;
-        match (self, other) {
-            (Utf8, Utf8) | (Utf16, Utf16) | (OutOfBounds, OutOfBounds) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (Utf8, Utf8) | (Utf16, Utf16) | (OutOfBounds, OutOfBounds)
+        )
     }
 }
 

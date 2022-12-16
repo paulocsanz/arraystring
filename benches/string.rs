@@ -1,316 +1,170 @@
 use arraystring::prelude::*;
-use arrayvec::ArrayString as ArrayVecString;
-use criterion::{criterion_group, criterion_main, Criterion};
-use inlinable_string::{InlinableString, StringExt};
-use smallstring::SmallString as SmallVecString;
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use inlinable_string::{InlinableString, InlineString, StringExt};
+use std::convert::TryFrom;
+use std::time::Duration;
 
-fn string_clone_benchmark(c: &mut Criterion) {
-    let string = String::from("abcdefghijklmnopqrst");
-    c.bench_function("string clone", move |b| b.iter(|| string.clone()));
+const TIME: u64 = 500;
+
+fn bench_clones(c: &mut Criterion) {
+    let params = [
+        (""),
+        ("a"),
+        ("acb"),
+        ("abcdefg"),
+        (core::str::from_utf8(&['a' as u8; 15]).unwrap()),
+        (core::str::from_utf8(&['b' as u8; 31]).unwrap()),
+        (core::str::from_utf8(&['c' as u8; 63]).unwrap()),
+        (core::str::from_utf8(&['d' as u8; 127]).unwrap()),
+        (core::str::from_utf8(&['e' as u8; 255]).unwrap()),
+    ];
+    let mut group = c.benchmark_group("clone");
+    // for ns time ops one second is plenty
+    group.measurement_time(Duration::from_millis(TIME));
+    group.warm_up_time(Duration::from_millis(TIME));
+    for param in params {
+        macro_rules! build {
+            ($($str:path),*$(,)*) => {
+                $(
+                    if let Ok(Ok(string)) = std::panic::catch_unwind(|| { <$str>::try_from(param) }) {
+                        if (&string as &str) == param {
+                            group.bench_with_input(
+                                BenchmarkId::new(stringify!($str), param.len()),
+                                &string,
+                                |b, p| b.iter(|| p.clone()),
+                            );
+                        }
+                    }
+                )*
+            };
+        }
+        build!(
+            std::string::String,
+            InlineString,
+            InlinableString,
+            smallstring::SmallString,
+            arrayvec::ArrayString<7>,
+            arrayvec::ArrayString<63>,
+            arrayvec::ArrayString<255>,
+            ArrayString<7>,
+            ArrayString<63>,
+            ArrayString<255>,
+            CacheString,
+        );
+    }
+    group.finish();
 }
 
-fn string_from_benchmark(c: &mut Criterion) {
-    let string = String::from("uvwxyzaabbccddeeffgg");
-    c.bench_function("string from", move |b| {
-        b.iter(|| String::from(string.as_str()))
-    });
+fn bench_try_from(c: &mut Criterion) {
+    let params = [
+        (""),
+        ("a"),
+        ("acb"),
+        ("abcdefg"),
+        (core::str::from_utf8(&['a' as u8; 15]).unwrap()),
+        (core::str::from_utf8(&['b' as u8; 31]).unwrap()),
+        (core::str::from_utf8(&['c' as u8; 63]).unwrap()),
+        (core::str::from_utf8(&['d' as u8; 127]).unwrap()),
+        (core::str::from_utf8(&['e' as u8; 255]).unwrap()),
+    ];
+    let mut group = c.benchmark_group("try_from");
+    // for ns time ops 0.1 second is plenty
+    group.measurement_time(Duration::from_millis(TIME));
+    group.warm_up_time(Duration::from_millis(TIME));
+    for param in params {
+        macro_rules! build {
+            ($($str:path),*$(,)*) => {
+                $(
+                    if let Ok(Ok(string)) = std::panic::catch_unwind(|| { <$str>::try_from(param) }) {
+                        if (&string as &str) == param {
+                            group.bench_with_input(
+                                BenchmarkId::new(stringify!($str), param.len()),
+                                param,
+                                |b, p| b.iter(|| <$str>::try_from(p)),
+                            );
+                        }
+                    }
+                )*
+            };
+        }
+        build!(
+            std::string::String,
+            InlineString,
+            InlinableString,
+            smallstring::SmallString,
+            arrayvec::ArrayString<7>,
+            arrayvec::ArrayString<63>,
+            arrayvec::ArrayString<255>,
+            ArrayString<7>,
+            ArrayString<63>,
+            ArrayString<255>,
+            CacheString,
+        );
+    }
+    group.finish();
 }
 
-fn string_push_str_benchmark(c: &mut Criterion) {
-    let mut string = String::default();
-    c.bench_function("string push str", move |b| {
-        b.iter(|| {
-            string.push_str("0123456789123456789");
-            string.clear();
-            string.shrink_to_fit();
-        })
-    });
+fn bench_push(c: &mut Criterion) {
+    let params = [
+        (""),
+        ("a"),
+        ("acb"),
+        ("abcdefg"),
+        (core::str::from_utf8(&['b' as u8; 31]).unwrap()),
+        (core::str::from_utf8(&['c' as u8; 63]).unwrap()),
+        (core::str::from_utf8(&['d' as u8; 127]).unwrap()),
+        (core::str::from_utf8(&['e' as u8; 255]).unwrap()),
+    ];
+    let mut group = c.benchmark_group("push_str");
+    // for ns time ops 0.1 second is plenty
+    group.measurement_time(Duration::from_millis(TIME));
+    group.warm_up_time(Duration::from_millis(TIME));
+    for param in params {
+        macro_rules! build {
+            ($($str:path: $f:ident),*$(,)*) => {
+                $(
+                    if let Ok(mut string) = std::panic::catch_unwind(|| { <$str>::new() }) {
+                        if let Ok(true) = std::panic::catch_unwind(|| {
+                            let mut string = string.clone();
+                            let _ = string.$f(param);
+                            (&string as &str) == param // only do ones that are correct
+                        }) {
+                            group.bench_with_input(
+                                BenchmarkId::new(stringify!($str::$f), param.len()),
+                                param,
+                                |b, p| b.iter(|| {
+                                    let _ = string.$f(p);
+                                    criterion::black_box(&mut string).clear(); // clear not inline
+                                }),
+                            );
+                        }
+                    }
+                )*
+            };
+        }
+        build!(
+            std::string::String : push_str,
+            InlineString : push_str,
+            InlinableString : push_str,
+            arrayvec::ArrayString<7> : push_str,
+            arrayvec::ArrayString<63> : push_str,
+            arrayvec::ArrayString<255> : push_str,
+            arrayvec::ArrayString<7> : try_push_str,
+            arrayvec::ArrayString<63> : try_push_str,
+            arrayvec::ArrayString<255> : try_push_str,
+            ArrayString<7> : push_str_truncate,
+            ArrayString<63> : push_str_truncate,
+            ArrayString<255> : push_str_truncate,
+            ArrayString<7> : try_push_str,
+            ArrayString<63> : try_push_str,
+            ArrayString<255> : try_push_str,
+            CacheString : push_str_truncate,
+            CacheString : try_push_str,
+        );
+    }
+    group.finish();
 }
 
-fn inlinable_clone_benchmark(c: &mut Criterion) {
-    let string = InlinableString::from("hcuahdaidshdaisuhda");
-    c.bench_function("inlinable clone", move |b| b.iter(|| string.clone()));
-}
+criterion_group!(string, bench_clones, bench_try_from, bench_push);
 
-fn inlinable_from_benchmark(c: &mut Criterion) {
-    let string = "edauhefhiaw na na  ";
-    c.bench_function("inlinable from", move |b| {
-        b.iter(|| InlinableString::from(string))
-    });
-}
-
-fn inlinable_push_str_benchmark(c: &mut Criterion) {
-    let mut string = InlinableString::default();
-    c.bench_function("inlinable push str", move |b| {
-        b.iter(|| {
-            string.push_str("ddauhifnaoe jaowijd");
-            string.clear();
-            string.shrink_to_fit();
-        })
-    });
-}
-
-fn arrayvec_clone_benchmark(c: &mut Criterion) {
-    let string = ArrayVecString::<[u8; 23]>::from("fhuehifhsaudhaisdha");
-    c.bench_function("arrayvec string clone", move |b| b.iter(|| string.clone()));
-}
-
-fn arrayvec_from_benchmark(c: &mut Criterion) {
-    let string = "huiaehdishudaishuda";
-    c.bench_function("arrayvec string from", move |b| {
-        b.iter(|| ArrayVecString::<[u8; 23]>::from(string))
-    });
-}
-
-fn arrayvec_push_str_benchmark(c: &mut Criterion) {
-    let mut string = ArrayVecString::<[u8; 23]>::default();
-    c.bench_function("arrayvec string push str", move |b| {
-        b.iter(|| {
-            string.push_str("adasaduhaishdasidha");
-            string.clear();
-        })
-    });
-}
-
-fn smallvecstring_clone_benchmark(c: &mut Criterion) {
-    let string = SmallVecString::<[u8;20]>::from("xhduibabicemlatdhue");
-    c.bench_function("smallvecstring clone", move |b| b.iter(|| string.clone()));
-}
-
-fn smallvecstring_from_benchmark(c: &mut Criterion) {
-    let string = "audshaisdhaisduo8";
-    c.bench_function("smallvecstring from", move |b| {
-        b.iter(|| SmallVecString::<[u8;20]>::from(string))
-    });
-}
-
-fn small_clone_benchmark(c: &mut Criterion) {
-    let string = SmallString::from_str_truncate("hhiijjkkllmmneeeepqq");
-    c.bench_function("small clone", move |b| b.iter(|| string.clone()));
-}
-
-fn small_from_unchecked_benchmark(c: &mut Criterion) {
-    let string = "rrssttuuvvwwxxyyzza";
-    c.bench_function("small from unchecked", move |b| {
-        b.iter(|| unsafe { SmallString::from_str_unchecked(&string) })
-    });
-}
-
-fn small_from_truncate_benchmark(c: &mut Criterion) {
-    let string = "bbbcccdddeeefffgggh";
-    c.bench_function("small from truncate", move |b| {
-        b.iter(|| SmallString::from_str_truncate(&string))
-    });
-}
-
-fn small_try_from_benchmark(c: &mut Criterion) {
-    let string = "iiijjjkkklllmmmnnnoo";
-    c.bench_function("small try from", move |b| {
-        b.iter(|| SmallString::try_from_str(&string))
-    });
-}
-
-fn small_push_str_unchecked_benchmark(c: &mut Criterion) {
-    let mut string = SmallString::default();
-    c.bench_function("small push str unchecked", move |b| {
-        b.iter(|| unsafe {
-            string.push_str_unchecked("1413121110987654321");
-            string.clear();
-        })
-    });
-}
-
-fn small_push_str_benchmark(c: &mut Criterion) {
-    let mut string = SmallString::default();
-    c.bench_function("small push str truncate", move |b| {
-        b.iter(|| {
-            string.push_str("1413121110987654321");
-            string.clear();
-        })
-    });
-}
-
-fn small_try_push_str_benchmark(c: &mut Criterion) {
-    let mut string = SmallString::default();
-    c.bench_function("small try push str", move |b| {
-        b.iter(|| {
-            string.try_push_str("9897969594939291908").unwrap();
-            string.clear();
-        })
-    });
-}
-
-fn cache_clone_benchmark(c: &mut Criterion) {
-    let string = CacheString::from_str_truncate("opppqqqrrrssstttuuuv");
-    c.bench_function("cache clone", move |b| b.iter(|| string.clone()));
-}
-
-fn cache_from_unchecked_benchmark(c: &mut Criterion) {
-    let string = "wwwxxxyyyzzzaaaabbbb";
-    c.bench_function("cache from unchecked", move |b| {
-        b.iter(|| unsafe { CacheString::from_str_unchecked(&string) })
-    });
-}
-
-fn cache_from_truncate_benchmark(c: &mut Criterion) {
-    let string = "ccccddddeeeeffffggggh";
-    c.bench_function("cache from truncate", move |b| {
-        b.iter(|| CacheString::from_str_truncate(&string))
-    });
-}
-
-fn cache_try_from_benchmark(c: &mut Criterion) {
-    let string = "iiiijjjjkkkkllllmmmmn";
-    c.bench_function("cache try from", move |b| {
-        b.iter(|| CacheString::try_from_str(&string))
-    });
-}
-
-fn cache_push_str_unchecked_benchmark(c: &mut Criterion) {
-    let mut string = CacheString::default();
-    c.bench_function("cache push str unchecked", move |b| {
-        b.iter(|| unsafe {
-            string.push_str_unchecked("1413121110987654321");
-            string.clear();
-        })
-    });
-}
-
-fn cache_push_str_benchmark(c: &mut Criterion) {
-    let mut string = CacheString::default();
-    c.bench_function("cache push str truncate", move |b| {
-        b.iter(|| {
-            string.push_str("1413121110987654321");
-            string.clear();
-        })
-    });
-}
-
-fn cache_try_push_str_benchmark(c: &mut Criterion) {
-    let mut string = CacheString::default();
-    c.bench_function("cache try push str", move |b| {
-        b.iter(|| {
-            string.try_push_str("9897969594939291908").unwrap();
-            string.clear();
-        })
-    });
-}
-
-fn max_clone_benchmark(c: &mut Criterion) {
-    let string = MaxString::from_str_truncate("ooopppqqqrrrssstttuu");
-    c.bench_function("max clone", move |b| b.iter(|| string.clone()));
-}
-
-fn max_from_unchecked_benchmark(c: &mut Criterion) {
-    let string = "vvvvwwwwxxxxyyyzzzza";
-    c.bench_function("max from unchecked", move |b| {
-        b.iter(|| unsafe { MaxString::from_str_unchecked(&string) })
-    });
-}
-
-fn max_from_truncate_benchmark(c: &mut Criterion) {
-    let string = "bbbbccccddddeeeeffff";
-    c.bench_function("max from truncate", move |b| {
-        b.iter(|| MaxString::from_str_truncate(&string))
-    });
-}
-
-fn max_try_from_benchmark(c: &mut Criterion) {
-    let string = "gggghhhhiiiijjjjkkkk";
-    c.bench_function("max try from", move |b| {
-        b.iter(|| MaxString::try_from_str(&string).unwrap())
-    });
-}
-
-fn max_push_str_unchecked_benchmark(c: &mut Criterion) {
-    let mut string = MaxString::default();
-    c.bench_function("max push str unchecked", move |b| {
-        b.iter(|| unsafe {
-            string.push_str_unchecked("1413121110987654321");
-            string.clear();
-        })
-    });
-}
-
-fn max_push_str_benchmark(c: &mut Criterion) {
-    let mut string = MaxString::default();
-    c.bench_function("max push str truncate", move |b| {
-        b.iter(|| {
-            string.push_str("1413121110987654321");
-            string.clear();
-        })
-    });
-}
-
-fn max_try_push_str_benchmark(c: &mut Criterion) {
-    let mut string = MaxString::default();
-    c.bench_function("max try push str", move |b| {
-        b.iter(|| {
-            string.try_push_str("9897969594939291908").unwrap();
-            string.clear();
-        })
-    });
-}
-
-criterion_group!(
-    string,
-    string_clone_benchmark,
-    string_from_benchmark,
-    string_push_str_benchmark
-);
-criterion_group!(
-    inlinable,
-    inlinable_clone_benchmark,
-    inlinable_from_benchmark,
-    inlinable_push_str_benchmark
-);
-criterion_group!(
-    arrayvec,
-    arrayvec_clone_benchmark,
-    arrayvec_from_benchmark,
-    arrayvec_push_str_benchmark,
-);
-criterion_group!(
-    smallvecstring,
-    smallvecstring_clone_benchmark,
-    smallvecstring_from_benchmark,
-);
-criterion_group!(
-    small,
-    small_clone_benchmark,
-    small_try_from_benchmark,
-    small_from_unchecked_benchmark,
-    small_from_truncate_benchmark,
-    small_try_push_str_benchmark,
-    small_push_str_unchecked_benchmark,
-    small_push_str_benchmark,
-);
-criterion_group!(
-    cache,
-    cache_clone_benchmark,
-    cache_try_from_benchmark,
-    cache_from_unchecked_benchmark,
-    cache_from_truncate_benchmark,
-    cache_try_push_str_benchmark,
-    cache_push_str_unchecked_benchmark,
-    cache_push_str_benchmark,
-);
-criterion_group!(
-    max,
-    max_clone_benchmark,
-    max_try_from_benchmark,
-    max_from_unchecked_benchmark,
-    max_from_truncate_benchmark,
-    max_try_push_str_benchmark,
-    max_push_str_unchecked_benchmark,
-    max_push_str_benchmark,
-);
-criterion_main!(
-    string,
-    arrayvec,
-    inlinable,
-    smallvecstring,
-    small,
-    cache,
-    max
-);
+criterion_main!(string);
