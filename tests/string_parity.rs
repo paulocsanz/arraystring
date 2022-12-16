@@ -1,4 +1,4 @@
-use arraystring::{error::Error, prelude::*, utils::is_char_boundary, utils::is_inside_boundary};
+use arraystring::prelude::*;
 use std::panic::{catch_unwind, AssertUnwindSafe, RefUnwindSafe};
 use std::{fmt::Debug, iter::FromIterator};
 
@@ -33,13 +33,6 @@ fn from_str_truncate() {
 }
 
 #[test]
-fn from_str_unchecked() {
-    assert(String::from, |s| unsafe {
-        TestString::from_str_unchecked(s)
-    });
-}
-
-#[test]
 fn try_from_chars() {
     assert(
         |s| String::from_iter(s.chars()),
@@ -52,14 +45,6 @@ fn from_chars() {
     assert(
         |s| String::from_iter(s.chars()),
         |s| TestString::from_chars_truncate(s.chars()),
-    );
-}
-
-#[test]
-fn from_chars_unchecked() {
-    assert(
-        |s| String::from_iter(s.chars()),
-        |s| unsafe { TestString::from_chars_unchecked(s.chars()) },
     );
 }
 
@@ -80,14 +65,6 @@ fn from_iter() {
 }
 
 #[test]
-fn from_iter_unchecked() {
-    assert(
-        |s| String::from_iter(vec![s]),
-        |s| unsafe { TestString::from_iterator_unchecked(vec![s]) },
-    );
-}
-
-#[test]
 fn try_from_utf8() {
     assert(
         |s| String::from_utf8(s.as_bytes().to_vec()),
@@ -104,7 +81,8 @@ fn from_utf8() {
 }
 
 #[inline]
-fn invalidate_utf8(buf: &mut [u8]) -> &mut [u8] {
+fn invalidate_utf8(buf: &str) -> Vec<u8> {
+    let mut buf = buf.as_bytes().to_vec();
     if buf.len() >= 4 {
         buf[0] = 0;
         buf[1] = 159;
@@ -116,22 +94,18 @@ fn invalidate_utf8(buf: &mut [u8]) -> &mut [u8] {
 
 #[test]
 fn try_from_utf8_invalid() {
-    unsafe {
-        assert(
-            |s| String::from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut()).to_vec()),
-            |s| TestString::try_from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut())),
-        );
-    }
+    assert(
+        |s| String::from_utf8(invalidate_utf8(s)),
+        |s| TestString::try_from_utf8(invalidate_utf8(s)),
+    );
 }
 
 #[test]
 fn from_utf8_invalid() {
-    unsafe {
-        assert(
-            |s| String::from_utf8(invalidate_utf8(s.to_owned().as_bytes_mut()).to_vec()),
-            |s| TestString::from_utf8_truncate(invalidate_utf8(s.to_owned().as_bytes_mut())),
-        );
-    }
+    assert(
+        |s| String::from_utf8(invalidate_utf8(s)),
+        |s| TestString::from_utf8_truncate(invalidate_utf8(s)),
+    );
 }
 
 #[test]
@@ -202,16 +176,6 @@ fn from_utf16_lossy_invalid() {
 }
 
 #[test]
-fn from_utf8_unchecked() {
-    unsafe {
-        assert(
-            |s| String::from_utf8_unchecked(s.as_bytes().to_vec()),
-            |s| TestString::from_utf8_unchecked(s.as_bytes()),
-        );
-    }
-}
-
-#[test]
 fn try_push_str() {
     assert(
         |s| {
@@ -251,22 +215,6 @@ fn add_str() {
 }
 
 #[test]
-fn push_str_unchecked() {
-    assert(
-        |s| {
-            let mut st = String::from(s);
-            st.push_str(s);
-            st
-        },
-        |s| {
-            let mut ms = TestString::try_from_str(s).unwrap();
-            unsafe { ms.push_str_unchecked(s) };
-            ms
-        },
-    );
-}
-
-#[test]
 fn push() {
     assert(
         |s| {
@@ -277,22 +225,6 @@ fn push() {
         |s| {
             let mut ms = TestString::try_from_str(s).unwrap();
             ms.try_push('🤔').map(|()| ms)
-        },
-    );
-}
-
-#[test]
-fn push_unchecked() {
-    assert(
-        |s| {
-            let mut s = String::from(s);
-            s.push('🤔');
-            s
-        },
-        |s| {
-            let mut ms = TestString::try_from_str(s).unwrap();
-            unsafe { ms.push_unchecked('🤔') };
-            ms
         },
     );
 }
@@ -393,27 +325,6 @@ fn try_insert() {
 }
 
 #[test]
-fn insert_unchecked() {
-    assert(
-        |s| {
-            unwind(move || {
-                let mut s = String::from(s);
-                s.insert(2, 'a');
-                s
-            })
-        },
-        |s| {
-            let mut ms = TestString::try_from_str(s).unwrap();
-            is_inside_boundary(2u8, ms.len())
-                .map_err(Error::from)
-                .and_then(|()| Ok(is_char_boundary(&ms, 2)?))
-                .map(|()| unsafe { ms.insert_unchecked(2, 'a') })
-                .map(|()| ms)
-        },
-    );
-}
-
-#[test]
 fn try_insert_str() {
     assert(
         |s| {
@@ -444,27 +355,6 @@ fn insert_str() {
             let mut ms = TestString::try_from_str(s).unwrap();
             let res = ms.insert_str_truncate(2, s);
             res.map(|()| (ms, ()))
-        },
-    );
-}
-
-#[test]
-fn insert_str_unchecked() {
-    assert(
-        |s| {
-            unwind(move || {
-                let mut st = String::from(s);
-                st.insert_str(2, s);
-                st
-            })
-        },
-        |s| {
-            let mut ms = TestString::try_from_str(s).unwrap();
-            is_inside_boundary(2u8, ms.len())
-                .map_err(Error::from)
-                .and_then(|()| Ok(is_char_boundary(&ms, 2)?))
-                .map(|()| unsafe { ms.insert_str_unchecked(2, s) })
-                .map(|()| ms)
         },
     );
 }
@@ -648,6 +538,7 @@ where
     F: Fn(&'static str) -> T + RefUnwindSafe,
     G: Fn(&'static str) -> U + RefUnwindSafe,
 {
+    #[cfg(not(miri))]
     let _ = env_logger::try_init();
     for string in STRINGS.iter() {
         let f = f(string).normalize();
