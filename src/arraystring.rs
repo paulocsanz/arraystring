@@ -5,11 +5,10 @@ use crate::utils::{is_char_boundary, is_inside_boundary};
 use crate::utils::{truncate_str, IntoLossy};
 use crate::{prelude::*, Error};
 use core::char::{decode_utf16, REPLACEMENT_CHARACTER};
-use core::str::from_utf8;
 use core::{cmp::min, ops::*};
 #[cfg(feature = "logs")]
 use log::{debug, trace};
-#[cfg(not(debug_assertions))]
+#[cfg(all(feature = "no-panic", not(debug_assertions)))]
 use no_panic::no_panic;
 
 /// String based on a generic array (size defined at compile time through `const generics`)
@@ -70,6 +69,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn try_from_str(string: impl AsRef<str>) -> Result<Self, OutOfBounds> {
         trace!("Try from str: {}", string.as_ref());
         let mut s = Self::new();
@@ -94,6 +94,7 @@ where
     /// assert_eq!(string.as_str(), truncated);
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn from_str_truncate(string: impl AsRef<str>) -> Self {
         trace!("FromStr truncate: {}", string.as_ref());
         let mut s = Self::new();
@@ -117,6 +118,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn try_from_iterator(
         iter: impl IntoIterator<Item = impl AsRef<str>>,
     ) -> Result<Self, OutOfBounds> {
@@ -148,6 +150,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn from_iterator_truncate(iter: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
         trace!("FromIterator truncate");
         let mut out = Self::new();
@@ -177,6 +180,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn try_from_chars(iter: impl IntoIterator<Item = char>) -> Result<Self, OutOfBounds> {
         trace!("TryFrom chars");
         let mut out = Self::new();
@@ -203,6 +207,7 @@ where
     /// assert_eq!(truncate.as_str(), truncated.as_str());
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn from_chars_truncate(iter: impl IntoIterator<Item = char>) -> Self {
         trace!("From chars truncate");
         let mut out = Self::new();
@@ -212,60 +217,6 @@ where
             }
         }
         out
-    }
-
-    /// Creates new `ArrayString` from byte slice, returning [`Utf8`] on invalid utf-8 data or [`OutOfBounds`] if bigger than [`capacity`]
-    ///
-    /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
-    /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
-    /// [`capacity`]: ./struct.ArrayString.html#method.capacity
-    ///
-    /// ```rust
-    /// # use arraystring::{Error, prelude::*};
-    /// # fn main() -> Result<(), Error> {
-    /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-    /// let string = ArrayString::<23>::try_from_utf8("My String")?;
-    /// assert_eq!(string.as_str(), "My String");
-    ///
-    /// let invalid_utf8 = [0, 159, 146, 150];
-    /// assert_eq!(ArrayString::<23>::try_from_utf8(invalid_utf8), Err(Error::Utf8));
-    ///
-    /// let out_of_bounds = "0000".repeat(400);
-    /// assert_eq!(ArrayString::<23>::try_from_utf8(out_of_bounds.as_bytes()), Err(Error::OutOfBounds));
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    pub fn try_from_utf8(slice: impl AsRef<[u8]>) -> Result<Self, Error> {
-        debug!("From utf8: {:?}", slice.as_ref());
-        Ok(Self::try_from_str(from_utf8(slice.as_ref())?)?)
-    }
-
-    /// Creates new `ArrayString` from byte slice, returning [`Utf8`] on invalid utf-8 data, truncating if bigger than [`capacity`].
-    ///
-    /// [`Utf8`]: ./error/struct.Utf8.html
-    /// [`capacity`]: ./struct.ArrayString.html#method.capacity
-    ///
-    /// ```rust
-    /// # use arraystring::{Error, prelude::*};
-    /// # fn main() -> Result<(), Error> {
-    /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-    /// let string = ArrayString::<23>::from_utf8_truncate("My String")?;
-    /// assert_eq!(string.as_str(), "My String");
-    ///
-    /// let invalid_utf8 = [0, 159, 146, 150];
-    /// assert_eq!(ArrayString::<23>::from_utf8_truncate(invalid_utf8), Err(Utf8));
-    ///
-    /// let out_of_bounds = "0".repeat(300);
-    /// assert_eq!(ArrayString::<23>::from_utf8_truncate(out_of_bounds.as_bytes())?.as_str(),
-    ///            "0".repeat(ArrayString::<23>::capacity()).as_str());
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    pub fn from_utf8_truncate(slice: impl AsRef<[u8]>) -> Result<Self, Utf8> {
-        debug!("From utf8: {:?}", slice.as_ref());
-        Ok(Self::from_str_truncate(from_utf8(slice.as_ref())?))
     }
 
     /// Creates new `ArrayString` from `u16` slice, returning [`Utf16`] on invalid utf-16 data or [`OutOfBounds`] if bigger than [`capacity`]
@@ -291,6 +242,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn try_from_utf16(slice: impl AsRef<[u16]>) -> Result<Self, Error> {
         debug!("From utf16: {:?}", slice.as_ref());
         let mut out = Self::new();
@@ -323,6 +275,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn from_utf16_truncate(slice: impl AsRef<[u16]>) -> Result<Self, Utf16> {
         debug!("From utf16: {:?}", slice.as_ref());
         let mut out = Self::new();
@@ -356,6 +309,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn from_utf16_lossy_truncate(slice: impl AsRef<[u16]>) -> Self {
         debug!("From utf16 lossy: {:?}", slice.as_ref());
         let mut out = Self::new();
@@ -379,6 +333,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn as_str(&self) -> &str {
         trace!("As str: {self}");
         self.as_ref()
@@ -396,6 +351,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn as_mut_str(&mut self) -> &mut str {
         trace!("As mut str: {self}");
         self.as_mut()
@@ -413,6 +369,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn as_bytes(&self) -> &[u8] {
         trace!("As bytes");
         self.as_ref()
@@ -433,6 +390,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
         trace!("As mut str");
         let len = self.len();
@@ -468,7 +426,7 @@ where
     /// # }
     /// ```
     #[inline]
-    #[cfg_attr(not(debug_assertions), no_panic)]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn try_push_str(&mut self, string: impl AsRef<str>) -> Result<(), OutOfBounds> {
         trace!("Push str: {}", string.as_ref());
         let str = string.as_ref();
@@ -499,7 +457,7 @@ where
     /// # }
     /// ```
     #[inline]
-    #[cfg_attr(not(debug_assertions), no_panic)]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn push_str_truncate(&mut self, string: impl AsRef<str>) {
         trace!("Push str truncate: {}", string.as_ref());
         let str = string.as_ref().as_bytes();
@@ -511,6 +469,7 @@ where
         unsafe { self.push_str_unchecked(str) };
     }
 
+    #[inline]
     unsafe fn push_str_unchecked(&mut self, bytes: &[u8]) {
         core::ptr::copy_nonoverlapping(
             bytes.as_ptr(),
@@ -538,6 +497,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn try_push(&mut self, ch: char) -> Result<(), OutOfBounds> {
         trace!("Push: {}", ch);
         let mut buf = [0; 4];
@@ -565,6 +525,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn truncate(&mut self, size: usize) -> Result<(), Utf8> {
         debug!("Truncate: {}", size);
         let len = min(self.len(), size);
@@ -585,6 +546,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn pop(&mut self) -> Option<char> {
         debug!("Pop");
         self.as_str().chars().last().map(|ch| {
@@ -610,6 +572,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn trim(&mut self) {
         trace!("Trim");
         let mut start = self.len();
@@ -630,9 +593,13 @@ where
             }
             end = pos;
         }
-        let range = start..end;
-        self.size = range.clone().count().into_lossy();
-        self.array.copy_within(range, 0);
+
+        self.size = end.saturating_sub(start).into_lossy();
+
+        unsafe {
+            let ptr = self.array.as_mut_ptr();
+            core::ptr::copy(ptr.add(start), ptr, self.len());
+        }
     }
 
     /// Removes specified char from `ArrayString`
@@ -653,6 +620,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn remove(&mut self, idx: usize) -> Result<char, Error> {
         debug!("Remove: {}", idx);
         is_inside_boundary(idx, self.len())?;
@@ -685,6 +653,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn retain(&mut self, mut f: impl FnMut(char) -> bool) {
         trace!("Retain");
         // Not the most efficient solution, we could shift left during batch mismatch
@@ -716,6 +685,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn try_insert(&mut self, idx: usize, ch: char) -> Result<(), Error> {
         let mut buf = [0; 4];
         self.try_insert_str(idx, ch.encode_utf8(&mut buf))
@@ -746,19 +716,24 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn try_insert_str(&mut self, idx: usize, string: impl AsRef<str>) -> Result<(), Error> {
         trace!("Try insert at {idx} str: {}", string.as_ref());
         let str = string.as_ref().as_bytes();
         is_inside_boundary(idx, self.len())?;
-        is_inside_boundary(str.len() + self.len(), Self::capacity())?;
+        is_inside_boundary(idx + str.len() + self.len(), Self::capacity())?;
         is_char_boundary(self, idx)?;
         if str.is_empty() {
             return Ok(());
         }
-        let this_len = self.len();
-        self.array.copy_within(idx..this_len, idx + str.len());
-        self.array[idx..idx + str.len()].copy_from_slice(str);
-        self.size += str.len().into_lossy();
+
+        unsafe {
+            let ptr = self.array.as_mut_ptr().add(idx);
+            core::ptr::copy(ptr, ptr.add(str.len()), self.len().saturating_sub(idx));
+            core::ptr::copy(str.as_ptr(), ptr, str.len());
+        }
+        self.size = self.len().saturating_add(str.len()).into_lossy();
+
         Ok(())
     }
 
@@ -789,6 +764,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn insert_str_truncate(
         &mut self,
         idx: usize,
@@ -805,16 +781,13 @@ where
         if str.is_empty() {
             return Ok(());
         }
-        let remaining = usize::min(
-            size.saturating_sub(str.len()),
-            self.len().saturating_sub(idx),
-        );
-        if remaining > 0 {
-            self.array
-                .copy_within(idx..(idx + remaining), idx + str.len())
+
+        unsafe {
+            let ptr = self.array.as_mut_ptr().add(idx);
+            core::ptr::copy(ptr, ptr.add(str.len()), self.len().saturating_sub(idx));
+            core::ptr::copy(str.as_ptr(), ptr, str.len());
         }
-        self.array[idx..idx + str.len()].copy_from_slice(str);
-        self.size = (idx + str.len() + remaining).into_lossy();
+        self.size = self.len().saturating_add(str.len()).into_lossy();
         Ok(())
     }
 
@@ -833,9 +806,10 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn len(&self) -> usize {
         trace!("Len");
-        self.size.into()
+        self.size as usize
     }
 
     /// Checks if `ArrayString` is empty.
@@ -852,6 +826,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn is_empty(&self) -> bool {
         trace!("Is empty");
         self.len() == 0
@@ -877,6 +852,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn split_off(&mut self, at: usize) -> Result<Self, Error> {
         debug!("Split off");
         is_inside_boundary(at, self.len())?;
@@ -902,6 +878,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn clear(&mut self) {
         trace!("Clear");
         self.size = 0;
@@ -925,6 +902,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn drain(&mut self, range: impl RangeBounds<usize>) -> Result<Drain<N>, Error> {
         let start = match range.start_bound() {
             Bound::Included(t) => *t,
@@ -965,7 +943,7 @@ where
     /// # #[cfg(not(miri))] let _ = env_logger::try_init();
     /// let mut s = ArrayString::<23>::try_from_str("ABCD🤔")?;
     /// s.replace_range(2..4, "EFGHI")?;
-    /// assert_eq!(s.as_str(), "ABEFGHI🤔");
+    /// assert_eq!(s.as_bytes(), "ABEFGHI🤔".as_bytes());
     ///
     /// assert_eq!(s.replace_range(9.., "J"), Err(Error::Utf8));
     /// assert_eq!(s.replace_range(..90, "K"), Err(Error::OutOfBounds));
@@ -974,6 +952,7 @@ where
     /// # }
     /// ```
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn replace_range(
         &mut self,
         r: impl RangeBounds<usize>,
@@ -1009,18 +988,19 @@ where
             (start + str.len() + self.len()).saturating_sub(end),
             Self::capacity(),
         )?;
-        let dest = start + str.len();
+
         let this_len = self.len();
-        self.array.copy_within(end..this_len, dest);
-        if !str.is_empty() {
-            self.array[start..start + str.len()].copy_from_slice(str);
+        unsafe {
+            let ptr = self.array.as_mut_ptr();
+            core::ptr::copy(ptr.add(end), ptr.add(str.len().saturating_add(start)), this_len.saturating_sub(end));
+            core::ptr::copy(str.as_ptr(), ptr.add(start), str.len());
         }
-        self.size -= (end.saturating_sub(start)).into_lossy();
-        self.size += str.len().into_lossy();
+        self.size = self.len().saturating_add(str.len()).saturating_add(start).saturating_sub(end).into_lossy();
         Ok(())
     }
 }
 
+/// Temporary hack until const generics constraints are stable
 pub(crate) mod sealed {
     use super::*;
     pub trait ValidCapacity {}

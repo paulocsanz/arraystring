@@ -7,12 +7,15 @@ use core::ops::{Add, Deref, DerefMut, Index, IndexMut};
 use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use core::str::{self, FromStr};
 use core::{borrow::Borrow, borrow::BorrowMut, cmp::Ordering, hash::Hash, hash::Hasher};
+#[cfg(all(feature = "no-panic", not(debug_assertions)))]
+use no_panic::no_panic;
 
 impl<const N: usize> Default for ArrayString<N>
 where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn default() -> Self {
         Self::new()
     }
@@ -23,6 +26,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn as_ref(&self) -> &str {
         // Safety: our inner initialized slice should only contain valid utf-8
         // There is no way to invalidate the utf-8 of it from safe functions
@@ -37,6 +41,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn as_mut(&mut self) -> &mut str {
         let len = self.len();
         // Safety: size will always be between 0 and capacity, so get_unchecked_mut will never fail
@@ -55,6 +60,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn as_ref(&self) -> &[u8] {
         // Safety: size will always be between 0 and capacity, so get_unchecked_mut will never fail
         debug_assert!(self.len() <= N);
@@ -67,6 +73,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn from(s: &str) -> Self {
         Self::from_str_truncate(s)
     }
@@ -79,6 +86,7 @@ where
     type Err = OutOfBounds;
 
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::try_from_str(s)
     }
@@ -89,6 +97,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.debug_struct("ArrayString")
             .field("array", &self.as_str())
@@ -102,6 +111,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn eq(&self, other: &str) -> bool {
         self.as_str().eq(other)
     }
@@ -112,6 +122,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn borrow(&self) -> &str {
         self.as_str()
     }
@@ -122,6 +133,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn borrow_mut(&mut self) -> &mut str {
         self.as_mut_str()
     }
@@ -132,6 +144,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         self.as_str().hash(hasher);
     }
@@ -142,6 +155,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn eq(&self, other: &Self) -> bool {
         self.as_str().eq(other.as_str())
     }
@@ -154,6 +168,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn cmp(&self, other: &Self) -> Ordering {
         self.as_str().cmp(other.as_str())
     }
@@ -164,6 +179,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -176,6 +192,7 @@ where
     type Output = Self;
 
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn add(mut self, other: &str) -> Self::Output {
         self.push_str_truncate(other);
         self
@@ -187,6 +204,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn write_str(&mut self, slice: &str) -> fmt::Result {
         self.try_push_str(slice).map_err(|_| fmt::Error)
     }
@@ -197,6 +215,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}", self.as_str())
     }
@@ -209,6 +228,7 @@ where
     type Target = str;
 
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn deref(&self) -> &Self::Target {
         self.as_ref()
     }
@@ -219,6 +239,7 @@ where
     Self: ValidCapacity,
 {
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut()
     }
@@ -228,6 +249,7 @@ impl<const N: usize> FromIterator<char> for ArrayString<N>
 where
     Self: ValidCapacity,
 {
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn from_iter<I: IntoIterator<Item = char>>(iter: I) -> Self {
         Self::from_chars_truncate(iter)
     }
@@ -237,6 +259,7 @@ impl<'a, const N: usize> FromIterator<&'a str> for ArrayString<N>
 where
     Self: ValidCapacity,
 {
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn from_iter<I: IntoIterator<Item = &'a str>>(iter: I) -> Self {
         Self::from_iterator_truncate(iter)
     }
@@ -246,6 +269,7 @@ impl<const N: usize> Extend<char> for ArrayString<N>
 where
     Self: ValidCapacity,
 {
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn extend<I: IntoIterator<Item = char>>(&mut self, iterable: I) {
         self.push_str_truncate(Self::from_chars_truncate(iterable))
     }
@@ -255,6 +279,7 @@ impl<'a, const N: usize> Extend<&'a char> for ArrayString<N>
 where
     Self: ValidCapacity,
 {
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn extend<I: IntoIterator<Item = &'a char>>(&mut self, iter: I) {
         self.extend(iter.into_iter().cloned());
     }
@@ -264,6 +289,7 @@ impl<'a, const N: usize> Extend<&'a str> for ArrayString<N>
 where
     Self: ValidCapacity,
 {
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn extend<I: IntoIterator<Item = &'a str>>(&mut self, iterable: I) {
         self.push_str_truncate(Self::from_iterator_truncate(iterable))
     }

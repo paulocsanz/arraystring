@@ -3,7 +3,7 @@
 use crate::{arraystring::sealed::ValidCapacity, prelude::*};
 #[cfg(feature = "logs")]
 use log::trace;
-#[cfg(not(debug_assertions))]
+#[cfg(all(feature = "no-panic", not(debug_assertions)))]
 use no_panic::no_panic;
 
 pub(crate) trait IntoLossy<T>: Sized {
@@ -11,8 +11,8 @@ pub(crate) trait IntoLossy<T>: Sized {
 }
 
 /// Returns error if size is outside of specified boundary
-#[cfg_attr(not(debug_assertions), no_panic)]
 #[inline]
+#[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
 pub(crate) fn is_inside_boundary(size: usize, limit: usize) -> Result<(), OutOfBounds> {
     trace!("Out of bounds: ensures {} <= {}", size, limit);
     (size <= limit).then_some(()).ok_or(OutOfBounds)
@@ -20,6 +20,7 @@ pub(crate) fn is_inside_boundary(size: usize, limit: usize) -> Result<(), OutOfB
 
 /// Returns error if index is not at a valid utf-8 char boundary
 #[inline]
+#[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
 pub(crate) fn is_char_boundary<const N: usize>(s: &ArrayString<N>, idx: usize) -> Result<(), Utf8>
 where
     ArrayString<N>: ValidCapacity,
@@ -32,6 +33,7 @@ where
 }
 
 #[inline]
+#[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
 pub(crate) unsafe fn is_char_boundary_at(arr: &[u8], index: usize) -> bool {
     if index == 0 {
         return true;
@@ -41,7 +43,7 @@ pub(crate) unsafe fn is_char_boundary_at(arr: &[u8], index: usize) -> bool {
 
 /// Truncates string to specified size (ignoring last bytes if they form a partial `char`)
 #[inline]
-#[cfg_attr(not(debug_assertions), no_panic)]
+#[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
 pub(crate) fn truncate_str(slice: &[u8], mut size: usize) -> &[u8] {
     trace!("Truncate str: {:?} at {size}", core::str::from_utf8(slice),);
     if size >= slice.len() {
@@ -70,6 +72,7 @@ pub(crate) fn truncate_str(slice: &[u8], mut size: usize) -> &[u8] {
 impl IntoLossy<u8> for usize {
     #[allow(clippy::cast_possible_truncation)]
     #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn into_lossy(self) -> u8 {
         self as u8
     }

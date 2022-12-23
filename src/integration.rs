@@ -3,6 +3,9 @@
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "diesel-traits")))]
 #[cfg(feature = "diesel-traits")]
 mod diesel_impl {
+    #[cfg(all(feature = "no-panic", not(debug_assertions)))]
+    use no_panic::no_panic;
+
     pub use crate::{arraystring::sealed::ValidCapacity, prelude::*};
 
     #[cfg(feature = "std")]
@@ -24,6 +27,8 @@ mod diesel_impl {
         *const str: FromSql<ST, DB>,
         Self: ValidCapacity,
     {
+        #[inline]
+        #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
         fn from_sql(bytes: RawValue<'_, DB>) -> deserialize::Result<Self> {
             let ptr = <*const str as FromSql<ST, DB>>::from_sql(bytes)?;
             // Safety: We know that the pointer impl will never return null, it's just how diesel implements
@@ -37,6 +42,8 @@ mod diesel_impl {
         str: ToSql<Text, DB>,
         Self: ValidCapacity,
     {
+        #[inline]
+        #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
         fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, DB>) -> serialize::Result {
             self.as_str().to_sql(out)
         }
@@ -48,6 +55,7 @@ mod diesel_impl {
         *const str: FromSql<ST, DB>,
     {
         #[inline]
+        #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
         fn from_sql(bytes: RawValue<'_, DB>) -> deserialize::Result<Self> {
             Ok(Self(FromSql::from_sql(bytes)?))
         }
@@ -59,6 +67,7 @@ mod diesel_impl {
         str: ToSql<Text, DB>,
     {
         #[inline]
+        #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
         fn to_sql<'b>(&'b self, out: &mut Output<'b, '_, DB>) -> serialize::Result {
             ToSql::<Text, DB>::to_sql(&self.0, out)
         }
@@ -68,8 +77,9 @@ mod diesel_impl {
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
 #[cfg(feature = "serde-traits")]
 mod serde_impl {
+    #[cfg(all(feature = "no-panic", not(debug_assertions)))]
+    use no_panic::no_panic;
     pub use crate::{arraystring::sealed::ValidCapacity, prelude::*};
-
     pub use serde::{de::Deserializer, ser::Serializer, Deserialize, Serialize};
 
     impl<const N: usize> Serialize for ArrayString<N>
@@ -77,6 +87,7 @@ mod serde_impl {
         Self: ValidCapacity,
     {
         #[inline]
+        #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
         fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
             Serialize::serialize(self.as_str(), ser)
         }
@@ -87,6 +98,7 @@ mod serde_impl {
         Self: ValidCapacity,
     {
         #[inline]
+        #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
         fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
             <&str>::deserialize(des).map(Self::from_str_truncate)
         }
@@ -94,6 +106,7 @@ mod serde_impl {
 
     impl Serialize for CacheString {
         #[inline]
+        #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
         fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
             self.0.serialize(ser)
         }
@@ -101,6 +114,7 @@ mod serde_impl {
 
     impl<'a> Deserialize<'a> for CacheString {
         #[inline]
+        #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
         fn deserialize<D: Deserializer<'a>>(des: D) -> Result<Self, D::Error> {
             Ok(CacheString(Deserialize::deserialize(des)?))
         }
