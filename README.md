@@ -1,4 +1,4 @@
-*For experimentation with `const generics` try [`staticvec`](https://github.com/slightlyoutofphase/staticvec/)*
+*For experimentation with nightly only `const generics` features try [`staticvec`](https://github.com/slightlyoutofphase/staticvec/)*
 
 # ArrayString
 
@@ -8,9 +8,11 @@ Can't outgrow initial capacity (defined at compile time), always occupies `capac
 
 *Maximum Capacity is 255*
 
-*Doesn't allocate memory on the heap and never panics in release (all panic branches are stripped at compile time - except `Index`/`IndexMut` traits, since they are supposed to)*
+*Doesn't allocate memory on the heap and should never panic in release (except in `Index`/`IndexMut` traits, since they are supposed to)*
 
-* [Documentation](https://docs.rs/arraystring/0.3.0/arraystring)
+*The no panic garantee can be ensured at compilation time with the `no-panic` feature, just be aware that a compiler update might break this garantee, therefore making the crate uncompilable, open an issue if you notice.*
+
+* [Documentation](https://docs.rs/arraystring/latest/arraystring)
 
 ## Why
 
@@ -22,9 +24,9 @@ Stack based strings are generally faster to create, clone and append to than hea
 
 But that becomes less true as you increase the array size, `CacheString` occuppies a full cache line, 255 bytes is the maximum we accept - `MaxString` and it's probably already slower than heap based strings of that size (like in `std::string::String`)
 
-There are other stack based strings out there, they generally can have "unlimited" capacity (heap allocate), but the stack based size is defined by the library implementor, we go through a different route by implementing a string based in a generic array.
+There are other stack based strings out there, they generally can have "unlimited" capacity using small string optimizations, but the stack based size is defined by the library implementor. We go through a different route by implementing a string based in a generic array.
 
-Array based strings always occupies the full space in memory, so they may use more memory (although in the stack) than dynamic strings.
+Be aware that array based strings always occupy the full space in memory, so they may use more memory (although in the stack) than dynamic strings.
 
 ## Features
 
@@ -38,6 +40,10 @@ Array based strings always occupies the full space in memory, so they may use mo
  - `diesel-traits` enables diesel traits integration
 
      Opperates like `String`, but truncates it if it's bigger than capacity
+
+ - `no-panic` checks at compile time that the panic function is not linked by the library
+
+     Only works when all optimizations are enabled, and may break in future compiler updates. Please open an issue if you notice.
 
  - `logs` enables internal logging
 
@@ -66,51 +72,6 @@ fn main() -> Result<(), Error> {
 
     Ok(())
 }
-```
-
- ## Comparisons
-
-*These benchmarks ran while I streamed video and used my computer (with* **non-disclosed specs**) *as usual, so don't take the actual times too seriously, just focus on the comparison*
-
-```my_custom_benchmark
-small-string  (23 bytes)      clone                  4.837 ns
-small-string  (23 bytes)      try_from_str          13.552 ns
-small-string  (23 bytes)      from_str_truncate     11.360 ns
-small-string  (23 bytes)      from_str_unchecked    11.291 ns
-small-string  (23 bytes)      try_push_str           1.162 ns
-small-string  (23 bytes)      push_str               3.490 ns
-small-string  (23 bytes)      push_str_unchecked     1.098 ns
--------------------------------------------------------------
-cache-string  (63 bytes)      clone                 10.170 ns
-cache-string  (63 bytes)      try_from_str          25.579 ns
-cache-string  (63 bytes)      from_str_truncate     16.977 ns
-cache-string  (63 bytes)      from_str_unchecked    17.201 ns
-cache-string  (63 bytes)      try_push_str           1.160 ns
-cache-string  (63 bytes)      push_str               3.486 ns
-cache-string  (63 bytes)      push_str_unchecked     1.115 ns
--------------------------------------------------------------
-max-string   (255 bytes)      clone                147.410 ns
-max-string   (255 bytes)      try_from_str         157.340 ns
-max-string   (255 bytes)      from_str_truncate    158.000 ns
-max-string   (255 bytes)      from_str_unchecked   158.420 ns
-max-string   (255 bytes)      try_push_str           1.167 ns
-max-string   (255 bytes)      push_str               4.337 ns
-max-string   (255 bytes)      push_str_unchecked     1.103 ns
--------------------------------------------------------------
-string (19 bytes)             clone                 33.295 ns
-string (19 bytes)             from                  32.512 ns
-string (19 bytes)             push str              28.128 ns
--------------------------------------------------------------
-arrayvec string (23 bytes)    clone                  7.725 ns
-arrayvec string (23 bytes)    from                  14.794 ns
-arrayvec string (23 bytes)    push str               1.363 ns
--------------------------------------------------------------
-inlinable-string (30 bytes)   clone                 16.751 ns
-inlinable-string (30 bytes)   from_str              29.310 ns
-inlinable-string (30 bytes)   push_str               2.865 ns
--------------------------------------------------------------
-smallstring crate (20 bytes)  clone                 60.988 ns
-smallstring crate (20 bytes)  from_str              50.233 ns
 ```
 
 ## Licenses

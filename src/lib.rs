@@ -4,7 +4,9 @@
 //!
 //! *Maximum Capacity is 255*
 //!
-//! *Doesn't allocate memory on the heap and never panics in release (all panic branches are stripped at compile time - except for `Index`/`IndexMut` traits, since they are supposed to)*
+//! *Doesn't allocate memory on the heap and should never panic in release (except in `Index`/`IndexMut` traits, since they are supposed to)*
+//!
+//! *The no panic garantee can be ensured at compilation time with the `no-panic` feature, just be aware that a compiler update might break this garantee, therefore making the crate uncompilable, open an issue if you notice.*
 //!
 //! ## Why
 //!
@@ -16,9 +18,9 @@
 //!
 //! But that becomes less true as you increase the array size, 255 bytes is the maximum we accept - [`MaxString`] and it's probably already slower than heap based strings of that size (like in `std::string::String`)
 //!
-//! There are other stack based strings out there, they generally can have "unlimited" capacity (heap allocate), but the stack based size is defined by the library implementor, we go through a different route by implementing a string based in a generic array.
+//! There are other stack based strings out there, they generally can have "unlimited" capacity using small string optimizations, but the stack based size is defined by the library implementor. We go through a different route by implementing a string based in a generic array.
 //!
-//! Array based strings always occupies the full space in memory, so they may use more memory (although in the stack) than dynamic strings.
+//! Be aware that array based strings always occupy the full space in memory, so they may use more memory (although in the stack) than dynamic strings.
 //!
 //! [`capacity`]: ./struct.ArrayString.html#method.capacity
 //! [`MaxString`]: ./type.MaxString.html
@@ -35,6 +37,9 @@
 //! - `diesel-traits` enables diesel traits integration
 //!
 //!      Opperates like `String`, but truncates it if it's bigger than capacity
+//! - `no-panic` checks at compile time that the panic function is not linked by the library
+//!
+//!      Only works when all optimizations are enabled, and may break in future compiler updates. Please open an issue if you notice.
 //!
 //! - `logs` enables internal logging
 //!
@@ -63,51 +68,6 @@
 //!
 //!     Ok(())
 //! }
-//! ```
-//!
-//!  ## Comparisons
-//!
-//! *These benchmarks ran while I streamed video and used my computer (with* **non-disclosed specs**) *as usual, so don't take the actual times too seriously, just focus on the comparison*
-//!
-//! ```my_custom_benchmark
-//! small-string  (23 bytes)      clone                  4.837 ns
-//! small-string  (23 bytes)      try_from_str          14.777 ns
-//! small-string  (23 bytes)      from_str_truncate     11.360 ns
-//! small-string  (23 bytes)      from_str_unchecked    11.291 ns
-//! small-string  (23 bytes)      try_push_str           1.162 ns
-//! small-string  (23 bytes)      push_str               3.490 ns
-//! small-string  (23 bytes)      push_str_unchecked     1.098 ns
-//! -------------------------------------------------------------
-//! cache-string  (63 bytes)      clone                 10.170 ns
-//! cache-string  (63 bytes)      try_from_str          25.579 ns
-//! cache-string  (63 bytes)      from_str_truncate     16.977 ns
-//! cache-string  (63 bytes)      from_str_unchecked    17.201 ns
-//! cache-string  (63 bytes)      try_push_str           1.160 ns
-//! cache-string  (63 bytes)      push_str               3.486 ns
-//! cache-string  (63 bytes)      push_str_unchecked     1.115 ns
-//! -------------------------------------------------------------
-//! max-string   (255 bytes)      clone                147.410 ns
-//! max-string   (255 bytes)      try_from_str         157.340 ns
-//! max-string   (255 bytes)      from_str_truncate    158.000 ns
-//! max-string   (255 bytes)      from_str_unchecked   158.420 ns
-//! max-string   (255 bytes)      try_push_str           1.167 ns
-//! max-string   (255 bytes)      push_str               4.337 ns
-//! max-string   (255 bytes)      push_str_unchecked     1.103 ns
-//! -------------------------------------------------------------
-//! string (19 bytes)             clone                 33.295 ns
-//! string (19 bytes)             from                  32.512 ns
-//! string (19 bytes)             push str              28.128 ns
-//! -------------------------------------------------------------
-//! arrayvec string (23 bytes)    clone                  7.725 ns
-//! arrayvec string (23 bytes)    from                  14.794 ns
-//! arrayvec string (23 bytes)    push str               1.363 ns
-//! -------------------------------------------------------------
-//! inlinable-string (30 bytes)   clone                 16.751 ns
-//! inlinable-string (30 bytes)   from_str              29.310 ns
-//! inlinable-string (30 bytes)   push_str               2.865 ns
-//! -------------------------------------------------------------
-//! smallstring crate (20 bytes)  clone                 60.988 ns
-//! smallstring crate (20 bytes)  from_str              50.233 ns
 //! ```
 //!
 //! ## Licenses
@@ -174,21 +134,12 @@ pub mod prelude {
 pub use crate::arraystring::ArrayString;
 pub use crate::error::Error;
 
-/// String with the same `mem::size_of` of a `String`
+/// String with the same `std::mem::size_of` of a `String` (`std::mem::size_of::<usize> * 3`)
 ///
 /// 24 bytes in 64 bits architecture
 ///
 /// 12 bytes in 32 bits architecture (or others)
-#[cfg(target_pointer_width = "64")]
-pub type SmallString = ArrayString<23>;
-
-/// String with the same `mem::size_of` of a `String`
-///
-/// 24 bytes in 64 bits architecture
-///
-/// 12 bytes in 32 bits architecture (or others)
-#[cfg(not(target_pointer_width = "64"))]
-pub type SmallString = ArrayString<11>;
+pub type SmallString = ArrayString<{ std::mem::size_of::<usize>() * 3 }>;
 
 /// Biggest array based string (255 bytes of string)
 pub type MaxString = ArrayString<255>;
@@ -356,58 +307,6 @@ mod cache_string {
         #[inline]
         pub fn from_chars_truncate(iter: impl IntoIterator<Item = char>) -> Self {
             Self(ArrayString::from_chars_truncate(iter))
-        }
-
-        /// Creates new `CacheString` from byte slice, returning [`Utf8`] on invalid utf-8 data or [`OutOfBounds`] if bigger than [`capacity`]
-        ///
-        /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
-        /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let string = CacheString::try_from_utf8("My String")?;
-        /// assert_eq!(string.as_str(), "My String");
-        ///
-        /// let invalid_utf8 = [0, 159, 146, 150];
-        /// assert_eq!(CacheString::try_from_utf8(invalid_utf8), Err(Error::Utf8));
-        ///
-        /// let out_of_bounds = "0000".repeat(400);
-        /// assert_eq!(CacheString::try_from_utf8(out_of_bounds.as_bytes()), Err(Error::OutOfBounds));
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn try_from_utf8(slice: impl AsRef<[u8]>) -> Result<Self, Error> {
-            Ok(Self(ArrayString::try_from_utf8(slice)?))
-        }
-
-        /// Creates new `CacheString` from byte slice, returning [`Utf8`] on invalid utf-8 data, truncating if bigger than [`capacity`].
-        ///
-        /// [`Utf8`]: ./error/struct.Utf8.html
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let string = CacheString::from_utf8_truncate("My String")?;
-        /// assert_eq!(string.as_str(), "My String");
-        ///
-        /// let invalid_utf8 = [0, 159, 146, 150];
-        /// assert_eq!(CacheString::from_utf8_truncate(invalid_utf8), Err(Utf8));
-        ///
-        /// let out_of_bounds = "0".repeat(300);
-        /// assert_eq!(CacheString::from_utf8_truncate(out_of_bounds.as_bytes())?.as_str(),
-        ///            "0".repeat(CacheString::capacity()).as_str());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn from_utf8_truncate(slice: impl AsRef<[u8]>) -> Result<Self, Utf8> {
-            Ok(Self(ArrayString::from_utf8_truncate(slice)?))
         }
 
         /// Creates new `CacheString` from `u16` slice, returning [`Utf16`] on invalid utf-16 data or [`OutOfBounds`] if bigger than [`capacity`]

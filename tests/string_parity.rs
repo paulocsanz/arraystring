@@ -65,50 +65,6 @@ fn from_iter() {
 }
 
 #[test]
-fn try_from_utf8() {
-    assert(
-        |s| String::from_utf8(s.as_bytes().to_vec()),
-        |s| TestString::try_from_utf8(s.as_bytes()),
-    );
-}
-
-#[test]
-fn from_utf8() {
-    assert(
-        |s| String::from_utf8(s.as_bytes().to_vec()),
-        |s| TestString::from_utf8_truncate(s.as_bytes()),
-    );
-}
-
-#[inline]
-fn invalidate_utf8(buf: &str) -> Vec<u8> {
-    let mut buf = buf.as_bytes().to_vec();
-    if buf.len() >= 4 {
-        buf[0] = 0;
-        buf[1] = 159;
-        buf[2] = 146;
-        buf[3] = 150;
-    }
-    buf
-}
-
-#[test]
-fn try_from_utf8_invalid() {
-    assert(
-        |s| String::from_utf8(invalidate_utf8(s)),
-        |s| TestString::try_from_utf8(invalidate_utf8(s)),
-    );
-}
-
-#[test]
-fn from_utf8_invalid() {
-    assert(
-        |s| String::from_utf8(invalidate_utf8(s)),
-        |s| TestString::from_utf8_truncate(invalidate_utf8(s)),
-    );
-}
-
-#[test]
 fn try_from_utf16() {
     let utf16 = |s: &str| s.encode_utf16().collect::<Vec<_>>();
     assert(
