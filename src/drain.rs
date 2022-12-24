@@ -1,6 +1,6 @@
 //! Draining iterator for [`ArrayString`]
 //!
-//! [`ArrayString`]: ../struct.ArrayString.html
+//! [`ArrayString`]: ./struct.ArrayString.html
 
 use crate::{arraystring::sealed::ValidCapacity, prelude::*};
 use core::fmt::{self, Debug, Formatter};
@@ -10,8 +10,8 @@ use core::{cmp::Ordering, hash::Hash, hash::Hasher, iter::FusedIterator};
 ///
 /// Created through [`drain`]
 ///
-/// [`ArrayString`]: ../struct.ArrayString.html
-/// [`drain`]: ../struct.ArrayString.html#method.drain
+/// [`ArrayString`]: ./struct.ArrayString.html
+/// [`drain`]: ./struct.ArrayString.html#method.drain
 pub struct Drain<const N: usize>(pub(crate) ArrayString<N>)
 where
     ArrayString<N>: ValidCapacity;

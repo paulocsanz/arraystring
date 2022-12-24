@@ -357,46 +357,6 @@ where
         self.as_mut()
     }
 
-    /// Extracts a byte slice containing the entire `ArrayString`
-    ///
-    /// ```rust
-    /// # use arraystring::{Error, prelude::*};
-    /// # fn main() -> Result<(), Error> {
-    /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-    /// let s = ArrayString::<23>::try_from_str("My String")?;
-    /// assert_eq!(s.as_bytes(), "My String".as_bytes());
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
-    pub fn as_bytes(&self) -> &[u8] {
-        trace!("As bytes");
-        self.as_ref()
-    }
-
-    /// Extracts a mutable string slice containing the entire `ArrayString`
-    ///
-    /// # Safety
-    ///
-    /// It's UB to store invalid UTF-8 data in the returned byte array
-    ///
-    /// ```rust
-    /// # use arraystring::{Error, prelude::*};
-    /// # fn main() -> Result<(), Error> {
-    /// let mut s = ArrayString::<23>::try_from_str("My String")?;
-    /// assert_eq!(unsafe { s.as_mut_bytes() }, "My String".as_bytes());
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
-    pub unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
-        trace!("As mut str");
-        let len = self.len();
-        self.array.as_mut_slice().get_unchecked_mut(..len)
-    }
-
     /// Returns maximum string capacity, defined at compile time, it will never change
     ///
     /// ```rust
@@ -761,26 +721,6 @@ where
     pub fn len(&self) -> usize {
         trace!("Len");
         self.size as usize
-    }
-
-    /// Checks if `ArrayString` is empty.
-    ///
-    /// ```rust
-    /// # use arraystring::{Error, prelude::*};
-    /// # fn main() -> Result<(), Error> {
-    /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-    /// let mut s = ArrayString::<23>::try_from_str("ABCD")?;
-    /// assert!(!s.is_empty());
-    /// s.clear();
-    /// assert!(s.is_empty());
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
-    pub fn is_empty(&self) -> bool {
-        trace!("Is empty");
-        self.len() == 0
     }
 
     /// Splits `ArrayString` in two if `at` is smaller than `self.len()`.

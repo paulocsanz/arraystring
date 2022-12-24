@@ -37,6 +37,7 @@
 //! - `diesel-traits` enables diesel traits integration
 //!
 //!      Opperates like `String`, but truncates it if it's bigger than capacity
+//!
 //! - `no-panic` checks at compile time that the panic function is not linked by the library
 //!
 //!      Be careful before using this, it won't change functions behaviors, it will just enforce that panic functions can't be linked by this library. This may break your compilation and won't improve the safety of this library. It's mostly for testing and environments where if the non panicking invariantcan't be garanteed compilation should fail. This should not apply to most projects.
@@ -117,7 +118,7 @@ mod mock {
 }
 
 mod arraystring;
-pub mod drain;
+mod drain;
 pub mod error;
 mod implementations;
 #[cfg(any(feature = "serde-traits", feature = "diesel-traits"))]
@@ -134,16 +135,17 @@ pub mod prelude {
 }
 
 pub use crate::arraystring::ArrayString;
+pub use crate::drain::Drain;
 pub use crate::error::Error;
 
 /// String with the same `core::mem::size_of` of a `String` (`core::mem::size_of::<usize> * 3`)
 ///
 /// 24 bytes in 64 bits architecture
 ///
-/// 12 bytes in 32 bits architecture (or others)
+/// 12 bytes in 32 bits architecture
 pub type SmallString = ArrayString<{ core::mem::size_of::<usize>() * 3 }>;
 
-/// Biggest array based string (255 bytes of string)
+/// Biggest `ArrayString<N>` supported (255 bytes of text)
 pub type MaxString = ArrayString<255>;
 
 mod cache_string {
@@ -156,7 +158,7 @@ mod cache_string {
     const CACHE_STRING_SIZE: usize = 63;
     /// Newtype string that occupies 64 bytes in memory and is 64 bytes aligned (full cache line)
     ///
-    /// 63 bytes of string
+    /// 63 bytes of text
     #[repr(align(64))]
     #[derive(Copy, Clone, Default)]
     #[cfg_attr(
@@ -391,73 +393,6 @@ mod cache_string {
             Self(ArrayString::from_utf16_lossy_truncate(slice))
         }
 
-        /// Extracts a string slice containing the entire `CacheString`
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let s = CacheString::try_from_str("My String")?;
-        /// assert_eq!(s.as_str(), "My String");
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn as_str(&self) -> &str {
-            self.0.as_str()
-        }
-
-        /// Extracts a mutable string slice containing the entire `CacheString`
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("My String")?;
-        /// assert_eq!(s.as_mut_str(), "My String");
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn as_mut_str(&mut self) -> &mut str {
-            self.0.as_mut_str()
-        }
-
-        /// Extracts a byte slice containing the entire `CacheString`
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let s = CacheString::try_from_str("My String")?;
-        /// assert_eq!(s.as_bytes(), "My String".as_bytes());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn as_bytes(&self) -> &[u8] {
-            self.0.as_bytes()
-        }
-
-        /// Extracts a mutable string slice containing the entire `CacheString`
-        ///
-        /// # Safety
-        ///
-        /// It's UB to store invalid UTF-8 data in the returned byte array
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// let mut s = CacheString::try_from_str("My String")?;
-        /// assert_eq!(unsafe { s.as_mut_bytes() }, "My String".as_bytes());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub unsafe fn as_mut_bytes(&mut self) -> &mut [u8] {
-            self.0.as_mut_bytes()
-        }
-
         /// Returns maximum string capacity, defined at compile time, it will never change
         ///
         /// Should always return 63 bytes
@@ -470,304 +405,6 @@ mod cache_string {
         #[inline]
         pub const fn capacity() -> usize {
             CACHE_STRING_SIZE
-        }
-
-        /// Pushes string slice to the end of the `CacheString` if total size is lower or equal to [`capacity`], otherwise returns an error.
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("My String")?;
-        /// s.try_push_str(" My other String")?;
-        /// assert_eq!(s.as_str(), "My String My other String");
-        ///
-        /// assert!(s.try_push_str("0".repeat(CacheString::capacity())).is_err());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn try_push_str(&mut self, string: impl AsRef<str>) -> Result<(), OutOfBounds> {
-            self.0.try_push_str(string)
-        }
-
-        /// Pushes string slice to the end of the `CacheString` truncating total size if bigger than [`capacity`].
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("My String")?;
-        /// s.push_str_truncate(" My other String");
-        /// assert_eq!(s.as_str(), "My String My other String");
-        ///
-        /// let mut s = CacheString::default();
-        /// s.push_str_truncate("0".repeat(CacheString::capacity() + 1));
-        /// assert_eq!(s.as_str(), "0".repeat(CacheString::capacity()).as_str());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn push_str_truncate(&mut self, string: impl AsRef<str>) {
-            self.0.push_str_truncate(string);
-        }
-
-        /// Inserts character to the end of the `CacheString` erroring if total size if bigger than [`capacity`].
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("My String")?;
-        /// s.try_push('!')?;
-        /// assert_eq!(s.as_str(), "My String!");
-        ///
-        /// let mut s = CacheString::try_from_str(&"0".repeat(CacheString::capacity()))?;
-        /// assert!(s.try_push('!').is_err());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn try_push(&mut self, character: char) -> Result<(), OutOfBounds> {
-            self.0.try_push(character)
-        }
-
-        /// Truncates `CacheString` to specified size (if smaller than current size and a valid utf-8 char index).
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("My String")?;
-        /// s.truncate(5)?;
-        /// assert_eq!(s.as_str(), "My St");
-        ///
-        /// // Does nothing
-        /// s.truncate(6)?;
-        /// assert_eq!(s.as_str(), "My St");
-        ///
-        /// // Index is not at a valid char
-        /// let mut s = CacheString::try_from_str("🤔")?;
-        /// assert!(s.truncate(1).is_err());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn truncate(&mut self, size: usize) -> Result<(), Utf8> {
-            self.0.truncate(size)
-        }
-
-        /// Removes last character from `CacheString`, if any.
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("A🤔")?;
-        /// assert_eq!(s.pop(), Some('🤔'));
-        /// assert_eq!(s.pop(), Some('A'));
-        /// assert_eq!(s.pop(), None);
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn pop(&mut self) -> Option<char> {
-            self.0.pop()
-        }
-
-        /// Removes spaces from the beggining and end of the string
-        ///
-        /// ```rust
-        /// # use arraystring::prelude::*;
-        /// # fn main() -> Result<(), OutOfBounds> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut string = CacheString::try_from_str("   to be trimmed     ")?;
-        /// string.trim();
-        /// assert_eq!(string.as_str(), "to be trimmed");
-        ///
-        /// let mut string = CacheString::try_from_str("   🤔")?;
-        /// string.trim();
-        /// assert_eq!(string.as_str(), "🤔");
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn trim(&mut self) {
-            self.0.trim()
-        }
-
-        /// Removes specified char from `CacheString`
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("ABCD🤔")?;
-        /// assert_eq!(s.remove("ABCD🤔".len()), Err(Error::OutOfBounds));
-        /// assert_eq!(s.remove(10), Err(Error::OutOfBounds));
-        /// assert_eq!(s.remove(6), Err(Error::Utf8));
-        /// assert_eq!(s.remove(0), Ok('A'));
-        /// assert_eq!(s.as_str(), "BCD🤔");
-        /// assert_eq!(s.remove(2), Ok('D'));
-        /// assert_eq!(s.as_str(), "BC🤔");
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn remove(&mut self, idx: usize) -> Result<char, Error> {
-            self.0.remove(idx)
-        }
-
-        /// Retains only the characters specified by the predicate.
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("ABCD🤔")?;
-        /// s.retain(|c| c != '🤔');
-        /// assert_eq!(s.as_str(), "ABCD");
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn retain(&mut self, f: impl FnMut(char) -> bool) {
-            self.0.retain(f)
-        }
-
-        /// Inserts character at specified index, returning error if total length is bigger than [`capacity`].
-        ///
-        /// Returns [`OutOfBounds`] if `idx` is out of bounds and [`Utf8`] if `idx` is not a char position
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
-        /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("ABCD🤔")?;
-        /// s.try_insert(1, 'A')?;
-        /// s.try_insert(2, 'B')?;
-        /// assert_eq!(s.as_str(), "AABBCD🤔");
-        /// assert_eq!(s.try_insert(20, 'C'), Err(Error::OutOfBounds));
-        /// assert_eq!(s.try_insert(8, 'D'), Err(Error::Utf8));
-        ///
-        /// let mut s = CacheString::try_from_str(&"0".repeat(CacheString::capacity()))?;
-        /// assert_eq!(s.try_insert(0, 'C'), Err(Error::OutOfBounds));
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn try_insert(&mut self, idx: usize, ch: char) -> Result<(), Error> {
-            self.0.try_insert(idx, ch)
-        }
-
-        /// Inserts string slice at specified index, returning error if total length is bigger than [`capacity`].
-        ///
-        /// Returns [`OutOfBounds`] if `idx` is out of bounds
-        /// Returns [`Utf8`] if `idx` is not a char position
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
-        /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("ABCD🤔")?;
-        /// s.try_insert_str(1, "AB")?;
-        /// s.try_insert_str(1, "BC")?;
-        /// assert_eq!(s.try_insert_str(1, "0".repeat(CacheString::capacity())), Err(Error::OutOfBounds));
-        /// assert_eq!(s.as_str(), "ABCABBCD🤔");
-        /// assert_eq!(s.try_insert_str(20, "C"), Err(Error::OutOfBounds));
-        /// assert_eq!(s.try_insert_str(10, "D"), Err(Error::Utf8));
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn try_insert_str(&mut self, idx: usize, s: impl AsRef<str>) -> Result<(), Error> {
-            self.0.try_insert_str(idx, s)
-        }
-
-        /// Inserts string slice at specified index, truncating size if bigger than [`capacity`].
-        ///
-        /// Returns [`OutOfBounds`] if `idx` is out of bounds and [`Utf8`] if `idx` is not a char position
-        ///
-        /// [`capacity`]: ./struct.CacheString.html#method.capacity
-        /// [`OutOfBounds`]: ./error/enum.Error.html#variant.OutOfBounds
-        /// [`Utf8`]: ./error/enum.Error.html#variant.Utf8
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("ABCD🤔")?;
-        /// s.insert_str_truncate(1, "AB")?;
-        /// s.insert_str_truncate(1, "BC")?;
-        /// assert_eq!(s.as_str(), "ABCABBCD🤔");
-        ///
-        /// assert_eq!(s.insert_str_truncate(20, "C"), Err(Error::OutOfBounds));
-        /// assert_eq!(s.insert_str_truncate(10, "D"), Err(Error::Utf8));
-        ///
-        /// s.clear();
-        /// s.insert_str_truncate(0, "0".repeat(CacheString::capacity() + 10))?;
-        /// assert_eq!(s.as_str(), "0".repeat(CacheString::capacity()).as_str());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn insert_str_truncate(
-            &mut self,
-            idx: usize,
-            string: impl AsRef<str>,
-        ) -> Result<(), Error> {
-            self.0.insert_str_truncate(idx, string)
-        }
-
-        /// Returns `CacheString` length.
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("ABCD")?;
-        /// assert_eq!(s.len(), 4);
-        /// s.try_push('🤔')?;
-        /// // Emojis use 4 bytes (this is the default rust behavior, length of u8)
-        /// assert_eq!(s.len(), 8);
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn len(&self) -> usize {
-            self.0.len()
-        }
-
-        /// Checks if `CacheString` is empty.
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("ABCD")?;
-        /// assert!(!s.is_empty());
-        /// s.clear();
-        /// assert!(s.is_empty());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn is_empty(&self) -> bool {
-            self.0.is_empty()
         }
 
         /// Splits `CacheString` in two if `at` is smaller than `self.len()`.
@@ -792,74 +429,6 @@ mod cache_string {
         #[inline]
         pub fn split_off(&mut self, at: usize) -> Result<Self, Error> {
             Ok(Self(self.0.split_off(at)?))
-        }
-
-        /// Empties `CacheString`
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("ABCD")?;
-        /// assert!(!s.is_empty());
-        /// s.clear();
-        /// assert!(s.is_empty());
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn clear(&mut self) {
-            self.0.clear()
-        }
-
-        /// Creates a draining iterator that removes the specified range in the `CacheString` and yields the removed chars.
-        ///
-        /// Note: The element range is removed even if the iterator is not consumed until the end.
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("ABCD🤔")?;
-        /// assert_eq!(s.drain(..3)?.collect::<Vec<_>>(), vec!['A', 'B', 'C']);
-        /// assert_eq!(s.as_str(), "D🤔");
-        ///
-        /// assert_eq!(s.drain(3..), Err(Error::Utf8));
-        /// assert_eq!(s.drain(10..), Err(Error::OutOfBounds));
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn drain(
-            &mut self,
-            range: impl RangeBounds<usize>,
-        ) -> Result<Drain<CACHE_STRING_SIZE>, Error> {
-            self.0.drain(range)
-        }
-
-        /// Removes the specified range of the `CacheString`, and replaces it with the given string. The given string doesn't need to have the same length as the range.
-        ///
-        /// ```rust
-        /// # use arraystring::{Error, prelude::*};
-        /// # fn main() -> Result<(), Error> {
-        /// # #[cfg(not(miri))] let _ = env_logger::try_init();
-        /// let mut s = CacheString::try_from_str("ABCD🤔")?;
-        /// s.replace_range(2..4, "EFGHI")?;
-        /// assert_eq!(s.as_str(), "ABEFGHI🤔");
-        ///
-        /// assert_eq!(s.replace_range(9.., "J"), Err(Error::Utf8));
-        /// assert_eq!(s.replace_range(..90, "K"), Err(Error::OutOfBounds));
-        /// assert_eq!(s.replace_range(0..1, "0".repeat(CacheString::capacity())), Err(Error::OutOfBounds));
-        /// # Ok(())
-        /// # }
-        /// ```
-        #[inline]
-        pub fn replace_range(
-            &mut self,
-            r: impl RangeBounds<usize>,
-            with: impl AsRef<str>,
-        ) -> Result<(), Error> {
-            self.0.replace_range(r, with)
         }
     }
 
