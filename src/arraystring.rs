@@ -873,6 +873,7 @@ where
         is_inside_boundary(self.len() + str.len() + start - end, Self::capacity())?;
 
         let this_len = self.len();
+        // TODO: document safety reasoning of this section
         unsafe {
             let ptr = self.array.as_mut_ptr();
             core::ptr::copy(
