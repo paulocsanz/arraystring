@@ -74,6 +74,28 @@ fn main() -> Result<(), Error> {
 }
 ```
 
+# Miri
+
+Tests can be run through Miri to ensure Undefined Behavior isn't triggered by them. It excludes diesel's integration `sqlite` tests as it's impossible to link to C libraries from Miri. And logs won't be persisted in doc tests as `env_logger` isn't supported by Miri either.
+
+To run the tests with it do (requires nightly installed):
+
+`cargo +nightly miri test --release --all-features`
+
+# No Panic
+
+There is a feature to enable the `no_panic` dependency, that will be enforced in every function. To be sure every panicking branch is removed. This depends on compiler optimizations and compilation may break on updates, or in different environments. We generally don't recommend using it, but it's useful in environments with high restrictions.
+
+This feature will only be enforced in `release` builds (it checks for `not(debug_assertions)`)
+
+But it's mostly used to test the library.
+
+To run the tests with it do:
+
+`cargo test --lib --tests --release --features=no-panic`
+
+Both serde and diesel integrations can panic. Index trait implementations too.
+
 ## Licenses
 
 [MIT](master/license/MIT) and [Apache-2.0](master/license/APACHE)

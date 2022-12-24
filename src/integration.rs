@@ -31,7 +31,7 @@ mod diesel_impl {
         #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
         fn from_sql(bytes: RawValue<'_, DB>) -> deserialize::Result<Self> {
             let ptr = <*const str as FromSql<ST, DB>>::from_sql(bytes)?;
-            // Safety: We know that the pointer impl will never return null, it's just how diesel implements
+            // Safety: We know that the pointer impl will never return null. We copied diesel's implementation for String
             debug_assert!(!ptr.is_null());
             Ok(Self::from_str_truncate(unsafe { &*ptr }))
         }
@@ -77,9 +77,9 @@ mod diesel_impl {
 #[cfg_attr(docs_rs_workaround, doc(cfg(feature = "serde-traits")))]
 #[cfg(feature = "serde-traits")]
 mod serde_impl {
+    pub use crate::{arraystring::sealed::ValidCapacity, prelude::*};
     #[cfg(all(feature = "no-panic", not(debug_assertions)))]
     use no_panic::no_panic;
-    pub use crate::{arraystring::sealed::ValidCapacity, prelude::*};
     pub use serde::{de::Deserializer, ser::Serializer, Deserialize, Serialize};
 
     impl<const N: usize> Serialize for ArrayString<N>
@@ -180,7 +180,7 @@ mod tests {
     }
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
-    use diesel::{dsl, insert_into, mysql, pg, prelude::*};
+    use diesel::{dsl, mysql, pg, prelude::*};
 
     #[cfg(all(feature = "diesel-traits", feature = "std"))]
     table! {
@@ -262,7 +262,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(feature = "diesel-traits", feature = "std"))]
+    #[cfg(all(feature = "diesel-traits", feature = "std", not(miri)))]
     fn diesel_derive_query_sqlite() {
         let mut conn = diesel::sqlite::SqliteConnection::establish(":memory:").unwrap();
         let _ = diesel::sql_query("CREATE TABLE derives (id INTEGER, name VARCHAR(32));")
@@ -273,7 +273,7 @@ mod tests {
             name: ArrayString::try_from_str("Name1").unwrap(),
         };
 
-        let _ = insert_into(derives::table)
+        let _ = diesel::insert_into(derives::table)
             .values(&string)
             .execute(&mut conn)
             .unwrap();
@@ -283,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(feature = "diesel-traits", feature = "std"))]
+    #[cfg(all(feature = "diesel-traits", feature = "std", not(miri)))]
     fn diesel_derive2_query_sqlite() {
         let mut conn = diesel::sqlite::SqliteConnection::establish(":memory:").unwrap();
         let _ = diesel::sql_query("CREATE TABLE derives (id INTEGER, name VARCHAR(32));")
@@ -294,7 +294,7 @@ mod tests {
             name: CacheString(ArrayString::try_from_str("Name1").unwrap()),
         };
 
-        let _ = insert_into(derives::table)
+        let _ = diesel::insert_into(derives::table)
             .values(&string)
             .execute(&mut conn)
             .unwrap();

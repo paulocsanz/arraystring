@@ -32,36 +32,27 @@ where
     Err(Utf8)
 }
 
-#[inline]
-#[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
-pub(crate) unsafe fn is_char_boundary_at(arr: &[u8], index: usize) -> bool {
-    if index == 0 {
-        return true;
-    }
-    (*arr.get_unchecked(index) as i8) >= -0x40
-}
-
 /// Truncates string to specified size (ignoring last bytes if they form a partial `char`)
 #[inline]
 #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
-pub(crate) fn truncate_str(slice: &[u8], mut size: usize) -> &[u8] {
-    trace!("Truncate str: {:?} at {size}", core::str::from_utf8(slice),);
+pub(crate) fn truncate_str(slice: &str, mut size: usize) -> &str {
+    trace!("Truncate str: {slice} at {size}");
     if size >= slice.len() {
         return slice;
     }
     // Safety: size will always be between 0 and capacity, so get_unchecked will never fail
     // We unroll the loop here as a utf-8 character can have at most 4 bytes, so decreasing 4
-    // times ensures we will find the char boundary. `is_char_boundary_at` returns true for 0 index
+    // times ensures we will always find the char boundary. `str::is_char_boundary` returns true for 0 index
     unsafe {
-        if is_char_boundary_at(slice, size) {
+        if slice.is_char_boundary(size) {
             return slice.get_unchecked(..size);
         }
         size -= 1;
-        if is_char_boundary_at(slice, size) {
+        if slice.is_char_boundary(size) {
             return slice.get_unchecked(..size);
         }
         size -= 1;
-        if is_char_boundary_at(slice, size) {
+        if slice.is_char_boundary(size) {
             return slice.get_unchecked(..size);
         }
         size -= 1;
@@ -84,8 +75,8 @@ mod tests {
 
     #[test]
     fn truncate() {
-        assert_eq!(truncate_str(b"i", 10), b"i");
-        assert_eq!(truncate_str(b"iiiiii", 3), b"iii");
-        assert_eq!(truncate_str("🤔🤔🤔".as_bytes(), 5), "🤔".as_bytes());
+        assert_eq!(truncate_str("i", 10), "i");
+        assert_eq!(truncate_str("iiiiii", 3), "iii");
+        assert_eq!(truncate_str("🤔🤔🤔", 5), "🤔");
     }
 }
