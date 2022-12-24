@@ -870,14 +870,12 @@ where
         debug_assert!(self.as_str().is_char_boundary(start));
         debug_assert!(self.as_str().is_char_boundary(end));
 
+        // Safety: we ensure above that the start..end range is within bounds and char boundaries
         let drain = unsafe {
             let slice = self.as_str().get_unchecked(start..end);
             Self::try_from_str(slice)?
         };
-        self.array.copy_within(end.., start);
-        self.size = self
-            .size
-            .saturating_sub(end.saturating_sub(start).into_lossy());
+        self.replace_range(start..end, "")?;
         Ok(Drain(drain))
     }
 
