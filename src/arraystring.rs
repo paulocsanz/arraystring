@@ -335,7 +335,7 @@ where
     #[inline]
     #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn as_str(&self) -> &str {
-        trace!("As str: {self}");
+        trace!("As str");
         self.as_ref()
     }
 
@@ -429,13 +429,9 @@ where
     #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn try_push_str(&mut self, string: impl AsRef<str>) -> Result<(), OutOfBounds> {
         trace!("Push str: {}", string.as_ref());
-        let str = string.as_ref();
-        if str.is_empty() {
-            return Ok(());
-        }
-        is_inside_boundary(str.len() + self.len(), Self::capacity())?;
-        unsafe { self.push_str_unchecked(str.as_bytes()) };
-        Ok(())
+        let len = self.len();
+        self.replace_range(len..len, string)
+            .map_err(|_| OutOfBounds)
     }
 
     /// Pushes string slice to the end of the `ArrayString` truncating total size if bigger than [`capacity`].
@@ -460,23 +456,7 @@ where
     #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn push_str_truncate(&mut self, string: impl AsRef<str>) {
         trace!("Push str truncate: {}", string.as_ref());
-        let str = string.as_ref().as_bytes();
-        let size = Self::capacity().saturating_sub(self.len());
-        if size == 0 || str.is_empty() {
-            return;
-        }
-        let str = truncate_str(str, size);
-        unsafe { self.push_str_unchecked(str) };
-    }
-
-    #[inline]
-    unsafe fn push_str_unchecked(&mut self, bytes: &[u8]) {
-        core::ptr::copy_nonoverlapping(
-            bytes.as_ptr(),
-            self.array.as_mut_ptr().add(self.len()),
-            bytes.len(),
-        );
-        self.size += bytes.len().into_lossy();
+        let _ = self.try_push_str(truncate_str(string.as_ref(), Self::capacity() - self.len()));
     }
 
     /// Inserts character to the end of the `ArrayString` erroring if total size if bigger than [`capacity`].
@@ -574,7 +554,7 @@ where
     #[inline]
     #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn trim(&mut self) {
-        trace!("Trim");
+        trace!("Trim: {self:?}");
         let mut start = self.len();
         for (pos, char) in self.as_str().char_indices() {
             if !char.is_whitespace() {
@@ -594,12 +574,9 @@ where
             end = pos;
         }
 
-        self.size = end.saturating_sub(start).into_lossy();
-
-        unsafe {
-            let ptr = self.array.as_mut_ptr();
-            core::ptr::copy(ptr.add(start), ptr, self.len());
-        }
+        let _ = self.replace_range(..start, "");
+        // Note: Garanteed to not overflow but that should not be the bottleneck
+        let _ = self.replace_range(end.saturating_sub(start).., "");
     }
 
     /// Removes specified char from `ArrayString`
@@ -623,21 +600,23 @@ where
     #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn remove(&mut self, idx: usize) -> Result<char, Error> {
         debug!("Remove: {}", idx);
-        is_inside_boundary(idx, self.len())?;
+        is_inside_boundary(idx.saturating_add(1), self.len())?;
         is_char_boundary(self, idx)?;
-        let char = unsafe {
-            self.as_str()
-                .get_unchecked(idx..)
-                .chars()
-                .next()
-                .ok_or(OutOfBounds)?
-        };
-        let len = char.len_utf8();
-        if idx + len < self.len() {
-            self.array.copy_within(idx + len.., idx);
+
+        let mut end = if idx == self.len() { idx } else { idx + 1 };
+        while !self.as_str().is_char_boundary(end) {
+            end += 1;
         }
-        self.size -= len.into_lossy();
-        Ok(char)
+
+        let ch = self
+            .as_str()
+            .get(idx..end)
+            .ok_or(Error::OutOfBounds)?
+            .chars()
+            .next()
+            .ok_or(Error::Utf8)?;
+        self.replace_range(idx..idx + ch.len_utf8(), "")?;
+        Ok(ch)
     }
 
     /// Retains only the characters specified by the predicate.
@@ -707,8 +686,7 @@ where
     /// let mut s = ArrayString::<23>::try_from_str("ABCD🤔")?;
     /// s.try_insert_str(1, "AB")?;
     /// s.try_insert_str(1, "BC")?;
-    /// assert_eq!(s.try_insert_str(1, "0".repeat(ArrayString::<23>::capacity())),
-    ///            Err(Error::OutOfBounds));
+    /// assert_eq!(s.try_insert_str(1, "0".repeat(ArrayString::<23>::capacity())), Err(Error::OutOfBounds));
     /// assert_eq!(s.as_str(), "ABCABBCD🤔");
     /// assert_eq!(s.try_insert_str(20, "C"), Err(Error::OutOfBounds));
     /// assert_eq!(s.try_insert_str(10, "D"), Err(Error::Utf8));
@@ -718,23 +696,9 @@ where
     #[inline]
     #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn try_insert_str(&mut self, idx: usize, string: impl AsRef<str>) -> Result<(), Error> {
-        trace!("Try insert at {idx} str: {}", string.as_ref());
-        let str = string.as_ref().as_bytes();
+        trace!("Try insert at {idx} str: {:?} to {self:?}", string.as_ref());
         is_inside_boundary(idx, self.len())?;
-        is_inside_boundary(idx + str.len() + self.len(), Self::capacity())?;
-        is_char_boundary(self, idx)?;
-        if str.is_empty() {
-            return Ok(());
-        }
-
-        unsafe {
-            let ptr = self.array.as_mut_ptr().add(idx);
-            core::ptr::copy(ptr, ptr.add(str.len()), self.len().saturating_sub(idx));
-            core::ptr::copy(str.as_ptr(), ptr, str.len());
-        }
-        self.size = self.len().saturating_add(str.len()).into_lossy();
-
-        Ok(())
+        self.replace_range(idx..idx, string)
     }
 
     /// Inserts string slice at specified index, truncating size if bigger than [`capacity`].
@@ -770,24 +734,11 @@ where
         idx: usize,
         string: impl AsRef<str>,
     ) -> Result<(), Error> {
-        trace!("Insert str at {idx}: {}", string.as_ref());
-        is_inside_boundary(idx, self.len())?;
-        is_char_boundary(self, idx)?;
-        let size = Self::capacity().saturating_sub(idx);
-        if size == 0 {
-            return Ok(());
-        }
-        let str = truncate_str(string.as_ref().as_bytes(), size);
-        if str.is_empty() {
-            return Ok(());
-        }
-
-        unsafe {
-            let ptr = self.array.as_mut_ptr().add(idx);
-            core::ptr::copy(ptr, ptr.add(str.len()), self.len().saturating_sub(idx));
-            core::ptr::copy(str.as_ptr(), ptr, str.len());
-        }
-        self.size = self.len().saturating_add(str.len()).into_lossy();
+        trace!("Insert str at {idx}: {} to {self}", string.as_ref());
+        self.try_insert_str(
+            idx,
+            truncate_str(string.as_ref(), Self::capacity() - self.len()),
+        )?;
         Ok(())
     }
 
@@ -855,13 +806,8 @@ where
     #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     pub fn split_off(&mut self, at: usize) -> Result<Self, Error> {
         debug!("Split off");
-        is_inside_boundary(at, self.len())?;
-        is_char_boundary(self, at)?;
-        debug_assert!(at <= self.len() && self.as_str().is_char_boundary(at));
-        let new =
-            unsafe { Self::try_from_str(self.as_str().get_unchecked(at..)).unwrap_unchecked() };
-        self.size = at.into_lossy();
-        Ok(new)
+        let drained = self.drain(at..)?.0;
+        Ok(drained)
     }
 
     /// Empties `ArrayString`
@@ -926,7 +872,7 @@ where
 
         let drain = unsafe {
             let slice = self.as_str().get_unchecked(start..end);
-            Self::try_from_str(slice).unwrap_unchecked()
+            Self::try_from_str(slice)?
         };
         self.array.copy_within(end.., start);
         self.size = self
@@ -943,7 +889,7 @@ where
     /// # #[cfg(not(miri))] let _ = env_logger::try_init();
     /// let mut s = ArrayString::<23>::try_from_str("ABCD🤔")?;
     /// s.replace_range(2..4, "EFGHI")?;
-    /// assert_eq!(s.as_bytes(), "ABEFGHI🤔".as_bytes());
+    /// assert_eq!(s, "ABEFGHI🤔");
     ///
     /// assert_eq!(s.replace_range(9.., "J"), Err(Error::Utf8));
     /// assert_eq!(s.replace_range(..90, "K"), Err(Error::OutOfBounds));
@@ -982,20 +928,30 @@ where
         }
         is_inside_boundary(start, end)?;
         is_inside_boundary(end, self.len())?;
+        is_inside_boundary(str.len(), Self::capacity())?;
         is_char_boundary(self, start)?;
         is_char_boundary(self, end)?;
-        is_inside_boundary(
-            (start + str.len() + self.len()).saturating_sub(end),
-            Self::capacity(),
-        )?;
+        // Will never overflow since start < end and str.len() cannot be bigger than 255
+        is_inside_boundary(self.len() + str.len() + start - end, Self::capacity())?;
 
         let this_len = self.len();
         unsafe {
             let ptr = self.array.as_mut_ptr();
-            core::ptr::copy(ptr.add(end), ptr.add(str.len().saturating_add(start)), this_len.saturating_sub(end));
-            core::ptr::copy(str.as_ptr(), ptr.add(start), str.len());
+            core::ptr::copy(
+                ptr.add(end),
+                ptr.add(str.len().saturating_add(start)),
+                this_len.saturating_sub(end),
+            );
+            if !str.is_empty() {
+                core::ptr::copy(str.as_ptr(), ptr.add(start), str.len());
+            }
         }
-        self.size = self.len().saturating_add(str.len()).saturating_add(start).saturating_sub(end).into_lossy();
+        self.size = self
+            .len()
+            .saturating_add(str.len())
+            .saturating_add(start)
+            .saturating_sub(end)
+            .into_lossy();
         Ok(())
     }
 }

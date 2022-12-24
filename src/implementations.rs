@@ -28,7 +28,7 @@ where
     #[inline]
     #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn as_ref(&self) -> &str {
-        // Safety: our inner initialized slice should only contain valid utf-8
+        // Safety: our byte slice should only contain valid utf-8
         // There is no way to invalidate the utf-8 of it from safe functions
         // And it's a invariant expected to be kept in unsafe functions
         debug_assert!(str::from_utf8(self.as_ref()).is_ok());
@@ -44,10 +44,10 @@ where
     #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn as_mut(&mut self) -> &mut str {
         let len = self.len();
-        // Safety: size will always be between 0 and capacity, so get_unchecked_mut will never fail
+        // Safety: len will always be between 0 and capacity, so get_unchecked_mut will never fail
         debug_assert!(len <= N);
         let slice = unsafe { self.array.as_mut_slice().get_unchecked_mut(..len) };
-        // Safety: our inner initialized slice should only contain valid utf-8
+        // Safety: our byte slice should only contain valid utf-8
         // There is no way to invalidate the utf-8 of it from safe functions
         // And it's a invariant expected to be kept in unsafe functions
         debug_assert!(str::from_utf8(slice).is_ok());
@@ -62,7 +62,7 @@ where
     #[inline]
     #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn as_ref(&self) -> &[u8] {
-        // Safety: size will always be between 0 and capacity, so get_unchecked_mut will never fail
+        // Safety: self.len() will always be between 0 and capacity, so get_unchecked_mut will never fail
         debug_assert!(self.len() <= N);
         unsafe { self.array.as_slice().get_unchecked(..self.len()) }
     }
@@ -114,6 +114,17 @@ where
     #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
     fn eq(&self, other: &str) -> bool {
         self.as_str().eq(other)
+    }
+}
+
+impl<const N: usize> PartialEq<&str> for ArrayString<N>
+where
+    Self: ValidCapacity,
+{
+    #[inline]
+    #[cfg_attr(all(feature = "no-panic", not(debug_assertions)), no_panic)]
+    fn eq(&self, other: &&str) -> bool {
+        self.eq(*other)
     }
 }
 

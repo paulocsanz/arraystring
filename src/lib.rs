@@ -134,12 +134,12 @@ pub mod prelude {
 pub use crate::arraystring::ArrayString;
 pub use crate::error::Error;
 
-/// String with the same `std::mem::size_of` of a `String` (`std::mem::size_of::<usize> * 3`)
+/// String with the same `core::mem::size_of` of a `String` (`core::mem::size_of::<usize> * 3`)
 ///
 /// 24 bytes in 64 bits architecture
 ///
 /// 12 bytes in 32 bits architecture (or others)
-pub type SmallString = ArrayString<{ std::mem::size_of::<usize>() * 3 }>;
+pub type SmallString = ArrayString<{ core::mem::size_of::<usize>() * 3 }>;
 
 /// Biggest array based string (255 bytes of string)
 pub type MaxString = ArrayString<255>;
@@ -983,6 +983,13 @@ mod cache_string {
     impl PartialEq<str> for CacheString {
         #[inline]
         fn eq(&self, other: &str) -> bool {
+            self.0.eq(other)
+        }
+    }
+
+    impl PartialEq<&str> for CacheString {
+        #[inline]
+        fn eq(&self, other: &&str) -> bool {
             self.0.eq(other)
         }
     }
