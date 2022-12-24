@@ -4,7 +4,7 @@
 
 Fixed capacity stack based generic string
 
-Can't outgrow initial capacity (defined at compile time), always occupies `capacity` `+ 1` bytes of memory
+Can't outgrow initial capacity (defined at compile time), always occupies `capacity + 1` bytes of memory
 
 *Maximum Capacity is 255*
 
@@ -22,9 +22,9 @@ Why pay the cost of heap allocations of strings with unlimited capacity if you h
 
 Stack based strings are generally faster to create, clone and append to than heap based strings (custom allocators and thread-locals may help with heap based ones).
 
-But that becomes less true as you increase the array size, `CacheString` occuppies a full cache line, 255 bytes is the maximum we accept - `MaxString` and it's probably already slower than heap based strings of that size (like in `std::string::String`)
+But that becomes less true as you increase the array size, `CacheString` occuppies a full cache line and 255 bytes is the maximum we accept (`MaxString` and it's probably already slower than heap based strings of that size - like in `std::string::String`
 
-There are other stack based strings out there, they generally can have "unlimited" capacity using small string optimizations, but the stack based size is defined by the library implementor. We go through a different route by implementing a string based in a generic array.
+There are other stack based strings out there, they generally don't use stable const generics and a lot of them only support stack based strings in the context of small string optimizations.
 
 Be aware that array based strings always occupy the full space in memory, so they may use more memory (although in the stack) than dynamic strings.
 
@@ -32,7 +32,7 @@ Be aware that array based strings always occupy the full space in memory, so the
 
  **default:** `std`
 
- - `std` enabled by default, enables `std` compatibility, implementing std trait (disable it to be `#[no_std]` compatible)
+ - `std` enabled by default, enables `std` compatibility, implementing std only traits (disable it to be `#[no_std]` compatible)
  - `serde-traits` enables serde traits integration (`Serialize`/`Deserialize`)
 
      Opperates like `String`, but truncates it if it's bigger than capacity
@@ -42,6 +42,8 @@ Be aware that array based strings always occupy the full space in memory, so the
      Opperates like `String`, but truncates it if it's bigger than capacity
 
  - `no-panic` checks at compile time that the panic function is not linked by the library
+
+     Be careful before using this, it won't change functions behaviors, it will just enforce that panic functions can't be linked by this library. This may break your compilation and won't improve the safety of this library. It's mostly for testing and environments where if the non panicking invariantcan't be garanteed compilation should fail. This should not apply to most projects.
 
      Only works when all optimizations are enabled, and may break in future compiler updates. Please open an issue if you notice.
 
@@ -84,17 +86,17 @@ To run the tests with it do (requires nightly installed):
 
 # No Panic
 
-There is a feature to enable the `no_panic` dependency, that will be enforced in every function. To be sure every panicking branch is removed. This depends on compiler optimizations and compilation may break on updates, or in different environments. We generally don't recommend using it, but it's useful in environments with high restrictions.
+There is a feature to enable the `no_panic` dependency, that will be enforced in every function. To be sure every panicking branch is removed. This depends on compiler optimizations and compilation may break on compiler updates, or in different environments. We generally don't recommend using it, but it's useful in environments with extreme garantees of trust.
 
 This feature will only be enforced in `release` builds (it checks for `not(debug_assertions)`)
 
-But it's mostly used to test the library.
+It's mostly used to test the library.
 
 To run the tests with it do:
 
 `cargo test --lib --tests --release --features=no-panic`
 
-Both serde and diesel integrations can panic. Index trait implementations too.
+Index trait implementations will panic if a out of bounds index is provided (or invalid utf-8 char boundaries).
 
 ## Licenses
 

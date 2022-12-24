@@ -16,9 +16,9 @@
 //!
 //! Stack based strings are generally faster to create, clone and append to than heap based strings (custom allocators and thread-locals may help with heap based ones).
 //!
-//! But that becomes less true as you increase the array size, 255 bytes is the maximum we accept - [`MaxString`] and it's probably already slower than heap based strings of that size (like in `std::string::String`)
+//! But that becomes less true as you increase the array size, [`CacheString`] occupies a full cache line and 255 bytes is the maximum we accept ([`MaxString`] and it's probably already slower than heap based strings of that size - like in `std::string::String`)
 //!
-//! There are other stack based strings out there, they generally can have "unlimited" capacity using small string optimizations, but the stack based size is defined by the library implementor. We go through a different route by implementing a string based in a generic array.
+//! There are other stack based strings out there, they generally don't use stable const generics and a lot of them only support stack based strings in the context of small string optimizations.
 //!
 //! Be aware that array based strings always occupy the full space in memory, so they may use more memory (although in the stack) than dynamic strings.
 //!
@@ -29,7 +29,7 @@
 //!
 //! **default:** `std`
 //!
-//! - `std` enabled by default, enables `std` compatibility, implementing std trait (disable it to be `#[no_std]` compatible)
+//! - `std` enabled by default, enables `std` compatibility, implementing std only traits (disable it to be `#[no_std]` compatible)
 //! - `serde-traits` enables serde traits integration (`Serialize`/`Deserialize`)
 //!
 //!     Opperates like `String`, but truncates it if it's bigger than capacity
@@ -38,6 +38,8 @@
 //!
 //!      Opperates like `String`, but truncates it if it's bigger than capacity
 //! - `no-panic` checks at compile time that the panic function is not linked by the library
+//!
+//!      Be careful before using this, it won't change functions behaviors, it will just enforce that panic functions can't be linked by this library. This may break your compilation and won't improve the safety of this library. It's mostly for testing and environments where if the non panicking invariantcan't be garanteed compilation should fail. This should not apply to most projects.
 //!
 //!      Only works when all optimizations are enabled, and may break in future compiler updates. Please open an issue if you notice.
 //!
