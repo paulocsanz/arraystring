@@ -123,6 +123,7 @@ pub mod error;
 mod implementations;
 #[cfg(any(feature = "serde-traits", feature = "diesel-traits"))]
 mod integration;
+mod numstring;
 #[doc(hidden)]
 pub mod utils;
 
@@ -131,6 +132,7 @@ pub mod prelude {
     pub use crate::arraystring::ArrayString;
     pub use crate::drain::Drain;
     pub use crate::error::{OutOfBounds, Utf16, Utf8};
+    pub use crate::numstring::NumString;
     pub use crate::{CacheString, MaxString, SmallString};
 }
 

@@ -49,6 +49,7 @@ fn bench_clones(c: &mut Criterion) {
             ArrayString<63>,
             ArrayString<255>,
             CacheString,
+            NumString,
         );
     }
     group.finish();
@@ -98,6 +99,7 @@ fn bench_try_from(c: &mut Criterion) {
             ArrayString<63>,
             ArrayString<255>,
             CacheString,
+            NumString,
         );
     }
     group.finish();
@@ -159,6 +161,7 @@ fn bench_push(c: &mut Criterion) {
             ArrayString<255> : try_push_str,
             CacheString : push_str_truncate,
             CacheString : try_push_str,
+            NumString : try_push_str,
         );
     }
     group.finish();
