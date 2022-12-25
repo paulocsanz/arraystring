@@ -871,19 +871,22 @@ where
         // Will never overflow since start < end and str.len() cannot be bigger than 255
         is_inside_boundary(self.len() + str.len() + start - end, Self::capacity())?;
 
-        let this_len = self.len();
+        let ptr = self.array.as_mut_ptr();
+        // Safety: we ensure that `start <= end <= self.len()`
+        // and that the difference in size between `str.len()` and `start..end` fits in the available space (`Self::capacity() - self.len()`)
         unsafe {
-            let ptr = self.array.as_mut_ptr();
-            core::ptr::copy(
-                ptr.add(end),
-                ptr.add(str.len()).add(start),
-                this_len - end,
-            );
+            let cut_start = ptr.add(start);
+            let cut_end = ptr.add(end);
+            let str_end = cut_start.add(str.len());
+
+            if cut_end != str_end {
+                core::ptr::copy(cut_end, str_end, self.len() - end);
+            }
             if !str.is_empty() {
-                core::ptr::copy(str.as_ptr(), ptr.add(start), str.len());
+                core::ptr::copy_nonoverlapping(str.as_ptr(), cut_start, str.len());
             }
         }
-        self.size += str.len() + start + end;
+        self.size = (self.len() + str.len() + start - end).into_lossy();
         Ok(())
     }
 }
