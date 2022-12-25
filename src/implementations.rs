@@ -2,7 +2,6 @@
 
 use crate::{arraystring::sealed::ValidCapacity, prelude::*};
 use core::fmt::{self, Debug, Display, Formatter, Write};
-use core::iter::FromIterator;
 use core::ops::{Add, Deref, DerefMut, Index, IndexMut};
 use core::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use core::str::{self, FromStr};

@@ -151,7 +151,6 @@ pub type MaxString = ArrayString<255>;
 mod cache_string {
     use crate::{prelude::*, Error};
     use core::fmt::{self, Debug, Display, Formatter, Write};
-    use core::iter::FromIterator;
     use core::{borrow::Borrow, borrow::BorrowMut, ops::*};
     use core::{cmp::Ordering, hash::Hash, hash::Hasher, str::FromStr};
 

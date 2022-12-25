@@ -1,4 +1,5 @@
 //! `ArrayString` definition and Api implementation
+#![allow(clippy::len_without_is_empty)]
 
 use crate::arraystring::sealed::ValidCapacity;
 use crate::utils::{is_char_boundary, is_inside_boundary};

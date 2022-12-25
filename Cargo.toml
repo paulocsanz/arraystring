@@ -8,7 +8,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 keywords = ["string", "generic", "array", "stack", "no_std"]
 categories = ["data-structures"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 name = "arraystring"

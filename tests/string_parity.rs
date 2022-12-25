@@ -1,6 +1,6 @@
 use arraystring::prelude::*;
 use std::panic::{catch_unwind, AssertUnwindSafe, RefUnwindSafe};
-use std::{fmt::Debug, iter::FromIterator};
+use std::fmt::Debug;
 
 type TestString = ArrayString<255>;
 

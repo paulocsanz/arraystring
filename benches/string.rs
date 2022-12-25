@@ -1,7 +1,6 @@
 use arraystring::prelude::*;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use inlinable_string::{InlinableString, InlineString, StringExt};
-use std::convert::TryFrom;
 use std::time::Duration;
 
 const TIME: u64 = 500;
