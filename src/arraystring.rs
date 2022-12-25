@@ -490,7 +490,7 @@ where
     pub fn pop(&mut self) -> Option<char> {
         debug!("Pop");
         self.as_str().chars().last().map(|ch| {
-            self.size = self.size.saturating_sub(ch.len_utf8().into_lossy());
+            self.size -= ch.len_utf8().into_lossy();
             ch
         })
     }
@@ -534,9 +534,8 @@ where
             end = pos;
         }
 
+        let _ = self.replace_range(end.., "");
         let _ = self.replace_range(..start, "");
-        // Note: Garanteed to not overflow but that should not be the bottleneck
-        let _ = self.replace_range(end.saturating_sub(start).., "");
     }
 
     /// Removes specified char from `ArrayString`
@@ -877,19 +876,14 @@ where
             let ptr = self.array.as_mut_ptr();
             core::ptr::copy(
                 ptr.add(end),
-                ptr.add(str.len().saturating_add(start)),
-                this_len.saturating_sub(end),
+                ptr.add(str.len()).add(start),
+                this_len - end,
             );
             if !str.is_empty() {
                 core::ptr::copy(str.as_ptr(), ptr.add(start), str.len());
             }
         }
-        self.size = self
-            .len()
-            .saturating_add(str.len())
-            .saturating_add(start)
-            .saturating_sub(end)
-            .into_lossy();
+        self.size += str.len() + start + end;
         Ok(())
     }
 }
