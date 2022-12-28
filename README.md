@@ -43,7 +43,7 @@ Be aware that array based strings always occupy the full space in memory, so the
 
  - `no-panic` checks at compile time that the panic function is not linked by the library
 
-     Be careful before using this, it won't change functions behaviors, it will just enforce that panic functions can't be linked by this library. This may break your compilation and won't improve the safety of this library. It's mostly for testing and environments where if the non panicking invariantcan't be garanteed compilation should fail. This should not apply to most projects.
+     Be careful before using this, it won't change functions behaviors, it will just enforce that panic functions can't be linked by this library. This may break your compilation and won't improve the safety of this library. It's mostly for testing and environments where if the non panicking invariant can't be garanteed compilation should fail. This should not apply to most projects.
 
      Only works when all optimizations are enabled, and may break in future compiler updates. Please open an issue if you notice.
 
