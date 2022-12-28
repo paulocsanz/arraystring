@@ -34,7 +34,7 @@
 //!
 //!     Opperates like `String`, but truncates it if it's bigger than capacity
 //!
-//! - `diesel-traits` enables diesel traits integration
+//! - `diesel-traits` enables diesel 2.0 traits integration
 //!
 //!      Opperates like `String`, but truncates it if it's bigger than capacity
 //!
