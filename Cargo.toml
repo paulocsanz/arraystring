@@ -1,6 +1,6 @@
 [package]
 name = "arraystring"
-version = "0.3.0"
+version = "0.4.0"
 repository = "https://github.com/paulocsanz/arraystring"
 description = "Fixed capacity stack based generic string"
 authors = ["Paulo Cabral Sanz <paulosanz@poli.ufrj.br>"]
