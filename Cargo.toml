@@ -27,6 +27,7 @@ criterion = { version = "0.4", features = ["html_reports"] }
 env_logger = "0.10"
 serde = { version = "1.0", features = ["derive"] }
 diesel = { version = "2", features = ["sqlite", "postgres", "mysql"] }
+test-case = "2.2.2"
 
 [dependencies]
 log = { version = "0.4", optional = true }
